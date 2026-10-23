@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "daily_soft_cap": 300,
+  "over_cap_multiplier": 0.25,
+  "duplicate_cooldown_sec": 120,
+  "delete_revert_window_sec": 600,
+  "backfill_threshold_hours": 24,
+  "backfill_multiplier": 0.5,
+  "personal_quest_daily_cap": 50,
+  "level_formula": {
+    "base": 100,
+    "per_level": 20
+  },
+  "activities": {
+    "water_log": { "xp": 2, "max_per_day": 5 },
+    "water_goal": { "xp": 20, "max_per_day": 1 },
+    "meal_log": { "xp": 8, "max_per_day": 4 },
+    "workout": {
+      "xp": 30,
+      "max_per_day": 2,
+      "bonus_per_2min": 1,
+      "bonus_cap": 15,
+      "plan_complete_bonus": 10
+    },
+    "pomodoro": { "xp": 15, "max_per_day": 8 },
+    "journal": { "xp": 15, "max_per_day": 1, "min_chars": 20 },
+    "mood": { "xp": 5, "max_per_day": 2 },
+    "rest_checkin": { "xp": 25, "max_per_day": 1 },
+    "custom_light": { "xp": 5, "max_per_day": 3 },
+    "custom_mid": { "xp": 10, "max_per_day": 3 },
+    "custom_hard": { "xp": 20, "max_per_day": 3 }
+  },
+  "quest_bonus": {
+    "all_daily_completed": 30,
+    "weekly_consistency_met": 50
+  },
+  "ranks": [
+    {
+      "id": "E",
+      "name": "Dormant",
+      "title_th": "ผู้หลับใหล",
+      "title_en": "The Dormant",
+      "min_level": 1,
+      "max_level": 10,
+      "min_total_xp": 0,
+      "color": "#8A94A6"
+    },
+    {
+      "id": "D",
+      "name": "Novice",
+      "title_th": "ผู้เริ่มก้าวเดิน",
+      "title_en": "Awakened Novice",
+      "min_level": 11,
+      "max_level": 25,
+      "min_total_xp": 1900,
+      "color": "#4DA6FF"
+    },
+    {
+      "id": "C",
+      "name": "Fighter",
+      "title_th": "ผู้ฝ่าฟัน",
+      "title_en": "Steady Fighter",
+      "min_level": 26,
+      "max_level": 45,
+      "min_total_xp": 8500,
+      "color": "#3DDC97"
+    },
+    {
+      "id": "B",
+      "name": "Elite",
+      "title_th": "ผู้แข็งแกร่ง",
+      "title_en": "Iron Elite",
+      "min_level": 46,
+      "max_level": 70,
+      "min_total_xp": 24300,
+      "color": "#A76DFF"
+    },
+    {
+      "id": "A",
+      "name": "Master",
+      "title_th": "ผู้เชี่ยวชาญ",
+      "title_en": "Habit Master",
+      "min_level": 71,
+      "max_level": 100,
+      "min_total_xp": 55300,
+      "color": "#FFB84D"
+    },
+    {
+      "id": "S",
+      "name": "Champion",
+      "title_th": "ผู้พิชิต",
+      "title_en": "S-Rank Champion",
+      "min_level": 101,
+      "max_level": 150,
+      "min_total_xp": 109000,
+      "color": "#FF5C77"
+    },
+    {
+      "id": "SS",
+      "name": "National Level",
+      "title_th": "ผู้เป็นตำนาน",
+      "title_en": "Living Legend",
+      "min_level": 151,
+      "max_level": 220,
+      "min_total_xp": 238500,
+      "color": "#00F5D4"
+    },
+    {
+      "id": "M",
+      "name": "Monarch",
+      "title_th": "จักรพรรดิแห่งนิสัย",
+      "title_en": "Monarch of Habits",
+      "min_level": 221,
+      "max_level": 9999,
+      "min_total_xp": 503800,
+      "color": "#FFFFFF",
+      "requires_special": {
+        "min_active_days": 365,
+        "min_badge_categories": 4
+      }
+    }
+  ]
+}

@@ -1,0 +1,164 @@
+{
+  "quests": [
+    {
+      "id": "daily_water_goal",
+      "type": "daily",
+      "category": "health",
+      "title_th": "ดื่มน้ำตามเป้าหมาย",
+      "title_en": "Hit your daily water goal",
+      "condition": { "metric": "water_ml", "op": ">=", "target": "user_goal" },
+      "reward_xp": 20,
+      "tags": ["water", "easy", "recovery"]
+    },
+    {
+      "id": "daily_water_3_logs",
+      "type": "daily",
+      "category": "health",
+      "title_th": "บันทึกการดื่มน้ำ 3 ครั้ง",
+      "title_en": "Log water 3 times today",
+      "condition": { "metric": "water_count", "op": ">=", "target": 3 },
+      "reward_xp": 15,
+      "tags": ["water", "easy", "recovery"]
+    },
+    {
+      "id": "daily_meal_2_logs",
+      "type": "daily",
+      "category": "health",
+      "title_th": "บันทึกมื้ออาหาร 2 มื้อ",
+      "title_en": "Log 2 meals today",
+      "condition": { "metric": "meal_count", "op": ">=", "target": 2 },
+      "reward_xp": 20,
+      "tags": ["meal", "easy", "recovery"]
+    },
+    {
+      "id": "daily_workout_session",
+      "type": "daily",
+      "category": "health",
+      "title_th": "ออกกำลังกายตามแผน 1 ครั้ง",
+      "title_en": "Complete 1 workout session",
+      "condition": { "metric": "workout_count", "op": ">=", "target": 1 },
+      "reward_xp": 30,
+      "tags": ["workout", "active"]
+    },
+    {
+      "id": "daily_workout_10min",
+      "type": "daily",
+      "category": "health",
+      "title_th": "ขยับร่างกายอย่างน้อย 10 นาที",
+      "title_en": "Move your body for 10+ minutes",
+      "condition": { "metric": "workout_min", "op": ">=", "target": 10 },
+      "reward_xp": 20,
+      "tags": ["workout", "short"]
+    },
+    {
+      "id": "daily_pomodoro_1",
+      "type": "daily",
+      "category": "focus",
+      "title_th": "โฟกัส Pomodoro สำเร็จ 1 รอบ",
+      "title_en": "Complete 1 Pomodoro session",
+      "condition": { "metric": "pomodoro_count", "op": ">=", "target": 1 },
+      "reward_xp": 15,
+      "tags": ["focus", "easy", "short"]
+    },
+    {
+      "id": "daily_pomodoro_2",
+      "type": "daily",
+      "category": "focus",
+      "title_th": "โฟกัส Pomodoro สำเร็จ 2 รอบ",
+      "title_en": "Complete 2 Pomodoro sessions",
+      "condition": { "metric": "pomodoro_count", "op": ">=", "target": 2 },
+      "reward_xp": 25,
+      "tags": ["focus", "medium"]
+    },
+    {
+      "id": "daily_journal_write",
+      "type": "daily",
+      "category": "mind",
+      "title_th": "เขียนไดอารี่ทบทวนวันนี้ (≥20 ตัวอักษร)",
+      "title_en": "Write a daily journal (≥20 chars)",
+      "condition": { "metric": "journal_count", "op": ">=", "target": 1 },
+      "reward_xp": 15,
+      "tags": ["mind", "easy", "recovery", "short"]
+    },
+    {
+      "id": "daily_mood_check",
+      "type": "daily",
+      "category": "mind",
+      "title_th": "สำรวจและบันทึกอารมณ์วันนี้",
+      "title_en": "Check in with your mood today",
+      "condition": { "metric": "mood_count", "op": ">=", "target": 1 },
+      "reward_xp": 10,
+      "tags": ["mind", "easy", "recovery", "short"]
+    },
+    {
+      "id": "daily_rest_recovery",
+      "type": "daily",
+      "category": "health",
+      "title_th": "เช็กอินวันพักผ่อนหรือยืดเหยียดเบา ๆ",
+      "title_en": "Rest Day check-in or light stretch",
+      "condition": { "metric": "rest_or_stretch", "op": ">=", "target": 1 },
+      "reward_xp": 25,
+      "tags": ["recovery", "rest"]
+    },
+    {
+      "id": "weekly_consistency_4",
+      "type": "weekly",
+      "category": "health",
+      "title_th": "ทำกิจกรรมตามแผนครบตามเป้าสัปดาห์",
+      "title_en": "Hit your weekly active days target",
+      "condition": { "metric": "weekly_active_days", "op": ">=", "target": "weekly_goal" },
+      "reward_xp": 120,
+      "tags": ["weekly", "consistency"]
+    },
+    {
+      "id": "weekly_focus_150",
+      "type": "weekly",
+      "category": "focus",
+      "title_th": "สะสมเวลาโฟกัสรวม ≥ 100 นาทีในสัปดาห์นี้",
+      "title_en": "Accumulate ≥ 100 focus minutes this week",
+      "condition": { "metric": "weekly_focus_min", "op": ">=", "target": 100 },
+      "reward_xp": 150,
+      "tags": ["weekly", "focus"]
+    },
+    {
+      "id": "weekly_journal_3",
+      "type": "weekly",
+      "category": "mind",
+      "title_th": "เขียนไดอารี่อย่างน้อย 3 วันในสัปดาห์นี้",
+      "title_en": "Write journal entries on 3+ days this week",
+      "condition": { "metric": "weekly_journal_days", "op": ">=", "target": 3 },
+      "reward_xp": 100,
+      "tags": ["weekly", "mind"]
+    },
+    {
+      "id": "milestone_activities_30",
+      "type": "milestone",
+      "category": "health",
+      "title_th": "ก้าวแรกที่มั่นคง: บันทึกกิจกรรมครบ 30 รายการ",
+      "title_en": "Steady Steps: Log 30 total activities",
+      "condition": { "metric": "total_activities", "op": ">=", "target": 30 },
+      "reward_xp": 300,
+      "tags": ["milestone"]
+    },
+    {
+      "id": "milestone_streak_7",
+      "type": "milestone",
+      "category": "consistency",
+      "title_th": "ไฟแห่งความต่อเนื่อง: Streak ถึง 7 วัน",
+      "title_en": "Flame of Habit: Reach a 7-day Streak",
+      "condition": { "metric": "longest_streak", "op": ">=", "target": 7 },
+      "reward_xp": 500,
+      "tags": ["milestone"]
+    },
+    {
+      "id": "milestone_active_100",
+      "type": "milestone",
+      "category": "consistency",
+      "title_th": "นักเดินทาง 100 วัน: ใช้งานครบ 100 วัน",
+      "title_en": "100-Day Awakened: 100 total active days",
+      "condition": { "metric": "total_active_days", "op": ">=", "target": 100 },
+      "reward_xp": 1500,
+      "tags": ["milestone"]
+    }
+  ]
+}

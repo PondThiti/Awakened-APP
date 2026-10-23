@@ -1,0 +1,8 @@
+node_modules/
+.expo/
+.npm-cache/
+dist/
+web-build/
+*.jks
+*.keystore
+key.properties

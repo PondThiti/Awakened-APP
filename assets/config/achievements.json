@@ -1,0 +1,92 @@
+{
+  "achievements": [
+    {
+      "id": "badge_first_step",
+      "category": "consistency",
+      "icon": "sparkles",
+      "title_th": "ผู้ตื่นรู้ (First Awakening)",
+      "title_en": "First Awakening",
+      "description_th": "บันทึกกิจกรรมแรกใน Awakened สำเร็จ",
+      "description_en": "Logged your very first activity in Awakened",
+      "metric": "total_activities",
+      "target": 1
+    },
+    {
+      "id": "badge_hydration_hero",
+      "category": "water",
+      "icon": "droplets",
+      "title_th": "นักดื่มน้ำ (Hydration Keeper)",
+      "title_en": "Hydration Keeper",
+      "description_th": "บันทึกการดื่มน้ำครบ 10 ครั้ง",
+      "description_en": "Logged water intake 10 times",
+      "metric": "total_water_logs",
+      "target": 10
+    },
+    {
+      "id": "badge_mindful_eater",
+      "category": "meal",
+      "icon": "utensils",
+      "title_th": "ผู้ใส่ใจมื้ออาหาร (Mindful Eater)",
+      "title_en": "Mindful Eater",
+      "description_th": "บันทึกมื้ออาหารครบ 10 มื้อ",
+      "description_en": "Logged 10 meals mindfully",
+      "metric": "total_meal_logs",
+      "target": 10
+    },
+    {
+      "id": "badge_iron_body",
+      "category": "workout",
+      "icon": "dumbbell",
+      "title_th": "ผู้ฝึกฝนร่างกาย (Body Forger)",
+      "title_en": "Body Forger",
+      "description_th": "ออกกำลังกายครบ 5 ครั้ง",
+      "description_en": "Completed 5 workout sessions",
+      "metric": "total_workout_logs",
+      "target": 5
+    },
+    {
+      "id": "badge_deep_focus",
+      "category": "focus",
+      "icon": "timer",
+      "title_th": "จิตตั้งมั่น (Deep Focus)",
+      "title_en": "Deep Focus",
+      "description_th": "ทำ Pomodoro สำเร็จครบ 5 รอบ",
+      "description_en": "Completed 5 Pomodoro focus rounds",
+      "metric": "total_pomodoro_logs",
+      "target": 5
+    },
+    {
+      "id": "badge_inner_voice",
+      "category": "mind",
+      "icon": "book-open",
+      "title_th": "ผู้ฟังเสียงภายใน (Inner Reflector)",
+      "title_en": "Inner Reflector",
+      "description_th": "เขียนไดอารี่หรือบันทึกอารมณ์ครบ 5 ครั้ง",
+      "description_en": "Logged 5 journal or mood entries",
+      "metric": "total_mind_logs",
+      "target": 5
+    },
+    {
+      "id": "badge_rest_master",
+      "category": "consistency",
+      "icon": "moon",
+      "title_th": "ศิลปะแห่งการพัก (Art of Recovery)",
+      "title_en": "Art of Recovery",
+      "description_th": "เช็กอินวันพักผ่อนตามแผนอย่างน้อย 1 ครั้ง",
+      "description_en": "Completed at least 1 Rest Day check-in",
+      "metric": "total_rest_logs",
+      "target": 1
+    },
+    {
+      "id": "badge_rank_d",
+      "category": "rank",
+      "icon": "shield",
+      "title_th": "ก้าวพ้นความหลับใหล (Rank D – Novice)",
+      "title_en": "Rank D – Novice Unlocked",
+      "description_th": "เลื่อนระดับถึงเลเวล 11 (Rank D)",
+      "description_en": "Reached Level 11 (Rank D – Novice)",
+      "metric": "level",
+      "target": 11
+    }
+  ]
+}

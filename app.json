@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Awakened — Life RPG",
+    "slug": "awakened-life-rpg",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.awakened.liferpg"
+    },
+    "android": {
+      "package": "com.awakened.liferpg",
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "SCHEDULE_EXACT_ALARM",
+        "FOREGROUND_SERVICE",
+        "CAMERA"
+      ]
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
