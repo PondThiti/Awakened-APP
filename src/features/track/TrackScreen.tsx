@@ -50,6 +50,7 @@ export const TrackScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
     logCustomActivity,
     deleteActivity,
     updateProfile,
+    recordAppEvent,
   } = useAwakened();
 
   const [subTab, setSubTab] = useState<'water' | 'food' | 'custom' | 'timeline'>('water');
@@ -730,9 +731,16 @@ export const TrackScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                             const chosen =
                               scanResult.candidates[selectedCandidateIdx] ?? scanResult.candidates[0];
                             if (!chosen) return;
+                            const editedKcal = Number(editableScanKcal) || chosen.food.calories_est;
+                            if (
+                              selectedCandidateIdx > 0 ||
+                              editedKcal !== chosen.food.calories_est
+                            ) {
+                              recordAppEvent('scan_corrections_total', 1);
+                            }
                             logMeal(isTh ? chosen.food.name_th : chosen.food.name_en, {
                               mealSlot,
-                              caloriesEst: Number(editableScanKcal) || chosen.food.calories_est,
+                              caloriesEst: editedKcal,
                               caloriesMin: chosen.food.calories_min,
                               caloriesMax: chosen.food.calories_max,
                               proteinG: chosen.food.protein_g,

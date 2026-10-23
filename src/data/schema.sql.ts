@@ -141,14 +141,31 @@ CREATE TABLE IF NOT EXISTS mood_entry (
   occurred_at INTEGER NOT NULL
 );
 
--- ความสำเร็จ / Streak
+-- ความสำเร็จ / Streak (ขยายตาม Awakened-Achievements.md ข้อ 6.1)
 CREATE TABLE IF NOT EXISTS achievement (
-  id TEXT PRIMARY KEY, title_th TEXT, title_en TEXT,
-  description TEXT, icon TEXT, category TEXT
+  id TEXT PRIMARY KEY,
+  title_th TEXT,
+  title_en TEXT,
+  description TEXT,
+  icon TEXT,
+  category TEXT,
+  tier TEXT NOT NULL DEFAULT 'bronze',       -- bronze|silver|gold|legend
+  xp INTEGER NOT NULL DEFAULT 25,
+  stat TEXT,                                 -- STR|VIT|INT|WIL หรือ NULL
+  hidden INTEGER NOT NULL DEFAULT 0,
+  phase INTEGER NOT NULL DEFAULT 1,
+  criteria_json TEXT NOT NULL DEFAULT '{}',  -- {metric, op, target}
+  hide_for_minor INTEGER NOT NULL DEFAULT 0,
+  excluded_flags TEXT                        -- JSON array ของ safety flag
 );
 CREATE TABLE IF NOT EXISTS achievement_unlock (
   achievement_id TEXT PRIMARY KEY REFERENCES achievement(id),
   unlocked_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS metric_counter (
+  metric TEXT PRIMARY KEY,
+  value REAL NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS streak_log (
   day TEXT PRIMARY KEY,          -- 'YYYY-MM-DD'

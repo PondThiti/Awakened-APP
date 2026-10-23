@@ -7,17 +7,33 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import achievementsJson from '../../../assets/config/achievements.json';
 import xpConfigJson from '../../../assets/config/xp_config.json';
 import { AppTheme } from '../../app/theme';
 import { useAwakened } from '../../data/repository';
 import { t } from '../../l10n/translations';
-import { AchievementDef, RankDef } from '../../core/engine/types';
+import {
+  AchievementCategory,
+  AchievementDef,
+  AchievementTier,
+  RankDef,
+} from '../../core/engine/types';
+import {
+  ACHIEVEMENT_CATEGORIES,
+  TIER_METADATA,
+  getAchievementCatalog,
+  getAchievementDisplayTitle,
+  getAchievementProgress,
+  getCategoryTitleProgress,
+  getNearCompletionAchievements,
+  getSecretHint,
+  isAchievementVisibleForUser,
+} from '../../core/engine/achievementEngine';
 import { RankBadge, XpBar } from '../components/SystemSharedComponents';
 import { AppIcon } from '../components/AppIcons';
 import {
   AnimatedCard,
   AnimatedPressable,
+  AnimatedProgressBar,
 } from '../components/AnimatedComponents';
 
 export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
@@ -30,11 +46,14 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
     monarchEligibility,
     thisWeekQuests,
     dailyRepeatableXpToday,
+    achievementMetrics,
     addPersonalQuest,
     completePersonalQuest,
     deletePersonalQuest,
     updateProfile,
+    updateOnboardingDraft,
     reopenOnboarding,
+    recordAppEvent,
     exportBackupJson,
     importBackupJson,
     deleteCategoryData,
@@ -53,10 +72,107 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
   const [backupStatusMsg, setBackupStatusMsg] = useState<string | null>(null);
   const [resetConfirmStep, setResetConfirmStep] = useState<0 | 1>(0);
 
+  // Trophy Room filters
+  const [selectedCategory, setSelectedCategory] = useState<'all' | AchievementCategory>('all');
+  const [selectedTier, setSelectedTier] = useState<'all' | AchievementTier>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'unlocked' | 'locked'>('all');
+  const [searchAchievement, setSearchAchievement] = useState('');
+  const [showTitlesDrawer, setShowTitlesDrawer] = useState(false);
+  const [vowReviewedBanner, setVowReviewedBanner] = useState(false);
+
   const allRanks = xpConfigJson.ranks as RankDef[];
-  const allAchievements = achievementsJson.achievements as AchievementDef[];
+  const allCategories = ACHIEVEMENT_CATEGORIES;
   const unlockedSet = new Set(db.achievementsUnlocked.map((u) => u.achievementId));
+  const unlockedAtMap = new Map(
+    db.achievementsUnlocked.map((u) => [u.achievementId, u.unlockedAt])
+  );
   const donePersonalToday = new Set(db.personalQuestDoneByDay[todayKey] ?? []);
+
+  const catalog = getAchievementCatalog();
+  const visibleAchievements = catalog.filter((ach) =>
+    isAchievementVisibleForUser(
+      ach,
+      db.onboarding.ageBand,
+      db.onboarding.safetyFlags
+    )
+  );
+  const categoryTitlesProgress = getCategoryTitleProgress(
+    unlockedSet,
+    db.onboarding.ageBand,
+    db.onboarding.safetyFlags,
+    [],
+    catalog
+  );
+  const nearCompletionAchievements = getNearCompletionAchievements(
+    achievementMetrics,
+    unlockedSet,
+    db.onboarding.ageBand,
+    db.onboarding.safetyFlags,
+    catalog,
+    3
+  );
+
+  // Visible unlocked count
+  const visibleUnlockedCount = visibleAchievements.filter((a) =>
+    unlockedSet.has(a.id)
+  ).length;
+  const overallAchPct =
+    visibleAchievements.length > 0
+      ? Math.round((visibleUnlockedCount / visibleAchievements.length) * 100)
+      : 0;
+
+  // Tier breakdown counts
+  const tierCounts = (['bronze', 'silver', 'gold', 'legend'] as const).map((tier) => {
+    const totalInTier = visibleAchievements.filter((a) => a.tier === tier).length;
+    const unlockedInTier = visibleAchievements.filter(
+      (a) => a.tier === tier && unlockedSet.has(a.id)
+    ).length;
+    return {
+      tier,
+      meta: TIER_METADATA[tier],
+      unlocked: unlockedInTier,
+      total: totalInTier,
+    };
+  });
+
+  // Filtered achievements for Trophy Room
+  const filteredAchievements = visibleAchievements.filter((ach) => {
+    if (selectedCategory !== 'all' && ach.category !== selectedCategory) return false;
+    if (selectedTier !== 'all' && ach.tier !== selectedTier) return false;
+    const isUnlocked = unlockedSet.has(ach.id);
+    if (statusFilter === 'unlocked' && !isUnlocked) return false;
+    if (statusFilter === 'locked' && isUnlocked) return false;
+    if (searchAchievement.trim()) {
+      const q = searchAchievement.trim().toLowerCase();
+      if (ach.hidden && !isUnlocked) {
+        return '???'.includes(q) || String(ach.category).toLowerCase().includes(q);
+      }
+      const title = getAchievementDisplayTitle(ach, lang, db.onboarding.bosses).toLowerCase();
+      const desc = (ach.description ?? '').toLowerCase();
+      return title.includes(q) || desc.includes(q) || ach.id.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  // Equipped Category Title & Featured Badges
+  const equippedTitleDef = ACHIEVEMENT_CATEGORIES.find(
+    (ct) => ct.id === db.profile.selectedTitleId
+  );
+  const featuredIds = db.profile.featuredBadgeIds ?? [];
+  const featuredBadges = featuredIds
+    .map((id) => visibleAchievements.find((a) => a.id === id))
+    .filter((a): a is AchievementDef => Boolean(a));
+
+  const toggleFeaturedBadge = (achId: string) => {
+    const current = db.profile.featuredBadgeIds ?? [];
+    if (current.includes(achId)) {
+      updateProfile({ featuredBadgeIds: current.filter((id) => id !== achId) });
+    } else if (current.length < 3) {
+      updateProfile({ featuredBadgeIds: [...current, achId] });
+    } else {
+      updateProfile({ featuredBadgeIds: [...current.slice(1), achId] });
+    }
+  };
 
   return (
     <ScrollView
@@ -89,8 +205,91 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             <Text style={[styles.playerTitle, { color: theme.text }]}>
               {db.profile.displayName}
             </Text>
+            {equippedTitleDef && (
+              <View style={[styles.inlineIconRow, { marginTop: 4 }]}>
+                <AppIcon name="crown" size={13} color={theme.warning} />
+                <Text style={{ color: theme.warning, fontSize: 12, fontWeight: '900' }}>
+                  « {isTh ? equippedTitleDef.title_th : equippedTitleDef.title_en} »
+                </Text>
+              </View>
+            )}
           </View>
         </View>
+
+        {/* Featured Badges Showcase (up to 3 pinned badges) */}
+        {featuredBadges.length > 0 && (
+          <View style={[styles.chipRow, { marginTop: 10 }]}>
+            {featuredBadges.map((fb) => {
+              const tMeta = TIER_METADATA[fb.tier];
+              return (
+                <View
+                  key={fb.id}
+                  style={[
+                    styles.featuredBadgePill,
+                    {
+                      backgroundColor: `${tMeta.color}18`,
+                      borderColor: tMeta.color,
+                    },
+                  ]}
+                >
+                  <Text style={{ fontSize: 11 }}>{tMeta.badgeEmoji}</Text>
+                  <Text style={{ color: tMeta.color, fontSize: 11, fontWeight: '900' }}>
+                    {getAchievementDisplayTitle(fb, lang, db.onboarding.bosses)}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Personal Vow & Vow Review Trigger (onb_vow / vow_review) */}
+        {Boolean(db.onboarding?.vow) && (
+          <View
+            style={[
+              styles.subBox,
+              {
+                backgroundColor: `${theme.primary}12`,
+                borderColor: `${theme.primary}44`,
+                marginTop: 10,
+              },
+            ]}
+          >
+            <View style={styles.headerRowBetween}>
+              <View style={styles.inlineIconRow}>
+                <AppIcon name="star" size={13} color={theme.primary} />
+                <Text style={{ color: theme.primary, fontSize: 11, fontWeight: '800' }}>
+                  {isTh ? 'คำสัตย์ปฏิญาณของฉัน' : 'My Hunter Vow'}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  recordAppEvent('event:vow_reviewed', 1);
+                  setVowReviewedBanner(true);
+                }}
+              >
+                <Text style={{ color: theme.success, fontSize: 11, fontWeight: '800' }}>
+                  {vowReviewedBanner
+                    ? isTh
+                      ? '✓ ทบทวนคำสัตย์แล้ว'
+                      : '✓ Vow Reviewed'
+                    : isTh
+                    ? 'ทบทวนคำสัตย์'
+                    : 'Review Vow'}
+                </Text>
+              </Pressable>
+            </View>
+            <Text
+              style={{
+                color: theme.text,
+                fontSize: 12,
+                fontStyle: 'italic',
+                marginTop: 4,
+              }}
+            >
+              “{db.onboarding?.vow}”
+            </Text>
+          </View>
+        )}
 
         <XpBar
           levelState={levelState}
@@ -296,54 +495,473 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
         ))}
       </AnimatedCard>
 
-      {/* 3. Achievements & Badges */}
+      {/* 3. Trophy Room — ห้องถ้วยรางวัล (199 Achievements, Section 5 & 7) */}
       <AnimatedCard
         index={2}
         reduceMotion={reduceMotion}
         style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
       >
-        <View style={[styles.inlineIconRow, { marginBottom: 10 }]}>
-          <AppIcon name="trophy" size={18} color={theme.warning} />
-          <Text style={[styles.cardTitle, { color: theme.text }]}>
-            {strings.profile.achievements} ({db.achievementsUnlocked.length}/
-            {allAchievements.length})
+        {/* Header & Overall Progress */}
+        <View style={styles.headerRowBetween}>
+          <View style={styles.inlineIconRow}>
+            <AppIcon name="trophy" size={18} color={theme.warning} />
+            <Text style={[styles.cardTitle, { color: theme.text }]}>
+              {isTh ? 'ห้องถ้วยรางวัล (Trophy Room)' : 'Trophy Room'}
+            </Text>
+          </View>
+          <Text style={{ color: theme.warning, fontWeight: '900', fontSize: 13 }}>
+            {visibleUnlockedCount} / {visibleAchievements.length} ({overallAchPct}%)
           </Text>
         </View>
+
+        <View style={{ marginTop: 8, marginBottom: 12 }}>
+          <AnimatedProgressBar
+            percent={overallAchPct}
+            fillColor={theme.warning}
+            trackColor={theme.bgSecondary}
+            borderColor={theme.border}
+            height={10}
+            reduceMotion={reduceMotion}
+          />
+        </View>
+
+        {/* Tier Breakdown Summary (Bronze / Silver / Gold / Legend) */}
+        <View style={styles.tierSummaryRow}>
+          {tierCounts.map(({ tier, meta, unlocked, total }) => {
+            const active = selectedTier === tier;
+            return (
+              <AnimatedPressable
+                key={tier}
+                reduceMotion={reduceMotion}
+                style={[
+                  styles.tierSummaryPill,
+                  {
+                    backgroundColor: active ? `${meta.color}25` : theme.bgSecondary,
+                    borderColor: active ? meta.color : `${meta.color}55`,
+                  },
+                ]}
+                onPress={() => setSelectedTier(active ? 'all' : tier)}
+              >
+                <Text style={{ fontSize: 14 }}>{meta.badgeEmoji}</Text>
+                <Text style={{ color: meta.color, fontSize: 11, fontWeight: '900' }}>
+                  {unlocked}/{total}
+                </Text>
+                <Text style={{ color: theme.textMuted, fontSize: 9, fontWeight: '700' }}>
+                  +{meta.xp} XP
+                </Text>
+              </AnimatedPressable>
+            );
+          })}
+        </View>
+
+        {/* Category Completion Titles Drawer Toggle (Section 5) */}
+        <AnimatedPressable
+          reduceMotion={reduceMotion}
+          style={[
+            styles.subBox,
+            {
+              backgroundColor: `${theme.warning}12`,
+              borderColor: `${theme.warning}55`,
+              marginTop: 12,
+            },
+          ]}
+          onPress={() => setShowTitlesDrawer((prev) => !prev)}
+        >
+          <View style={styles.headerRowBetween}>
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="crown" size={15} color={theme.warning} />
+              <Text style={{ color: theme.warning, fontWeight: '900', fontSize: 12 }}>
+                {isTh
+                  ? `ฉายาประจำหมวดหมู่ (${categoryTitlesProgress.filter((c) => c.isCompleted).length}/12 ฉายา)`
+                  : `Category Mastery Titles (${categoryTitlesProgress.filter((c) => c.isCompleted).length}/12)`}
+              </Text>
+            </View>
+            <Text style={{ color: theme.primary, fontSize: 11, fontWeight: '800' }}>
+              {showTitlesDrawer
+                ? isTh
+                  ? 'ซ่อน ▲'
+                  : 'Hide ▲'
+                : isTh
+                ? 'เลือกฉายา ▼'
+                : 'Select Title ▼'}
+            </Text>
+          </View>
+        </AnimatedPressable>
+
+        {showTitlesDrawer && (
+          <View style={{ marginTop: 8, gap: 6 }}>
+            {categoryTitlesProgress.map((ct) => {
+              const isEquipped = db.profile.selectedTitleId === ct.category.id;
+              return (
+                <Pressable
+                  key={ct.category.id}
+                  style={[
+                    styles.titleMasteryRow,
+                    {
+                      backgroundColor: isEquipped
+                        ? `${theme.warning}22`
+                        : theme.bgSecondary,
+                      borderColor: isEquipped
+                        ? theme.warning
+                        : ct.isCompleted
+                        ? `${theme.success}66`
+                        : theme.border,
+                    },
+                  ]}
+                  onPress={() => {
+                    if (ct.isCompleted) {
+                      updateProfile({
+                        selectedTitleId: isEquipped ? null : ct.category.id,
+                      });
+                    }
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: ct.isCompleted ? theme.warning : theme.textSecondary,
+                        fontWeight: '900',
+                        fontSize: 12,
+                      }}
+                    >
+                      {ct.isCompleted ? '👑 ' : '🔒 '}
+                      {isTh ? ct.category.title_th : ct.category.title_en}
+                    </Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 10 }}>
+                      {isTh ? ct.category.name_th : ct.category.name_en} · {ct.unlockedCount}/
+                      {ct.eligibleTotal}
+                    </Text>
+                  </View>
+                  <Text
+                    style={{
+                      color: isEquipped
+                        ? theme.warning
+                        : ct.isCompleted
+                        ? theme.success
+                        : theme.textMuted,
+                      fontSize: 11,
+                      fontWeight: '800',
+                    }}
+                  >
+                    {isEquipped
+                      ? isTh
+                        ? 'สวมใส่แล้ว'
+                        : 'Equipped'
+                      : ct.isCompleted
+                      ? isTh
+                        ? 'แตะเพื่อสวมใส่'
+                        : 'Tap to Equip'
+                      : `${Math.round((ct.unlockedCount / Math.max(1, ct.eligibleTotal)) * 100)}%`}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Near Completion Section ("ใกล้ได้แล้ว" >= 70%, Section 7.1) */}
+        {nearCompletionAchievements.length > 0 && (
+          <View
+            style={[
+              styles.subBox,
+              {
+                backgroundColor: `${theme.primary}12`,
+                borderColor: `${theme.primary}55`,
+                marginTop: 12,
+              },
+            ]}
+          >
+            <View style={[styles.inlineIconRow, { marginBottom: 8 }]}>
+              <AppIcon name="fire" size={15} color={theme.primary} />
+              <Text style={{ color: theme.primary, fontWeight: '900', fontSize: 12 }}>
+                {isTh
+                  ? 'ใกล้ปลดล็อกแล้ว (ความคืบหน้าสูงสุด)'
+                  : 'Near Completion'}
+              </Text>
+            </View>
+            {nearCompletionAchievements.map(({ achievement, current, target, percent }) => {
+              const tMeta = TIER_METADATA[achievement.tier];
+              return (
+                <View key={achievement.id} style={styles.nearItemRow}>
+                  <View style={styles.headerRowBetween}>
+                    <Text style={{ color: theme.text, fontWeight: '800', fontSize: 12 }}>
+                      {tMeta.badgeEmoji}{' '}
+                      {getAchievementDisplayTitle(achievement, lang, db.onboarding.bosses)}
+                    </Text>
+                    <Text style={{ color: theme.primary, fontWeight: '900', fontSize: 11 }}>
+                      {current}/{target} ({percent}%)
+                    </Text>
+                  </View>
+                  <Text style={{ color: theme.textSecondary, fontSize: 11, marginBottom: 4 }}>
+                    {achievement.description}
+                  </Text>
+                  <AnimatedProgressBar
+                    percent={percent}
+                    fillColor={theme.primary}
+                    trackColor={theme.card}
+                    borderColor={theme.border}
+                    height={7}
+                    reduceMotion={reduceMotion}
+                  />
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Search & Status Filters */}
+        <TextInput
+          value={searchAchievement}
+          onChangeText={setSearchAchievement}
+          placeholder={
+            isTh
+              ? 'ค้นหาชื่อถ้วยรางวัล หรือเงื่อนไข...'
+              : 'Search achievements...'
+          }
+          placeholderTextColor={theme.textMuted}
+          style={[
+            styles.input,
+            {
+              backgroundColor: theme.bgSecondary,
+              color: theme.text,
+              borderColor: theme.border,
+              marginTop: 12,
+            },
+          ]}
+        />
+
+        {/* Status Filter Row */}
+        <View style={[styles.chipRow, { marginTop: 8 }]}>
+          {(
+            [
+              { id: 'all', th: 'ทั้งหมด', en: 'All' },
+              { id: 'unlocked', th: 'ปลดล็อกแล้ว', en: 'Unlocked' },
+              { id: 'locked', th: 'ยังไม่ปลดล็อก', en: 'Locked' },
+            ] as const
+          ).map((st) => {
+            const active = statusFilter === st.id;
+            return (
+              <Pressable
+                key={st.id}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: active ? `${theme.primary}24` : theme.bgSecondary,
+                    borderColor: active ? theme.primary : theme.border,
+                  },
+                ]}
+                onPress={() => setStatusFilter(st.id)}
+              >
+                <Text
+                  style={{
+                    color: active ? theme.primary : theme.textSecondary,
+                    fontSize: 11,
+                    fontWeight: '800',
+                  }}
+                >
+                  {isTh ? st.th : st.en}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* 12 Category Filter Chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[styles.categoryScrollRow, { marginTop: 8, marginBottom: 12 }]}
+        >
+          <Pressable
+            style={[
+              styles.chip,
+              {
+                backgroundColor:
+                  selectedCategory === 'all' ? `${theme.warning}25` : theme.bgSecondary,
+                borderColor: selectedCategory === 'all' ? theme.warning : theme.border,
+              },
+            ]}
+            onPress={() => setSelectedCategory('all')}
+          >
+            <Text
+              style={{
+                color: selectedCategory === 'all' ? theme.warning : theme.textSecondary,
+                fontSize: 11,
+                fontWeight: '900',
+              }}
+            >
+              {isTh ? `ทั้งหมด (${visibleAchievements.length})` : `All (${visibleAchievements.length})`}
+            </Text>
+          </Pressable>
+
+          {allCategories.map((cat) => {
+            const active = selectedCategory === cat.id;
+            const catTotal = visibleAchievements.filter((a) => a.category === cat.id).length;
+            const catUnlocked = visibleAchievements.filter(
+              (a) => a.category === cat.id && unlockedSet.has(a.id)
+            ).length;
+            return (
+              <Pressable
+                key={cat.id}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: active ? `${theme.warning}25` : theme.bgSecondary,
+                    borderColor: active ? theme.warning : theme.border,
+                  },
+                ]}
+                onPress={() => setSelectedCategory(active ? 'all' : cat.id)}
+              >
+                <Text
+                  style={{
+                    color: active ? theme.warning : theme.textSecondary,
+                    fontSize: 11,
+                    fontWeight: '800',
+                  }}
+                >
+                  {isTh ? cat.name_th : cat.name_en} ({catUnlocked}/{catTotal})
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {/* Achievements Grid */}
         <View style={styles.badgeGrid}>
-          {allAchievements.map((ach) => {
+          {filteredAchievements.map((ach) => {
             const unlocked = unlockedSet.has(ach.id);
+            const unlockedAt = unlockedAtMap.get(ach.id);
+            const tMeta = TIER_METADATA[ach.tier];
+            const isMaskedSecret = ach.hidden && !unlocked;
+            const prog = getAchievementProgress(ach, achievementMetrics);
+            const isPinned = featuredIds.includes(ach.id);
+
             return (
               <View
                 key={ach.id}
                 style={[
                   styles.badgeTile,
                   {
-                    backgroundColor: unlocked ? `${theme.success}16` : theme.bgSecondary,
-                    borderColor: unlocked ? theme.success : theme.border,
-                    opacity: unlocked ? 1 : 0.65,
+                    backgroundColor: unlocked
+                      ? `${tMeta.color}15`
+                      : theme.bgSecondary,
+                    borderColor: unlocked ? tMeta.color : theme.border,
+                    borderWidth: unlocked ? 1.5 : 1,
+                    opacity: unlocked ? 1 : 0.85,
                   },
                 ]}
               >
-                <View
-                  style={[
-                    styles.badgeIconCircle,
-                    {
-                      backgroundColor: unlocked ? `${theme.success}25` : theme.card,
-                    },
-                  ]}
-                >
-                  <AppIcon
-                    name={unlocked ? 'trophy' : 'lock'}
-                    size={18}
-                    color={unlocked ? theme.success : theme.textMuted}
-                  />
+                {/* Top Row: Tier Badge + Stat Tag */}
+                <View style={styles.headerRowBetween}>
+                  <View
+                    style={[
+                      styles.tierMiniPill,
+                      {
+                        backgroundColor: `${tMeta.color}24`,
+                        borderColor: `${tMeta.color}66`,
+                      },
+                    ]}
+                  >
+                    <Text style={{ color: tMeta.color, fontSize: 10, fontWeight: '900' }}>
+                      {tMeta.badgeEmoji} +{ach.xp} XP
+                    </Text>
+                  </View>
+                  <Text
+                    style={{
+                      color: unlocked ? theme.success : theme.textMuted,
+                      fontSize: 10,
+                      fontWeight: '800',
+                    }}
+                  >
+                    {ach.stat ?? 'ALL'}
+                  </Text>
                 </View>
-                <Text style={{ color: theme.text, fontWeight: '800', fontSize: 12, marginTop: 6 }}>
-                  {isTh ? ach.title_th : ach.title_en}
+
+                {/* Title */}
+                <Text
+                  style={{
+                    color: unlocked ? theme.text : theme.textSecondary,
+                    fontWeight: '900',
+                    fontSize: 13,
+                    marginTop: 8,
+                  }}
+                >
+                  {isMaskedSecret
+                    ? '🔒 ???'
+                    : getAchievementDisplayTitle(ach, lang, db.onboarding.bosses)}
                 </Text>
-                <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>
-                  {isTh ? ach.description_th : ach.description_en}
+
+                {/* Description or Secret Hint */}
+                <Text
+                  style={{
+                    color: theme.textMuted,
+                    fontSize: 11,
+                    marginTop: 3,
+                    lineHeight: 15,
+                  }}
+                >
+                  {isMaskedSecret
+                    ? getSecretHint(ach, lang)
+                    : ach.description}
                 </Text>
+
+                {/* Progress Bar (for locked non-secret) or Unlocked Footer */}
+                {!unlocked && !isMaskedSecret && (
+                  <View style={{ marginTop: 8 }}>
+                    <View style={[styles.headerRowBetween, { marginBottom: 3 }]}>
+                      <Text style={{ color: theme.textMuted, fontSize: 10 }}>
+                        {isTh ? 'ความคืบหน้า' : 'Progress'}
+                      </Text>
+                      <Text
+                        style={{
+                          color: prog.percent >= 70 ? theme.primary : theme.textSecondary,
+                          fontSize: 10,
+                          fontWeight: '800',
+                        }}
+                      >
+                        {prog.current}/{prog.target} ({prog.percent}%)
+                      </Text>
+                    </View>
+                    <AnimatedProgressBar
+                      percent={prog.percent}
+                      fillColor={prog.percent >= 70 ? theme.primary : tMeta.color}
+                      trackColor={theme.card}
+                      borderColor={theme.border}
+                      height={6}
+                      reduceMotion={reduceMotion}
+                    />
+                  </View>
+                )}
+
+                {unlocked && (
+                  <View style={[styles.headerRowBetween, { marginTop: 8 }]}>
+                    <Text style={{ color: theme.success, fontSize: 10, fontWeight: '800' }}>
+                      ✓{' '}
+                      {unlockedAt
+                        ? new Date(unlockedAt).toISOString().slice(0, 10)
+                        : isTh
+                        ? 'ปลดล็อกแล้ว'
+                        : 'Unlocked'}
+                    </Text>
+                    <Pressable onPress={() => toggleFeaturedBadge(ach.id)}>
+                      <Text
+                        style={{
+                          color: isPinned ? theme.warning : theme.primary,
+                          fontSize: 10,
+                          fontWeight: '900',
+                        }}
+                      >
+                        {isPinned
+                          ? isTh
+                            ? '★ ติดโปรไฟล์แล้ว'
+                            : '★ Pinned'
+                          : isTh
+                          ? '+ ติดโปรไฟล์'
+                          : '+ Pin'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
             );
           })}
@@ -498,6 +1116,103 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
               </Text>
             </View>
           </AnimatedPressable>
+
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
+            style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.border }]}
+            onPress={() =>
+              updateProfile({ muteAchievementAlerts: !db.profile.muteAchievementAlerts })
+            }
+          >
+            <View style={styles.inlineIconRow}>
+              <AppIcon
+                name="trophy"
+                size={13}
+                color={db.profile.muteAchievementAlerts ? theme.textMuted : theme.warning}
+              />
+              <Text style={{ color: theme.text, fontWeight: '700', fontSize: 12 }}>
+                {db.profile.muteAchievementAlerts
+                  ? isTh
+                    ? 'ปิดป๊อปอัปถ้วยรางวัล: เปิด'
+                    : 'Mute Badge Popups: ON'
+                  : isTh
+                  ? 'ป๊อปอัปถ้วยรางวัล: แสดงปกติ'
+                  : 'Badge Popups: ON'}
+              </Text>
+            </View>
+          </AnimatedPressable>
+
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
+            style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.border }]}
+            onPress={() => recordAppEvent('event:applock_set', 1)}
+          >
+            <View style={styles.inlineIconRow}>
+              <AppIcon
+                name="lock"
+                size={13}
+                color={
+                  Number(achievementMetrics['event:applock_set'] ?? 0) >= 1
+                    ? theme.success
+                    : theme.textSecondary
+                }
+              />
+              <Text style={{ color: theme.text, fontWeight: '700', fontSize: 12 }}>
+                {Number(achievementMetrics['event:applock_set'] ?? 0) >= 1
+                  ? isTh
+                    ? 'ล็อกแอปด้วย PIN/Biometric: เปิดแล้ว ✓'
+                    : 'App Lock: Enabled ✓'
+                  : isTh
+                  ? 'เปิดใช้งานล็อกแอป (App Lock)'
+                  : 'Enable App Lock'}
+              </Text>
+            </View>
+          </AnimatedPressable>
+        </View>
+
+        {/* System Narrator Tone Selector (Unlocks app_narrator) */}
+        <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 12, marginBottom: 6 }}>
+          {isTh ? 'โทนเสียงผู้บรรยายของระบบ (System Narrator):' : 'System Narrator Tone:'}
+        </Text>
+        <View style={styles.chipRow}>
+          {(
+            [
+              { id: 'gentle', th: 'อ่อนโยน (Gentle)', en: 'Gentle' },
+              { id: 'friend', th: 'เพื่อนลุย (Friend)', en: 'Friend' },
+              { id: 'coach', th: 'โค้ชจริงจัง (Coach)', en: 'Coach' },
+              { id: 'adventurer', th: 'นักผจญภัย (Adventurer)', en: 'Adventurer' },
+            ] as const
+          ).map((tone) => {
+            const currentNarrator = db.onboarding?.narrator ?? 'gentle';
+            const active = currentNarrator === tone.id;
+            return (
+              <AnimatedPressable
+                key={tone.id}
+                reduceMotion={reduceMotion}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: active ? `${theme.primary}25` : theme.bgSecondary,
+                    borderColor: active ? theme.primary : theme.border,
+                  },
+                ]}
+                onPress={() => {
+                  updateOnboardingDraft({ narrator: tone.id });
+                  recordAppEvent('event:narrator_changed', 1);
+                }}
+              >
+                <Text
+                  style={{
+                    color: active ? theme.primary : theme.textSecondary,
+                    fontSize: 12,
+                    fontWeight: '700',
+                  }}
+                >
+                  {isTh ? tone.th : tone.en}
+                </Text>
+              </AnimatedPressable>
+            );
+          })}
         </View>
 
         {/* Available Daily Time & Weekly Goal */}
@@ -702,17 +1417,41 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
         reduceMotion={reduceMotion}
         style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
       >
-        <View style={styles.inlineIconRow}>
-          <AppIcon name="shield" size={18} color={theme.primary} />
-          <Text style={[styles.cardTitle, { color: theme.text }]}>
-            {strings.profile.disclaimerTitle}
-          </Text>
+        <View style={styles.headerRowBetween}>
+          <View style={styles.inlineIconRow}>
+            <AppIcon name="shield" size={18} color={theme.primary} />
+            <Text style={[styles.cardTitle, { color: theme.text }]}>
+              {strings.profile.disclaimerTitle}
+            </Text>
+          </View>
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
+            style={[
+              styles.chip,
+              {
+                backgroundColor: `${theme.primary}20`,
+                borderColor: theme.primary,
+                paddingVertical: 4,
+              },
+            ]}
+            onPress={() => recordAppEvent('event:credits_viewed', 1)}
+          >
+            <Text style={{ color: theme.primary, fontSize: 11, fontWeight: '800' }}>
+              {Number(achievementMetrics['event:credits_viewed'] ?? 0) >= 1
+                ? isTh
+                  ? '✓ อ่านเครดิตแล้ว'
+                  : '✓ Credits Viewed'
+                : isTh
+                ? 'ยืนยันการอ่านคำชี้แจง & เครดิต'
+                : 'Acknowledge Credits & Disclaimer'}
+            </Text>
+          </AnimatedPressable>
         </View>
         <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 6, lineHeight: 18 }}>
           {strings.profile.disclaimerBody}
         </Text>
         <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 10 }}>
-          Awakened v0.9.4b · Open-Source Licenses: React Native & Expo (MIT), AsyncStorage & SQLite (MIT), React Native SVG (MIT), Vector Icons sourced from FreeIcons.io (Iconly Essential & Free Vector Sets), Thai Food Nutrition Reference (Public Domain / DOH Estimation).
+          Awakened v0.9.5 · Open-Source Licenses: React Native & Expo (MIT), AsyncStorage & SQLite (MIT), React Native SVG (MIT), Vector Icons sourced from FreeIcons.io (Iconly Essential & Free Vector Sets), Thai Food Nutrition Reference (Public Domain / DOH Estimation).
         </Text>
       </AnimatedCard>
     </ScrollView>
@@ -731,6 +1470,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  headerRowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
   profileHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -743,6 +1488,15 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  featuredBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   card: {
     borderRadius: 16,
@@ -808,6 +1562,42 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     gap: 8,
   },
+  tierSummaryRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  tierSummaryPill: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  titleMasteryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  nearItemRow: {
+    marginBottom: 10,
+  },
+  categoryScrollRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  tierMiniPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
   badgeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -815,6 +1605,7 @@ const styles = StyleSheet.create({
   },
   badgeTile: {
     width: '48%',
+    flexGrow: 1,
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,

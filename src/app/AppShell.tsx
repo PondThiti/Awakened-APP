@@ -43,6 +43,7 @@ export const AppShell: React.FC = () => {
     currentRank,
     celebrationQueue,
     dismissCelebration,
+    recordTabVisited,
     logWater,
     logRestDayCheckin,
     updateProfile,
@@ -52,6 +53,11 @@ export const AppShell: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+
+  const handleSelectTab = (tab: NavTab) => {
+    setActiveTab(tab);
+    recordTabVisited(tab);
+  };
 
   const theme = getTheme(db.profile.theme);
   const lang = db.profile.language;
@@ -190,7 +196,7 @@ export const AppShell: React.FC = () => {
 
         <AnimatedScreenWrapper triggerKey={activeTab} reduceMotion={reduceMotion}>
           {activeTab === 'home' && (
-            <HomeScreen theme={theme} onNavigateTab={(tab) => setActiveTab(tab)} />
+            <HomeScreen theme={theme} onNavigateTab={(tab) => handleSelectTab(tab)} />
           )}
           {activeTab === 'track' && <TrackScreen theme={theme} />}
           {activeTab === 'train' && <TrainScreen theme={theme} />}
@@ -240,7 +246,7 @@ export const AppShell: React.FC = () => {
             <Pressable
               key={item.id}
               style={styles.navItem}
-              onPress={() => setActiveTab(item.id)}
+              onPress={() => handleSelectTab(item.id)}
             >
               <View
                 style={[
@@ -285,7 +291,7 @@ export const AppShell: React.FC = () => {
         theme={theme}
         lang={lang}
         onQuickWater={(ml) => logWater(ml)}
-        onNavigateTab={(tab) => setActiveTab(tab)}
+        onNavigateTab={(tab) => handleSelectTab(tab)}
         onQuickRestCheckin={() => logRestDayCheckin('Quick Rest Check-in')}
         reduceMotion={reduceMotion}
       />

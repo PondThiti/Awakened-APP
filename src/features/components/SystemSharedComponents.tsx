@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { AppTheme } from '../../app/theme';
 import { CelebrationEvent, LanguageCode, LevelState, RankDef } from '../../core/engine/types';
+import { TIER_METADATA } from '../../core/engine/achievementEngine';
 import { AppIcon } from './AppIcons';
 import {
   AnimatedNumberText,
@@ -139,12 +140,14 @@ export const CelebrationOverlay: React.FC<{
   lang: LanguageCode;
   reduceMotion?: boolean;
 }> = ({ event, onDismiss, theme, lang, reduceMotion = false }) => {
+  const [showExtraBadges, setShowExtraBadges] = useState(false);
   const cardScale = useRef(new Animated.Value(0.75)).current;
   const cardOpacity = useRef(new Animated.Value(0)).current;
   const ringScale = useRef(new Animated.Value(0.8)).current;
   const ringOpacity = useRef(new Animated.Value(0.7)).current;
 
   useEffect(() => {
+    setShowExtraBadges(false);
     if (!event) return;
     if (reduceMotion) {
       cardScale.setValue(1);
@@ -190,11 +193,14 @@ export const CelebrationOverlay: React.FC<{
   if (!event) return null;
 
   const isMajor = event.tier >= 2;
+  const badgeTierMeta = event.badge?.tier ? TIER_METADATA[event.badge.tier] : null;
   const accentColor =
     event.tier === 3
       ? event.newRank?.color || theme.warning
       : event.tier === 2
       ? theme.primary
+      : badgeTierMeta
+      ? badgeTierMeta.color
       : theme.success;
 
   const iconName =
@@ -205,6 +211,8 @@ export const CelebrationOverlay: React.FC<{
       : event.tier === 4
       ? 'trophy'
       : 'star';
+
+  const extraBadges = event.additionalBadges ?? [];
 
   return (
     <Modal transparent animationType="fade" visible={Boolean(event)} onRequestClose={onDismiss}>
@@ -226,7 +234,13 @@ export const CelebrationOverlay: React.FC<{
               : event.tier === 2
               ? 'SYSTEM LEVEL UP'
               : event.tier === 4
-              ? 'ACHIEVEMENT UNLOCKED'
+              ? badgeTierMeta
+                ? `${badgeTierMeta.badgeEmoji} ${
+                    lang === 'th'
+                      ? `ถ้วยรางวัลระดับ${badgeTierMeta.label_th}`
+                      : `${badgeTierMeta.label_en.toUpperCase()} ACHIEVEMENT`
+                  }`
+                : 'ACHIEVEMENT UNLOCKED'
               : 'QUEST COMPLETED'}
           </Text>
 
@@ -258,6 +272,51 @@ export const CelebrationOverlay: React.FC<{
             {event.subtitle}
           </Text>
 
+          {extraBadges.length > 0 && (
+            <Pressable
+              style={[
+                styles.celebrationBadgeBox,
+                {
+                  backgroundColor: `${theme.primary}18`,
+                  borderColor: theme.primary,
+                },
+              ]}
+              onPress={() => setShowExtraBadges((s) => !s)}
+            >
+              <Text
+                style={{
+                  color: theme.primary,
+                  fontWeight: '800',
+                  fontSize: 13,
+                  textAlign: 'center',
+                }}
+              >
+                {lang === 'th'
+                  ? `🏆 ปลดล็อกอีก ${extraBadges.length} ใบพร้อมกัน (${
+                      showExtraBadges ? 'แตะเพื่อย่อ' : 'แตะเพื่อดู'
+                    })`
+                  : `🏆 +${extraBadges.length} more unlocked (${
+                      showExtraBadges ? 'tap to hide' : 'tap to view'
+                    })`}
+              </Text>
+              {showExtraBadges && (
+                <View style={{ marginTop: 8, gap: 4 }}>
+                  {extraBadges.map((b) => {
+                    const bm = TIER_METADATA[b.tier] ?? TIER_METADATA.bronze;
+                    return (
+                      <Text
+                        key={b.id}
+                        style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}
+                      >
+                        {bm.badgeEmoji} {lang === 'th' ? b.title_th : b.title_en} (+{b.xp} XP)
+                      </Text>
+                    );
+                  })}
+                </View>
+              )}
+            </Pressable>
+          )}
+
           {isMajor && (
             <View
               style={[
@@ -266,7 +325,11 @@ export const CelebrationOverlay: React.FC<{
               ]}
             >
               <Text style={{ color: accentColor, fontWeight: '700', fontSize: 13, textAlign: 'center' }}>
-                {lang === 'th'
+                {badgeTierMeta
+                  ? lang === 'th'
+                    ? `ของแถมระดับ${badgeTierMeta.label_th}: ${badgeTierMeta.perk_th}`
+                    : `${badgeTierMeta.label_en} Reward: ${badgeTierMeta.perk_en}`
+                  : lang === 'th'
                   ? 'ความสม่ำเสมอของคุณกำลังเปลี่ยนชีวิตจริงให้เป็นเลเวลใหม่'
                   : 'Your daily consistency is forging real-life progress.'}
               </Text>

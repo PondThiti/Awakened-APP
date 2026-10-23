@@ -54,6 +54,12 @@ import {
   evaluateAdaptivePlan,
 } from '../core/engine/adaptivePlanEngine';
 import {
+  buildMergedAchievementCelebration,
+  computeAchievementMetrics,
+  evaluateAchievements,
+  getAchievementCatalog,
+} from '../core/engine/achievementEngine';
+import {
   getCurrentTzOffsetMin,
   getDaysInWeekRange,
   getLocalDayKey,
@@ -93,6 +99,8 @@ export interface AwakenedDatabaseState {
   journals: JournalEntry[];
   moods: MoodEntry[];
   achievementsUnlocked: AchievementUnlock[];
+  metricCounters: Record<string, number>;
+  visitedTabs: string[];
   streakLogs: Record<string, StreakDayStatus>;
   customFoods: ThaiFoodItem[];
   activePomodoroTimer: ActiveTimerState | null;
@@ -128,6 +136,9 @@ const DEFAULT_PROFILE: UserProfile = {
   theme: 'dark',
   soundEnabled: true,
   reduceEffects: false,
+  muteAchievementAlerts: false,
+  selectedTitleId: null,
+  featuredBadgeIds: [],
   appLockPin: null,
   createdAt: Date.now(),
 };
@@ -205,6 +216,8 @@ function createInitialState(): AwakenedDatabaseState {
     journals: [],
     moods: [],
     achievementsUnlocked: [],
+    metricCounters: { tabs_visited: 1 },
+    visitedTabs: ['home'],
     streakLogs: {},
     customFoods: [],
     activePomodoroTimer: null,
@@ -222,12 +235,15 @@ export interface AwakenedContextValue {
   monarchEligibility: MonarchEligibility;
   streakState: StreakEvaluationResult;
   todayMetrics: DailyMetricsSnapshot;
+  achievementMetrics: Record<string, number | string>;
   todayQuests: QuestInstance[];
   thisWeekQuests: QuestInstance[];
   adaptiveRecommendations: AdaptivePlanRecommendation[];
   dailyRepeatableXpToday: number;
   celebrationQueue: CelebrationEvent[];
   dismissCelebration: () => void;
+  recordAppEvent: (metricKey: string, incrementBy?: number) => void;
+  recordTabVisited: (tabId: string) => void;
 
   // Actions
   logWater: (amountMl: number) => void;
@@ -309,6 +325,8 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             playerStats:
               parsed.playerStats ?? calculateInitialStats(mergedOnboarding),
             manualDailyQuestDoneByDay: parsed.manualDailyQuestDoneByDay ?? {},
+            metricCounters: parsed.metricCounters ?? { tabs_visited: 1 },
+            visitedTabs: parsed.visitedTabs ?? ['home'],
           }));
         }
       } catch {
@@ -718,55 +736,102 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
       working.milestoneQuests = updatedMilestones;
 
-      // Apply total XP (Single Source of Truth = never negative)
-      const newTotalXp = Math.max(
+      // Apply total XP before achievement evaluation (Single Source of Truth = never negative)
+      const baseTotalXp = Math.max(
         0,
         working.profile.totalXp + directXpGained + questXpBonusTotal
       );
       working.profile = {
         ...working.profile,
-        totalXp: newTotalXp,
+        totalXp: baseTotalXp,
       };
 
-      const newLevelState = computeLevelState(newTotalXp);
-
-      // Evaluate Achievements / Badges
-      const allAch = achievementsJson.achievements as AchievementDef[];
+      // Evaluate 199 Achievements Catalog with up to 5-round cascading (Section 6.3 of Awakened-Achievements.md)
+      const allAch = getAchievementCatalog();
       const unlockedSet = new Set(working.achievementsUnlocked.map((u) => u.achievementId));
-      const activeActs = working.activities.filter((a) => !a.deletedAt);
-      const badgeMetrics: Record<string, number> = {
-        total_activities: afterSnap.metrics.total_activities,
-        total_water_logs: activeActs.filter((a) => a.type === 'water').length,
-        total_meal_logs: activeActs.filter((a) => a.type === 'meal').length,
-        total_workout_logs: activeActs.filter((a) => a.type === 'workout').length,
-        total_pomodoro_logs: activeActs.filter(
-          (a) => a.type === 'focus' && a.focusDetail?.completed !== false
-        ).length,
-        total_mind_logs: working.journals.length + working.moods.length,
-        total_rest_logs: activeActs.filter((a) => a.type === 'rest').length,
-        level: newLevelState.level,
-      };
+      const computedAchMetrics = computeAchievementMetrics({
+        activities: working.activities,
+        journals: working.journals,
+        moods: working.moods,
+        dailyQuestsByDay: working.dailyQuestsByDay,
+        weeklyQuestsByWeek: working.weeklyQuestsByWeek,
+        milestoneQuests: working.milestoneQuests,
+        personalQuestDoneByDay: working.personalQuestDoneByDay,
+        streakLogs: working.streakLogs,
+        trainingPlan: working.trainingPlan,
+        waterGoalMl: working.profile.waterGoalMl,
+        weeklyGoalDays: working.profile.weeklyGoalDays,
+        weekStartDay: working.profile.weekStartDay,
+        longestStreak: afterSnap.streak.longestStreak,
+        totalActiveDays: afterSnap.metrics.total_active_days,
+        totalXp: baseTotalXp,
+        playerStats: working.playerStats,
+        ageBand: working.onboarding?.ageBand ?? '25-34',
+        safetyFlags: working.onboarding?.safetyFlags ?? ['none'],
+        pledgedAt: working.onboarding?.pledgedAt ?? null,
+        bosses: working.onboarding?.bosses ?? [],
+        unlockedIds: unlockedSet,
+        existingCounters: working.metricCounters ?? {},
+      });
 
-      for (const ach of allAch) {
-        if (!unlockedSet.has(ach.id) && (badgeMetrics[ach.metric] ?? 0) >= ach.target) {
-          unlockedSet.add(ach.id);
-          working.achievementsUnlocked = [
-            ...working.achievementsUnlocked,
-            { achievementId: ach.id, unlockedAt: now },
-          ];
-          newCelebrations.push({
-            id: `badge_${ach.id}_${now}`,
-            tier: 4,
-            title:
-              working.profile.language === 'th'
-                ? `ปลดล็อกเหรียญตรา: ${ach.title_th}`
-                : `Badge Unlocked: ${ach.title_en}`,
-            subtitle:
-              working.profile.language === 'th' ? ach.description_th : ach.description_en,
-            badge: ach,
-          });
+      const achEval = evaluateAchievements({
+        metrics: computedAchMetrics,
+        unlockedIds: unlockedSet,
+        totalXp: baseTotalXp,
+        ageBand: working.onboarding?.ageBand ?? '25-34',
+        safetyFlags: working.onboarding?.safetyFlags ?? ['none'],
+        catalog: allAch,
+      });
+
+      if (achEval.newlyUnlocked.length > 0) {
+        const newUnlockRecords: AchievementUnlock[] = achEval.newlyUnlocked.map((ach) => ({
+          achievementId: ach.id,
+          unlockedAt: now,
+        }));
+        const newAchXpEvents: XpEventRecord[] = achEval.newlyUnlocked.map((ach, idx) => ({
+          id: now + 5000 + idx,
+          amount: ach.xp || 25,
+          sourceType: 'achievement',
+          sourceId: ach.id,
+          reasonKey: ach.id,
+          configVersion: xpConfigJson.version,
+          occurredAt: now,
+        }));
+        working.achievementsUnlocked = [
+          ...working.achievementsUnlocked,
+          ...newUnlockRecords,
+        ];
+        working.xpEvents = [...working.xpEvents, ...newAchXpEvents];
+        working.profile = {
+          ...working.profile,
+          totalXp: achEval.finalTotalXp,
+        };
+
+        if (!working.profile.muteAchievementAlerts) {
+          const mergedCeleb = buildMergedAchievementCelebration(
+            achEval.newlyUnlocked,
+            working.profile.language,
+            working.onboarding?.bosses ?? [],
+            now
+          );
+          if (mergedCeleb) {
+            newCelebrations.push(mergedCeleb);
+          }
         }
       }
+
+      // Persist monotonic numeric counters (Rule R1)
+      const nextNumericCounters: Record<string, number> = {
+        ...(working.metricCounters ?? {}),
+      };
+      for (const [k, v] of Object.entries(achEval.updatedMetrics)) {
+        if (typeof v === 'number') {
+          nextNumericCounters[k] = Math.max(nextNumericCounters[k] ?? 0, v);
+        }
+      }
+      working.metricCounters = nextNumericCounters;
+
+      const newLevelState = computeLevelState(working.profile.totalXp);
 
       const newUnlockedCategories = new Set(
         working.achievementsUnlocked
@@ -1475,22 +1540,28 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const swapDailyQuest = (questInstanceId: number): boolean => {
     let swapped = false;
-    setDb((prev) => {
-      if (prev.profile.dailyQuestSwapUsedDay === todayKey) return prev;
-      const list = prev.dailyQuestsByDay[todayKey] ?? [];
+    executeTransaction((draft) => {
+      if (draft.profile.dailyQuestSwapUsedDay === todayKey) {
+        return { nextState: draft, directXpGained: 0 };
+      }
+      const list = draft.dailyQuestsByDay[todayKey] ?? [];
       const targetQuest = list.find((q) => q.id === questInstanceId);
-      if (!targetQuest || targetQuest.status === 'completed') return prev;
+      if (!targetQuest || targetQuest.status === 'completed') {
+        return { nextState: draft, directXpGained: 0 };
+      }
 
       const currentIds = new Set(list.map((q) => q.templateId));
       const allDaily = (questsJson.quests as QuestTemplate[]).filter(
         (q) => q.type === 'daily' && !currentIds.has(q.id)
       );
-      if (allDaily.length === 0) return prev;
+      if (allDaily.length === 0) {
+        return { nextState: draft, directXpGained: 0 };
+      }
 
       const replacementTpl = allDaily[0];
       const targetVal =
         replacementTpl.condition.target === 'user_goal'
-          ? prev.profile.waterGoalMl
+          ? draft.profile.waterGoalMl
           : Number(replacementTpl.condition.target);
 
       const newList = list.map((q) =>
@@ -1507,16 +1578,24 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       );
 
       swapped = true;
+      const prevSwaps = draft.metricCounters?.quest_swaps_total ?? 0;
       return {
-        ...prev,
-        profile: {
-          ...prev.profile,
-          dailyQuestSwapUsedDay: todayKey,
+        nextState: {
+          ...draft,
+          metricCounters: {
+            ...(draft.metricCounters ?? {}),
+            quest_swaps_total: prevSwaps + 1,
+          },
+          profile: {
+            ...draft.profile,
+            dailyQuestSwapUsedDay: todayKey,
+          },
+          dailyQuestsByDay: {
+            ...draft.dailyQuestsByDay,
+            [todayKey]: newList,
+          },
         },
-        dailyQuestsByDay: {
-          ...prev.dailyQuestsByDay,
-          [todayKey]: newList,
-        },
+        directXpGained: 0,
       };
     });
     return swapped;
@@ -1540,9 +1619,16 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       isCustom: true,
       isActive: true,
     };
-    setDb((prev) => ({
-      ...prev,
-      personalQuestTemplates: [tpl, ...prev.personalQuestTemplates],
+    executeTransaction((draft) => ({
+      nextState: {
+        ...draft,
+        personalQuestTemplates: [tpl, ...draft.personalQuestTemplates],
+        metricCounters: {
+          ...(draft.metricCounters ?? {}),
+          'event:personal_quest_created': 1,
+        },
+      },
+      directXpGained: 0,
     }));
   };
 
@@ -1708,6 +1794,30 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const updateOnboardingDraft = (patch: Partial<OnboardingProfile>) => {
+    if (patch.narrator || patch.vow !== undefined) {
+      executeTransaction((draft) => {
+        const nextCounters = { ...(draft.metricCounters ?? {}) };
+        if (patch.narrator && patch.narrator !== draft.onboarding?.narrator) {
+          nextCounters['event:narrator_changed'] = 1;
+        }
+        if (patch.vow !== undefined && draft.onboarding?.completed) {
+          nextCounters['event:vow_reviewed'] = 1;
+        }
+        return {
+          nextState: {
+            ...draft,
+            metricCounters: nextCounters,
+            onboarding: {
+              ...draft.onboarding,
+              ...patch,
+              updatedAt: Date.now(),
+            },
+          },
+          directXpGained: 0,
+        };
+      });
+      return;
+    }
     setDb((prev) => ({
       ...prev,
       onboarding: {
@@ -1716,6 +1826,43 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updatedAt: Date.now(),
       },
     }));
+  };
+
+  const recordAppEvent = (metricKey: string, incrementBy: number = 1) => {
+    executeTransaction((draft) => {
+      const prevVal = draft.metricCounters?.[metricKey] ?? 0;
+      const nextVal = metricKey.startsWith('event:')
+        ? Math.max(1, prevVal + incrementBy)
+        : prevVal + incrementBy;
+      return {
+        nextState: {
+          ...draft,
+          metricCounters: {
+            ...(draft.metricCounters ?? {}),
+            [metricKey]: nextVal,
+          },
+        },
+        directXpGained: 0,
+      };
+    });
+  };
+
+  const recordTabVisited = (tabId: string) => {
+    if (db.visitedTabs?.includes(tabId)) return;
+    executeTransaction((draft) => {
+      const visited = Array.from(new Set([...(draft.visitedTabs ?? ['home']), tabId]));
+      return {
+        nextState: {
+          ...draft,
+          visitedTabs: visited,
+          metricCounters: {
+            ...(draft.metricCounters ?? {}),
+            tabs_visited: visited.length,
+          },
+        },
+        directXpGained: 0,
+      };
+    });
   };
 
   const completeOnboarding = (finalDraft: OnboardingProfile, pledged: boolean) => {
@@ -1849,14 +1996,30 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const updateProfile = (patch: Partial<UserProfile>) => {
-    setDb((prev) => ({
-      ...prev,
-      profile: { ...prev.profile, ...patch },
-    }));
+    executeTransaction((draft) => {
+      const nextCounters = { ...(draft.metricCounters ?? {}) };
+      if (patch.hiddenDashboardCards !== undefined || patch.dashboardCardsOrder !== undefined) {
+        nextCounters['event:dashboard_customized'] = 1;
+      }
+      if (patch.weeklyGoalDays !== undefined || patch.availableMinutesPerDay !== undefined) {
+        nextCounters['event:difficulty_adjusted'] = 1;
+      }
+      if (patch.appLockPin) {
+        nextCounters['event:applock_set'] = 1;
+      }
+      return {
+        nextState: {
+          ...draft,
+          metricCounters: nextCounters,
+          profile: { ...draft.profile, ...patch },
+        },
+        directXpGained: 0,
+      };
+    });
   };
 
   const exportBackupJson = (): string => {
-    return JSON.stringify(
+    const json = JSON.stringify(
       {
         app: 'Awakened — Life RPG',
         schemaVersion: 1,
@@ -1866,6 +2029,8 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       null,
       2
     );
+    recordAppEvent('event:export_done', 1);
+    return json;
   };
 
   const importBackupJson = (jsonStr: string): { ok: boolean; message: string } => {
@@ -1962,6 +2127,35 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     ]
   );
 
+  const achievementMetrics = useMemo(
+    () =>
+      computeAchievementMetrics({
+        activities: db.activities,
+        journals: db.journals,
+        moods: db.moods,
+        dailyQuestsByDay: db.dailyQuestsByDay,
+        weeklyQuestsByWeek: db.weeklyQuestsByWeek,
+        milestoneQuests: db.milestoneQuests,
+        personalQuestDoneByDay: db.personalQuestDoneByDay,
+        streakLogs: streakState.updatedLogs,
+        trainingPlan: db.trainingPlan,
+        waterGoalMl: db.profile.waterGoalMl,
+        weeklyGoalDays: db.profile.weeklyGoalDays,
+        weekStartDay: db.profile.weekStartDay,
+        longestStreak: streakState.longestStreak,
+        totalActiveDays: todayMetrics.total_active_days,
+        totalXp: db.profile.totalXp,
+        playerStats: db.playerStats,
+        ageBand: db.onboarding?.ageBand ?? '25-34',
+        safetyFlags: db.onboarding?.safetyFlags ?? ['none'],
+        pledgedAt: db.onboarding?.pledgedAt ?? null,
+        bosses: db.onboarding?.bosses ?? [],
+        unlockedIds: db.achievementsUnlocked.map((u) => u.achievementId),
+        existingCounters: db.metricCounters ?? {},
+      }),
+    [db, streakState, todayMetrics.total_active_days]
+  );
+
   const value: AwakenedContextValue = {
     db,
     isLoaded,
@@ -1972,12 +2166,15 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     monarchEligibility,
     streakState,
     todayMetrics,
+    achievementMetrics,
     todayQuests,
     thisWeekQuests,
     adaptiveRecommendations,
     dailyRepeatableXpToday,
     celebrationQueue,
     dismissCelebration,
+    recordAppEvent,
+    recordTabVisited,
     logWater,
     logMeal,
     addCustomFoodTemplate,

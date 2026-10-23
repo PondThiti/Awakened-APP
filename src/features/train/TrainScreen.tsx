@@ -97,6 +97,7 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
 
   // 2. Timestamp-based Workout Timer (Section 6.5)
   const [workoutType, setWorkoutType] = useState<WorkoutType>('walk');
+  const [distanceKmInput, setDistanceKmInput] = useState('');
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -469,6 +470,30 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                 )}
               </View>
 
+              {(workoutType === 'walk' || workoutType === 'run' || workoutType === 'bike') && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                  <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
+                    {isTh ? 'ระยะทาง (กม. - ไม่บังคับ):' : 'Distance (km - optional):'}
+                  </Text>
+                  <TextInput
+                    value={distanceKmInput}
+                    onChangeText={setDistanceKmInput}
+                    keyboardType="numeric"
+                    placeholder="2.5"
+                    placeholderTextColor={theme.textMuted}
+                    style={[
+                      styles.input,
+                      {
+                        width: 90,
+                        backgroundColor: theme.bgSecondary,
+                        color: theme.text,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                  />
+                </View>
+              )}
+
               <View
                 style={[
                   styles.repBox,
@@ -537,16 +562,19 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                       reduceMotion={reduceMotion}
                       style={[styles.primaryBtn, { backgroundColor: theme.success, flex: 1 }]}
                       onPress={() => {
+                        const distKm = parseFloat(distanceKmInput);
                         logWorkout(
                           `${workoutType.toUpperCase()} Session`,
                           {
                             workoutType,
                             durationSec: Math.max(60, workoutElapsedSec),
+                            distanceM: !Number.isNaN(distKm) && distKm > 0 ? Math.round(distKm * 1000) : undefined,
                             feeling: 4,
                             planCompleted: true,
                           }
                         );
                         setWorkoutTimerState(null);
+                        setDistanceKmInput('');
                       }}
                     >
                       <Text style={styles.primaryBtnText}>

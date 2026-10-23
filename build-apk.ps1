@@ -13,7 +13,8 @@ $env:GRADLE_USER_HOME = $gradleHome
 $env:GRADLE_OPTS = "-Djava.net.preferIPv4Stack=true"
 $env:PATH = "$jdkDir\bin;$sdkDir\platform-tools;$env:PATH"
 
-Write-Host "Building Awakened v0.9.4b Release APK (strictly isolated in project folder)..."
+$appVersion = "0.9.5"
+Write-Host "Building Awakened v$appVersion Release APK (strictly isolated in project folder)..."
 Push-Location (Join-Path $projectRoot "android")
 try {
   .\gradlew.bat assembleRelease --no-daemon --console=plain
@@ -25,13 +26,19 @@ try {
 }
 
 $apkSource = Join-Path $projectRoot "android\app\build\outputs\apk\release\app-release.apk"
-$apkDest = Join-Path $projectRoot "Awakened.apk"
-$legacyApk = Join-Path $projectRoot "Awakened-Life-RPG.apk"
+$apkDest = Join-Path $projectRoot "Awakened-$appVersion.apk"
+$legacyApks = @(
+  (Join-Path $projectRoot "Awakened.apk"),
+  (Join-Path $projectRoot "Awakened-0-9-4a.apk"),
+  (Join-Path $projectRoot "Awakened-Life-RPG.apk")
+)
 
 if (Test-Path $apkSource) {
   Copy-Item -Path $apkSource -Destination $apkDest -Force
-  if (Test-Path $legacyApk) {
-    Remove-Item -Path $legacyApk -Force
+  foreach ($oldApk in $legacyApks) {
+    if (Test-Path $oldApk) {
+      Remove-Item -Path $oldApk -Force
+    }
   }
   $sizeMb = [Math]::Round((Get-Item $apkDest).Length / 1MB, 2)
   Write-Host "[OK] APK Built Successfully: $apkDest ($sizeMb MB)"

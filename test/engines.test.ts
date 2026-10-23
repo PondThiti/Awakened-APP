@@ -14,6 +14,15 @@ import {
   shouldHideReduceSugar,
   shouldSkipPushupTest,
 } from '../src/core/engine/onboardingEngine';
+import {
+  AchievementMetricsInput,
+  buildMergedAchievementCelebration,
+  computeAchievementMetrics,
+  evaluateAchievements,
+  getAchievementCatalog,
+  getSecretHint,
+  isAchievementVisibleForUser,
+} from '../src/core/engine/achievementEngine';
 
 describe('Awakened Core Engines — Section 18.1 Unit Tests', () => {
   it('1. LevelEngine: computes exact xpToNext and totalXpForLevel matching Appendix B', () => {
@@ -331,5 +340,196 @@ describe('Awakened Core Engines — Section 18.1 Unit Tests', () => {
     expect(stats.VIT).toBeGreaterThanOrEqual(10);
     expect(stats.INT).toBeGreaterThanOrEqual(10);
     expect(stats.WIL).toBeGreaterThanOrEqual(10);
+  });
+
+  it('13. AchievementEngine (Section 6.4): validates all 199 achievements and Rules R1–R11', () => {
+    const catalog = getAchievementCatalog();
+    expect(catalog.length).toBe(199);
+
+    const baseInput: AchievementMetricsInput = {
+      activities: [],
+      journals: [],
+      moods: [],
+      dailyQuestsByDay: {},
+      weeklyQuestsByWeek: {},
+      milestoneQuests: [],
+      personalQuestDoneByDay: {},
+      streakLogs: {},
+      waterGoalMl: 2000,
+      weeklyGoalDays: 4,
+      longestStreak: 1,
+      totalActiveDays: 1,
+      totalXp: 0,
+      playerStats: { STR: 10, VIT: 10, INT: 10, WIL: 10 },
+      unlockedIds: new Set(),
+      existingCounters: {},
+    };
+
+    // 1. Idempotency: already unlocked streak_3 is not returned or awarded XP again
+    const alreadyUnlockedSet = new Set(['streak_3']);
+    const idemEval = evaluateAchievements({
+      metrics: { streak_days_max: 5, active_days_total: 5 },
+      unlockedIds: alreadyUnlockedSet,
+      totalXp: 100,
+    });
+    expect(idemEval.newlyUnlocked.some((a) => a.id === 'streak_3')).toBe(false);
+
+    // 2. Non-revocation on activity delete (Rule R1): monotonic metric_counter preserves event:water_log
+    const metricsBeforeDelete = computeAchievementMetrics({
+      ...baseInput,
+      activities: [
+        {
+          id: 1,
+          type: 'water',
+          title: 'Water 250ml',
+          value: 250,
+          unit: 'ml',
+          occurredAt: 1_700_000_000_000,
+          tzOffsetMin: 0,
+          createdAt: 1_700_000_000_000,
+          isBackfilled: false,
+          deletedAt: null,
+          xpAwarded: 2,
+        },
+      ],
+    });
+    expect(metricsBeforeDelete['event:water_log']).toBe(1);
+
+    const evalWater = evaluateAchievements({
+      metrics: metricsBeforeDelete,
+      unlockedIds: new Set(),
+      totalXp: 0,
+    });
+    expect(evalWater.newlyUnlocked.some((a) => a.id === 'fs_water')).toBe(true);
+
+    // Simulate deleting the water log while preserving existingCounters & unlockedIds
+    const unlockedAfterWater = new Set(evalWater.newlyUnlocked.map((a) => a.id));
+    const numericCountersOnly: Record<string, number> = {};
+    for (const [k, v] of Object.entries(metricsBeforeDelete)) {
+      if (typeof v === 'number') numericCountersOnly[k] = v;
+    }
+    const metricsAfterDelete = computeAchievementMetrics({
+      ...baseInput,
+      activities: [],
+      existingCounters: numericCountersOnly,
+    });
+    expect(metricsAfterDelete['event:water_log']).toBe(1);
+    expect(unlockedAfterWater.has('fs_water')).toBe(true);
+
+    // 3. Cascading Unlock (5-round loop): unlocking an achievement whose XP pushes player to Level 10/11 unlocks level_10 & rank_d in the next round
+    // Level 11 (Rank D) requires 1,900 total XP. Start at 1,880 XP and unlock streak_3 (+25 XP) -> 1,905 XP -> Level 11 -> unlocks level_5, level_10, rank_d!
+    const cascadeEval = evaluateAchievements({
+      metrics: { streak_days_max: 3, active_days_total: 10 },
+      unlockedIds: new Set(),
+      totalXp: 1880,
+    });
+    const cascadeIds = cascadeEval.newlyUnlocked.map((a) => a.id);
+    expect(cascadeIds).toContain('streak_3');
+    expect(cascadeIds).toContain('level_10');
+    expect(cascadeIds).toContain('rank_D');
+    expect(cascadeEval.finalLevel).toBeGreaterThanOrEqual(11);
+
+    // 4. Minor < 18 Filter (Rule R8): ageBand === '16-17' suppresses event:quest_before_midnight and hides midnight & early_bird
+    const teenMetrics = computeAchievementMetrics({
+      ...baseInput,
+      ageBand: '16-17',
+      existingCounters: {
+        'event:quest_before_midnight': 1,
+        'event:quest_before_6am': 1,
+      },
+    });
+    expect(teenMetrics['event:quest_before_midnight']).toBe(0);
+    expect(teenMetrics['event:quest_before_6am']).toBe(0);
+    const teenEval = evaluateAchievements({
+      metrics: { 'event:quest_before_midnight': 1 },
+      unlockedIds: new Set(),
+      totalXp: 0,
+      ageBand: '16-17',
+    });
+    expect(teenEval.newlyUnlocked.some((a) => a.id === 'midnight')).toBe(false);
+
+    // 5. Health Safety Flag Filter (Rule R11): safetyFlags includes 'medical_limit' -> blocks cold_7 and cold_30
+    const coldEval = evaluateAchievements({
+      metrics: { cold_shower_days_total: 35 },
+      unlockedIds: new Set(),
+      totalXp: 0,
+      safetyFlags: ['medical_limit'],
+    });
+    expect(coldEval.newlyUnlocked.some((a) => a.id === 'cold_7')).toBe(false);
+    expect(coldEval.newlyUnlocked.some((a) => a.id === 'cold_30')).toBe(false);
+    const cold7Def = catalog.find((a) => a.id === 'cold_7')!;
+    expect(isAchievementVisibleForUser(cold7Def, '25-34', ['medical_limit'])).toBe(false);
+
+    // 6. Daily Counting Cap (Rule R5): logging 500 pushups in a single day caps reps_pushup_total at 300/day
+    const pushupMetrics = computeAchievementMetrics({
+      ...baseInput,
+      activities: [
+        {
+          id: 1,
+          type: 'workout',
+          title: 'Strength',
+          value: 30,
+          unit: 'min',
+          occurredAt: 1_700_000_000_000,
+          tzOffsetMin: 0,
+          createdAt: 1_700_000_000_000,
+          isBackfilled: false,
+          deletedAt: null,
+          xpAwarded: 45,
+          workoutDetail: {
+            workoutType: 'strength',
+            durationSec: 1800,
+            sets: [{ exerciseName: 'Push-up', setIndex: 1, reps: 500 }],
+          },
+        },
+      ],
+    });
+    expect(pushupMetrics.reps_pushup_total).toBe(300);
+
+    // 7. Backfill > 24h Exclusion (Rule R4): backfilled activities > 24h do not count toward meal_logs_total
+    const backfillMetrics = computeAchievementMetrics({
+      ...baseInput,
+      activities: [
+        {
+          id: 2,
+          type: 'meal',
+          title: 'Lunch',
+          value: 500,
+          unit: 'kcal',
+          occurredAt: 1_700_000_000_000,
+          tzOffsetMin: 0,
+          createdAt: 1_700_000_000_000 + 72 * 3600 * 1000,
+          isBackfilled: true,
+          deletedAt: null,
+          xpAwarded: 4,
+          mealDetail: {
+            mealSlot: 'lunch',
+            caloriesEst: 500,
+            proteinG: 25,
+            carbsG: 50,
+            fatG: 15,
+            isEstimate: true,
+            source: 'manual',
+          },
+        },
+      ],
+    });
+    expect(backfillMetrics.meal_logs_total).toBe(0);
+
+    // 8. Secret Achievement Hint Masking (Rule R7) & Multi-Unlock Popup Merging (Section 3):
+    const secretAchs = catalog.filter((a) => a.hidden);
+    expect(secretAchs.length).toBe(9);
+    for (const sec of secretAchs) {
+      const hint = getSecretHint(sec, 'th');
+      expect(hint.length).toBeGreaterThan(5);
+    }
+
+    const mergedCelebration = buildMergedAchievementCelebration(
+      cascadeEval.newlyUnlocked,
+      'th'
+    );
+    expect(mergedCelebration).not.toBeNull();
+    expect(mergedCelebration!.extraUnlockedCount).toBeGreaterThan(0);
+    expect(mergedCelebration!.summaryText).toContain('ปลดล็อกอีก');
   });
 });

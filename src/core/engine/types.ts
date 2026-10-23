@@ -128,6 +128,9 @@ export interface UserProfile {
   theme: ThemeMode;
   soundEnabled: boolean;
   reduceEffects: boolean;
+  muteAchievementAlerts?: boolean;
+  selectedTitleId?: string | null;
+  featuredBadgeIds?: string[];
   appLockPin: string | null;
   createdAt: number;
 }
@@ -192,7 +195,7 @@ export interface ActivityRecord {
 export interface XpEventRecord {
   id: number;
   amount: number;
-  sourceType: 'activity' | 'quest' | 'milestone' | 'bonus' | 'revert';
+  sourceType: 'activity' | 'quest' | 'milestone' | 'achievement' | 'bonus' | 'revert';
   sourceId?: number | string;
   reasonKey: string;
   configVersion: number;
@@ -277,16 +280,48 @@ export interface MoodEntry {
   xpAwarded: number;
 }
 
+export type AchievementTier = 'bronze' | 'silver' | 'gold' | 'legend';
+
+export type AchievementCategory =
+  | 'first'
+  | 'train'
+  | 'life'
+  | 'focus'
+  | 'will'
+  | 'mind'
+  | 'food'
+  | 'rank'
+  | 'quest'
+  | 'stat'
+  | 'app'
+  | 'secret';
+
+export interface AchievementCriteria {
+  metric: string;
+  op: '>=' | '==';
+  target: number | string;
+}
+
 export interface AchievementDef {
   id: string;
-  category: string;
-  icon: string;
+  category: AchievementCategory | string;
   title_th: string;
   title_en: string;
-  description_th: string;
-  description_en: string;
-  metric: string;
-  target: number;
+  description: string;
+  tier: AchievementTier;
+  xp: number;
+  stat: PlayerStatKey | null;
+  hidden: boolean;
+  phase: 1 | 2 | 3;
+  criteria: AchievementCriteria;
+  hide_for_minor: boolean;
+  excluded_flags: SafetyFlag[];
+  // Optional legacy fields for backward compatibility
+  icon?: string;
+  description_th?: string;
+  description_en?: string;
+  metric?: string;
+  target?: number;
 }
 
 export interface AchievementUnlock {
@@ -331,4 +366,7 @@ export interface CelebrationEvent {
   newLevel?: number;
   newRank?: RankDef;
   badge?: AchievementDef;
+  additionalBadges?: AchievementDef[];
+  extraUnlockedCount?: number;
+  summaryText?: string;
 }

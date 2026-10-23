@@ -1,0 +1,3798 @@
+{
+  "version": 1,
+  "tier_xp": {
+    "bronze": 25,
+    "silver": 75,
+    "gold": 200,
+    "legend": 500
+  },
+  "achievements": [
+    {
+      "id": "fs_pledge",
+      "category": "first",
+      "title_th": "ตื่นแล้ว",
+      "title_en": "Awake",
+      "description": "ตอบแบบสอบถามจนจบและกดคำปฏิญาณ",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:pledge",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fs_water",
+      "category": "first",
+      "title_th": "หยดแรก",
+      "title_en": "First Drop",
+      "description": "บันทึกการดื่มน้ำครั้งแรก",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:water_log",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fs_meal",
+      "category": "first",
+      "title_th": "มื้อแรกในบันทึก",
+      "title_en": "First Plate",
+      "description": "บันทึกอาหารมื้อแรก",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:meal_log",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fs_workout",
+      "category": "first",
+      "title_th": "ก้าวแรก",
+      "title_en": "First Step",
+      "description": "บันทึกการออกกำลังกายครั้งแรก",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:workout",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fs_focus",
+      "category": "first",
+      "title_th": "รอบแรก",
+      "title_en": "First Round",
+      "description": "จบ Pomodoro รอบแรก",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:pomodoro",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fs_journal",
+      "category": "first",
+      "title_th": "หน้าแรก",
+      "title_en": "First Page",
+      "description": "เขียนไดอารี่ครั้งแรก",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:journal",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fs_mood",
+      "category": "first",
+      "title_th": "ถามใจตัวเอง",
+      "title_en": "Check-in",
+      "description": "บันทึกอารมณ์ครั้งแรก",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "event:mood",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fs_quest",
+      "category": "first",
+      "title_th": "เควสต์แรก",
+      "title_en": "First Quest",
+      "description": "ทำเควสต์ประจำวันสำเร็จครั้งแรก",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:quest_done",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fs_levelup",
+      "category": "first",
+      "title_th": "เลเวลอัปครั้งแรก",
+      "title_en": "First Level Up",
+      "description": "เลื่อนจากเลเวล 1 เป็นเลเวล 2",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:levelup",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fs_rest",
+      "category": "first",
+      "title_th": "พักอย่างตั้งใจ",
+      "title_en": "Planned Rest",
+      "description": "เช็กอินวันพักตามแผนครั้งแรก",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:rest_checkin",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fs_personal",
+      "category": "first",
+      "title_th": "ตั้งกฎเอง",
+      "title_en": "My Own Rule",
+      "description": "สร้าง Personal Quest ของตัวเองครั้งแรก",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "event:personal_quest_created",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fs_week",
+      "category": "first",
+      "title_th": "สัปดาห์แรก",
+      "title_en": "Week One",
+      "description": "มีกิจกรรมที่บันทึกครบ 7 วัน (ไม่ต้องติดกัน)",
+      "tier": "silver",
+      "xp": 75,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "active_days_total",
+        "op": ">=",
+        "target": 7
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "workouts_10",
+      "category": "train",
+      "title_th": "สิบครั้งแรก",
+      "title_en": "First Ten",
+      "description": "ออกกำลังกายครบ 10 ครั้ง",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "workout_sessions_total",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "workouts_25",
+      "category": "train",
+      "title_th": "ขาประจำ",
+      "title_en": "Regular",
+      "description": "ออกกำลังกายครบ 25 ครั้ง",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "workout_sessions_total",
+        "op": ">=",
+        "target": 25
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "workouts_50",
+      "category": "train",
+      "title_th": "ครึ่งร้อย",
+      "title_en": "Half Century",
+      "description": "ออกกำลังกายครบ 50 ครั้ง",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "workout_sessions_total",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "workouts_100",
+      "category": "train",
+      "title_th": "ร้อยเซสชัน",
+      "title_en": "Centurion",
+      "description": "ออกกำลังกายครบ 100 ครั้ง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "workout_sessions_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "workouts_250",
+      "category": "train",
+      "title_th": "เหล็กไม่ขึ้นสนิม",
+      "title_en": "Never Rusty",
+      "description": "ออกกำลังกายครบ 250 ครั้ง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "workout_sessions_total",
+        "op": ">=",
+        "target": 250
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "workouts_500",
+      "category": "train",
+      "title_th": "ห้าร้อยครั้ง",
+      "title_en": "Five Hundred",
+      "description": "ออกกำลังกายครบ 500 ครั้ง",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "workout_sessions_total",
+        "op": ">=",
+        "target": 500
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "wmin_60",
+      "category": "train",
+      "title_th": "ชั่วโมงแรก",
+      "title_en": "First Hour",
+      "description": "เวลาออกกำลังกายสะสมครบ 1 ชั่วโมง",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "workout_minutes_total",
+        "op": ">=",
+        "target": 60
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "wmin_600",
+      "category": "train",
+      "title_th": "สิบชั่วโมงแห่งการฝึก",
+      "title_en": "Ten Hours In",
+      "description": "เวลาออกกำลังกายสะสมครบ 10 ชั่วโมง",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "workout_minutes_total",
+        "op": ">=",
+        "target": 600
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "wmin_3000",
+      "category": "train",
+      "title_th": "ห้าสิบชั่วโมง",
+      "title_en": "Fifty Hours",
+      "description": "เวลาออกกำลังกายสะสมครบ 50 ชั่วโมง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "workout_minutes_total",
+        "op": ">=",
+        "target": 3000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "wmin_6000",
+      "category": "train",
+      "title_th": "ร้อยชั่วโมง",
+      "title_en": "Hundred Hours",
+      "description": "เวลาออกกำลังกายสะสมครบ 100 ชั่วโมง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "workout_minutes_total",
+        "op": ">=",
+        "target": 6000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "wmin_30000",
+      "category": "train",
+      "title_th": "ห้าร้อยชั่วโมง",
+      "title_en": "Five Hundred Hours",
+      "description": "เวลาออกกำลังกายสะสมครบ 500 ชั่วโมง",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "workout_minutes_total",
+        "op": ">=",
+        "target": 30000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "pushup_100",
+      "category": "train",
+      "title_th": "ร้อยแรก",
+      "title_en": "First Hundred",
+      "description": "วิดพื้นสะสมครบ 100 ครั้ง",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "reps_pushup_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "pushup_1000",
+      "category": "train",
+      "title_th": "พันครั้ง",
+      "title_en": "Thousand Push",
+      "description": "วิดพื้นสะสมครบ 1,000 ครั้ง",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "reps_pushup_total",
+        "op": ">=",
+        "target": 1000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "pushup_5000",
+      "category": "train",
+      "title_th": "ห้าพัน",
+      "title_en": "Five Thousand",
+      "description": "วิดพื้นสะสมครบ 5,000 ครั้ง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "reps_pushup_total",
+        "op": ">=",
+        "target": 5000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "pushup_10000",
+      "category": "train",
+      "title_th": "หมื่นครั้ง",
+      "title_en": "Ten Thousand",
+      "description": "วิดพื้นสะสมครบ 10,000 ครั้ง",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "reps_pushup_total",
+        "op": ">=",
+        "target": 10000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "squat_100",
+      "category": "train",
+      "title_th": "สควอตร้อยแรก",
+      "title_en": "Squat Hundred",
+      "description": "สควอตสะสมครบ 100 ครั้ง",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "reps_squat_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "squat_1000",
+      "category": "train",
+      "title_th": "ขาแกร่งพันครั้ง",
+      "title_en": "Thousand Squats",
+      "description": "สควอตสะสมครบ 1,000 ครั้ง",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "reps_squat_total",
+        "op": ">=",
+        "target": 1000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "squat_5000",
+      "category": "train",
+      "title_th": "ขาเหล็ก",
+      "title_en": "Iron Legs",
+      "description": "สควอตสะสมครบ 5,000 ครั้ง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "reps_squat_total",
+        "op": ">=",
+        "target": 5000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "plank_10",
+      "category": "train",
+      "title_th": "แพลงก์สิบนาที",
+      "title_en": "Plank Ten",
+      "description": "แพลงก์สะสมครบ 10 นาที",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "plank_minutes_total",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "plank_60",
+      "category": "train",
+      "title_th": "แกนกลางหนึ่งชั่วโมง",
+      "title_en": "Core Hour",
+      "description": "แพลงก์สะสมครบ 60 นาที",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "plank_minutes_total",
+        "op": ">=",
+        "target": 60
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "plank_180",
+      "category": "train",
+      "title_th": "แกนกลางสามชั่วโมง",
+      "title_en": "Core Of Steel",
+      "description": "แพลงก์สะสมครบ 180 นาที",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "plank_minutes_total",
+        "op": ">=",
+        "target": 180
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "dist_10",
+      "category": "train",
+      "title_th": "สิบกิโลแรก",
+      "title_en": "First 10 km",
+      "description": "เดิน วิ่ง หรือปั่นสะสมครบ 10 กิโลเมตร (ตามที่ผู้ใช้บันทึก)",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "distance_km_total",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "dist_50",
+      "category": "train",
+      "title_th": "ห้าสิบกิโล",
+      "title_en": "Fifty Kilometers",
+      "description": "เดิน วิ่ง หรือปั่นสะสมครบ 50 กิโลเมตร (ตามที่ผู้ใช้บันทึก)",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "distance_km_total",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "dist_100",
+      "category": "train",
+      "title_th": "ร้อยกิโล",
+      "title_en": "Hundred Kilometers",
+      "description": "เดิน วิ่ง หรือปั่นสะสมครบ 100 กิโลเมตร (ตามที่ผู้ใช้บันทึก)",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "distance_km_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "dist_500",
+      "category": "train",
+      "title_th": "ห้าร้อยกิโล",
+      "title_en": "Five Hundred km",
+      "description": "เดิน วิ่ง หรือปั่นสะสมครบ 500 กิโลเมตร (ตามที่ผู้ใช้บันทึก)",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "distance_km_total",
+        "op": ">=",
+        "target": 500
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "dist_1000",
+      "category": "train",
+      "title_th": "พันกิโล",
+      "title_en": "Thousand km",
+      "description": "เดิน วิ่ง หรือปั่นสะสมครบ 1,000 กิโลเมตร (ตามที่ผู้ใช้บันทึก)",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "distance_km_total",
+        "op": ">=",
+        "target": 1000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "variety_3",
+      "category": "train",
+      "title_th": "ลองหลายแบบ",
+      "title_en": "Mixing It Up",
+      "description": "ลองกิจกรรมออกกำลังกายต่างชนิดกัน 3 แบบ",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "workout_types_tried",
+        "op": ">=",
+        "target": 3
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "variety_6",
+      "category": "train",
+      "title_th": "นักลองกิจกรรม",
+      "title_en": "Explorer",
+      "description": "ลองกิจกรรมออกกำลังกายต่างชนิดกัน 6 แบบ",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "workout_types_tried",
+        "op": ">=",
+        "target": 6
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "variety_10",
+      "category": "train",
+      "title_th": "รอบด้าน",
+      "title_en": "All-Rounder",
+      "description": "ลองกิจกรรมออกกำลังกายต่างชนิดกัน 10 แบบ",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "workout_types_tried",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "pb_1",
+      "category": "train",
+      "title_th": "ทำลายสถิติตัวเอง",
+      "title_en": "Personal Best",
+      "description": "ทำได้เกินสถิติเดิมของตัวเอง (ท่าหรือกิจกรรมเดียวกัน) ครบ 1 ครั้ง",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "pb_count",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "pb_10",
+      "category": "train",
+      "title_th": "สถิติใหม่ไม่หยุด",
+      "title_en": "Record Breaker",
+      "description": "ทำได้เกินสถิติเดิมของตัวเอง (ท่าหรือกิจกรรมเดียวกัน) ครบ 10 ครั้ง",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "pb_count",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "pb_50",
+      "category": "train",
+      "title_th": "ขอบเขตขยับได้",
+      "title_en": "Moving Limits",
+      "description": "ทำได้เกินสถิติเดิมของตัวเอง (ท่าหรือกิจกรรมเดียวกัน) ครบ 50 ครั้ง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "pb_count",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "planwk_1",
+      "category": "train",
+      "title_th": "ตามแผนหนึ่งสัปดาห์",
+      "title_en": "On Plan",
+      "description": "ทำตามตารางฝึกครบทุกวันที่วางไว้ (รวมวันพัก) 1 สัปดาห์",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "plan_weeks_completed",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "planwk_4",
+      "category": "train",
+      "title_th": "ตามแผนหนึ่งเดือน",
+      "title_en": "Plan Month",
+      "description": "ทำตามตารางฝึกครบทุกวันที่วางไว้ (รวมวันพัก) 4 สัปดาห์",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "plan_weeks_completed",
+        "op": ">=",
+        "target": 4
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "planwk_12",
+      "category": "train",
+      "title_th": "สามเดือนตามแผน",
+      "title_en": "Plan Quarter",
+      "description": "ทำตามตารางฝึกครบทุกวันที่วางไว้ (รวมวันพัก) 12 สัปดาห์",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "plan_weeks_completed",
+        "op": ">=",
+        "target": 12
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "planwk_26",
+      "category": "train",
+      "title_th": "ครึ่งปีตามแผน",
+      "title_en": "Half-Year Plan",
+      "description": "ทำตามตารางฝึกครบทุกวันที่วางไว้ (รวมวันพัก) 26 สัปดาห์",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "plan_weeks_completed",
+        "op": ">=",
+        "target": 26
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "planwk_52",
+      "category": "train",
+      "title_th": "หนึ่งปีตามแผน",
+      "title_en": "Year Of Plan",
+      "description": "ทำตามตารางฝึกครบทุกวันที่วางไว้ (รวมวันพัก) 52 สัปดาห์",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "plan_weeks_completed",
+        "op": ">=",
+        "target": 52
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "water_7",
+      "category": "life",
+      "title_th": "น้ำเต็มหนึ่งสัปดาห์",
+      "title_en": "Hydrated Week",
+      "description": "ดื่มน้ำถึงเป้าหมายส่วนตัวครบ 7 วัน (ไม่ต้องติดกัน)",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "water_goal_days_total",
+        "op": ">=",
+        "target": 7
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "water_30",
+      "category": "life",
+      "title_th": "น้ำเต็มหนึ่งเดือน",
+      "title_en": "Hydrated Month",
+      "description": "ดื่มน้ำถึงเป้าหมายส่วนตัวครบ 30 วัน (ไม่ต้องติดกัน)",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "water_goal_days_total",
+        "op": ">=",
+        "target": 30
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "water_100",
+      "category": "life",
+      "title_th": "ร้อยวันที่ดื่มครบ",
+      "title_en": "Hundred Hydrated",
+      "description": "ดื่มน้ำถึงเป้าหมายส่วนตัวครบ 100 วัน (ไม่ต้องติดกัน)",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "water_goal_days_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "water_365",
+      "category": "life",
+      "title_th": "หนึ่งปีแห่งสายน้ำ",
+      "title_en": "Year Of Water",
+      "description": "ดื่มน้ำถึงเป้าหมายส่วนตัวครบ 365 วัน (ไม่ต้องติดกัน)",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "water_goal_days_total",
+        "op": ">=",
+        "target": 365
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "sleep_7",
+      "category": "life",
+      "title_th": "หลับเป็นเวลา",
+      "title_en": "Steady Sleeper",
+      "description": "ทำเควสต์เข้านอนตามเวลาที่ตั้งไว้ครบ 7 วัน",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "sleep_ontime_days_total",
+        "op": ">=",
+        "target": 7
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "sleep_30",
+      "category": "life",
+      "title_th": "นาฬิกาชีวิตเข้าที่",
+      "title_en": "Body Clock Set",
+      "description": "ทำเควสต์เข้านอนตามเวลาที่ตั้งไว้ครบ 30 วัน",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "sleep_ontime_days_total",
+        "op": ">=",
+        "target": 30
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "sleep_100",
+      "category": "life",
+      "title_th": "ร้อยคืนที่ดี",
+      "title_en": "Hundred Good Nights",
+      "description": "ทำเควสต์เข้านอนตามเวลาที่ตั้งไว้ครบ 100 วัน",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "sleep_ontime_days_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "rest_5",
+      "category": "life",
+      "title_th": "รู้จักพัก",
+      "title_en": "Knows Rest",
+      "description": "เช็กอินวันพักตามแผนครบ 5 ครั้ง",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "rest_checkins_total",
+        "op": ">=",
+        "target": 5
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "rest_20",
+      "category": "life",
+      "title_th": "พักก็คือการฝึก",
+      "title_en": "Rest Is Training",
+      "description": "เช็กอินวันพักตามแผนครบ 20 ครั้ง",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "rest_checkins_total",
+        "op": ">=",
+        "target": 20
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "rest_50",
+      "category": "life",
+      "title_th": "พักเป็นก็เก่ง",
+      "title_en": "Master Of Rest",
+      "description": "เช็กอินวันพักตามแผนครบ 50 ครั้ง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "rest_checkins_total",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stretch_10",
+      "category": "life",
+      "title_th": "ยืดวันละนิด",
+      "title_en": "A Little Stretch",
+      "description": "ยืดเหยียดครบ 10 ครั้ง",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "stretch_sessions_total",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stretch_50",
+      "category": "life",
+      "title_th": "ร่างกายอ่อนตัว",
+      "title_en": "Supple",
+      "description": "ยืดเหยียดครบ 50 ครั้ง",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "stretch_sessions_total",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stretch_100",
+      "category": "life",
+      "title_th": "ร้อยครั้งที่ยืด",
+      "title_en": "Hundred Stretches",
+      "description": "ยืดเหยียดครบ 100 ครั้ง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "stretch_sessions_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "pomo_10",
+      "category": "focus",
+      "title_th": "สิบรอบแรก",
+      "title_en": "First Ten Rounds",
+      "description": "จบ Pomodoro สำเร็จครบ 10 รอบ",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "pomodoro_rounds_total",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "pomo_50",
+      "category": "focus",
+      "title_th": "สมาธิติดมือ",
+      "title_en": "Focus Habit",
+      "description": "จบ Pomodoro สำเร็จครบ 50 รอบ",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "pomodoro_rounds_total",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "pomo_100",
+      "category": "focus",
+      "title_th": "ร้อยรอบ",
+      "title_en": "Hundred Rounds",
+      "description": "จบ Pomodoro สำเร็จครบ 100 รอบ",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "pomodoro_rounds_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "pomo_250",
+      "category": "focus",
+      "title_th": "นักโฟกัสตัวจริง",
+      "title_en": "True Focuser",
+      "description": "จบ Pomodoro สำเร็จครบ 250 รอบ",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "pomodoro_rounds_total",
+        "op": ">=",
+        "target": 250
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "pomo_500",
+      "category": "focus",
+      "title_th": "ห้าร้อยรอบ",
+      "title_en": "Five Hundred Rounds",
+      "description": "จบ Pomodoro สำเร็จครบ 500 รอบ",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "pomodoro_rounds_total",
+        "op": ">=",
+        "target": 500
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "pomo_1000",
+      "category": "focus",
+      "title_th": "พันรอบ",
+      "title_en": "Thousand Rounds",
+      "description": "จบ Pomodoro สำเร็จครบ 1,000 รอบ",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "pomodoro_rounds_total",
+        "op": ">=",
+        "target": 1000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fhours_600",
+      "category": "focus",
+      "title_th": "สิบชั่วโมงโฟกัส",
+      "title_en": "Ten Focus Hours",
+      "description": "เวลาโฟกัสสะสมครบ 10 ชั่วโมง",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "focus_minutes_total",
+        "op": ">=",
+        "target": 600
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fhours_3000",
+      "category": "focus",
+      "title_th": "ห้าสิบชั่วโมงโฟกัส",
+      "title_en": "Fifty Focus Hours",
+      "description": "เวลาโฟกัสสะสมครบ 50 ชั่วโมง",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "focus_minutes_total",
+        "op": ">=",
+        "target": 3000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fhours_6000",
+      "category": "focus",
+      "title_th": "ร้อยชั่วโมงโฟกัส",
+      "title_en": "Hundred Focus Hours",
+      "description": "เวลาโฟกัสสะสมครบ 100 ชั่วโมง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "focus_minutes_total",
+        "op": ">=",
+        "target": 6000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fhours_15000",
+      "category": "focus",
+      "title_th": "สองร้อยห้าสิบชั่วโมง",
+      "title_en": "Deep Work",
+      "description": "เวลาโฟกัสสะสมครบ 250 ชั่วโมง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "focus_minutes_total",
+        "op": ">=",
+        "target": 15000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fhours_30000",
+      "category": "focus",
+      "title_th": "ห้าร้อยชั่วโมงโฟกัส",
+      "title_en": "Five Hundred Focus Hours",
+      "description": "เวลาโฟกัสสะสมครบ 500 ชั่วโมง",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "focus_minutes_total",
+        "op": ">=",
+        "target": 30000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "pomoday_4",
+      "category": "focus",
+      "title_th": "สี่รอบรวด",
+      "title_en": "Four In A Day",
+      "description": "จบ Pomodoro ได้ 4 รอบในวันเดียว",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "pomodoro_rounds_day_max",
+        "op": ">=",
+        "target": 4
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "pomoday_8",
+      "category": "focus",
+      "title_th": "วันแห่งสมาธิ",
+      "title_en": "Day Of Focus",
+      "description": "จบ Pomodoro ได้ 8 รอบในวันเดียว",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "pomodoro_rounds_day_max",
+        "op": ">=",
+        "target": 8
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "learn_7",
+      "category": "focus",
+      "title_th": "หนอนหนังสือน้อย",
+      "title_en": "Bookworm",
+      "description": "ทำเควสต์อ่านหนังสือหรือเรียนรู้ทักษะใหม่ครบ 7 วัน",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "learning_days_total",
+        "op": ">=",
+        "target": 7
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "learn_30",
+      "category": "focus",
+      "title_th": "เรียนรู้ทุกวันหนึ่งเดือน",
+      "title_en": "Learner",
+      "description": "ทำเควสต์อ่านหนังสือหรือเรียนรู้ทักษะใหม่ครบ 30 วัน",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "learning_days_total",
+        "op": ">=",
+        "target": 30
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "learn_100",
+      "category": "focus",
+      "title_th": "ร้อยวันแห่งการเรียนรู้",
+      "title_en": "Hundred Days Learning",
+      "description": "ทำเควสต์อ่านหนังสือหรือเรียนรู้ทักษะใหม่ครบ 100 วัน",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "learning_days_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "perfect_1",
+      "category": "will",
+      "title_th": "วันสมบูรณ์",
+      "title_en": "Perfect Day",
+      "description": "ทำเควสต์ประจำวันครบทุกข้อ 1 วัน (ไม่ต้องติดกัน)",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "all_daily_days_total",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "perfect_7",
+      "category": "will",
+      "title_th": "เจ็ดวันสมบูรณ์",
+      "title_en": "Seven Perfect Days",
+      "description": "ทำเควสต์ประจำวันครบทุกข้อ 7 วัน (ไม่ต้องติดกัน)",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "all_daily_days_total",
+        "op": ">=",
+        "target": 7
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "perfect_30",
+      "category": "will",
+      "title_th": "สามสิบวันสมบูรณ์",
+      "title_en": "Thirty Perfect Days",
+      "description": "ทำเควสต์ประจำวันครบทุกข้อ 30 วัน (ไม่ต้องติดกัน)",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "all_daily_days_total",
+        "op": ">=",
+        "target": 30
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "perfect_100",
+      "category": "will",
+      "title_th": "ร้อยวันสมบูรณ์",
+      "title_en": "Hundred Perfect Days",
+      "description": "ทำเควสต์ประจำวันครบทุกข้อ 100 วัน (ไม่ต้องติดกัน)",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "all_daily_days_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "streak_3",
+      "category": "will",
+      "title_th": "สามวันติด",
+      "title_en": "Three In A Row",
+      "description": "Streak ยาวถึง 3 วัน",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "streak_days_max",
+        "op": ">=",
+        "target": 3
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "streak_7",
+      "category": "will",
+      "title_th": "หนึ่งสัปดาห์เต็ม",
+      "title_en": "Full Week",
+      "description": "Streak ยาวถึง 7 วัน",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "streak_days_max",
+        "op": ">=",
+        "target": 7
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "streak_14",
+      "category": "will",
+      "title_th": "สองสัปดาห์",
+      "title_en": "Fortnight",
+      "description": "Streak ยาวถึง 14 วัน",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "streak_days_max",
+        "op": ">=",
+        "target": 14
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "streak_30",
+      "category": "will",
+      "title_th": "หนึ่งเดือนไม่ขาด",
+      "title_en": "Unbroken Month",
+      "description": "Streak ยาวถึง 30 วัน",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "streak_days_max",
+        "op": ">=",
+        "target": 30
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "streak_60",
+      "category": "will",
+      "title_th": "หกสิบวัน",
+      "title_en": "Sixty Days",
+      "description": "Streak ยาวถึง 60 วัน",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "streak_days_max",
+        "op": ">=",
+        "target": 60
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "streak_100",
+      "category": "will",
+      "title_th": "ร้อยวันติด",
+      "title_en": "Hundred Day Streak",
+      "description": "Streak ยาวถึง 100 วัน",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "streak_days_max",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "streak_200",
+      "category": "will",
+      "title_th": "สองร้อยวัน",
+      "title_en": "Two Hundred Days",
+      "description": "Streak ยาวถึง 200 วัน",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "streak_days_max",
+        "op": ">=",
+        "target": 200
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "streak_365",
+      "category": "will",
+      "title_th": "หนึ่งปีเต็ม",
+      "title_en": "Full Year",
+      "description": "Streak ยาวถึง 365 วัน",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "streak_days_max",
+        "op": ">=",
+        "target": 365
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "weekgoal_1",
+      "category": "will",
+      "title_th": "ตามเป้าหนึ่งสัปดาห์",
+      "title_en": "Week On Target",
+      "description": "ทำตามเป้า Weekly Consistency ได้ 1 สัปดาห์ (ไม่ต้องติดกัน)",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "weekly_goal_weeks_total",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "weekgoal_4",
+      "category": "will",
+      "title_th": "ตามเป้าหนึ่งเดือน",
+      "title_en": "Month On Target",
+      "description": "ทำตามเป้า Weekly Consistency ได้ 4 สัปดาห์ (ไม่ต้องติดกัน)",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "weekly_goal_weeks_total",
+        "op": ">=",
+        "target": 4
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "weekgoal_12",
+      "category": "will",
+      "title_th": "ตามเป้าสามเดือน",
+      "title_en": "Quarter On Target",
+      "description": "ทำตามเป้า Weekly Consistency ได้ 12 สัปดาห์ (ไม่ต้องติดกัน)",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "weekly_goal_weeks_total",
+        "op": ">=",
+        "target": 12
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "weekgoal_26",
+      "category": "will",
+      "title_th": "ตามเป้าครึ่งปี",
+      "title_en": "Half-Year On Target",
+      "description": "ทำตามเป้า Weekly Consistency ได้ 26 สัปดาห์ (ไม่ต้องติดกัน)",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "weekly_goal_weeks_total",
+        "op": ">=",
+        "target": 26
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "weekgoal_52",
+      "category": "will",
+      "title_th": "ตามเป้าทั้งปี",
+      "title_en": "Year On Target",
+      "description": "ทำตามเป้า Weekly Consistency ได้ 52 สัปดาห์ (ไม่ต้องติดกัน)",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "weekly_goal_weeks_total",
+        "op": ">=",
+        "target": 52
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "nosnooze_7",
+      "category": "will",
+      "title_th": "ตื่นไม่เลื่อน",
+      "title_en": "No Snooze",
+      "description": "ตื่นตามเวลาที่ตั้งโดยไม่กดเลื่อนปลุกครบ 7 วัน",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "no_snooze_days_total",
+        "op": ">=",
+        "target": 7
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "nosnooze_30",
+      "category": "will",
+      "title_th": "ตื่นตรงเวลาหนึ่งเดือน",
+      "title_en": "Early Rhythm",
+      "description": "ตื่นตามเวลาที่ตั้งโดยไม่กดเลื่อนปลุกครบ 30 วัน",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "no_snooze_days_total",
+        "op": ">=",
+        "target": 30
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "nosnooze_100",
+      "category": "will",
+      "title_th": "ร้อยเช้าไม่เลื่อน",
+      "title_en": "Hundred Mornings",
+      "description": "ตื่นตามเวลาที่ตั้งโดยไม่กดเลื่อนปลุกครบ 100 วัน",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "no_snooze_days_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "screen_7",
+      "category": "will",
+      "title_th": "มือถืออยู่ไกล",
+      "title_en": "Phone Away",
+      "description": "ทำเควสต์งดโซเชียลหรือลดหน้าจอครบ 7 วัน",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "screen_free_days_total",
+        "op": ">=",
+        "target": 7
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "screen_30",
+      "category": "will",
+      "title_th": "หนึ่งเดือนที่เลือกเอง",
+      "title_en": "Month Of Choice",
+      "description": "ทำเควสต์งดโซเชียลหรือลดหน้าจอครบ 30 วัน",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "screen_free_days_total",
+        "op": ">=",
+        "target": 30
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "screen_100",
+      "category": "will",
+      "title_th": "ร้อยวันที่คุมหน้าจอได้",
+      "title_en": "Screen Master",
+      "description": "ทำเควสต์งดโซเชียลหรือลดหน้าจอครบ 100 วัน",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "screen_free_days_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "cold_7",
+      "category": "will",
+      "title_th": "น้ำเย็นปลุกใจ",
+      "title_en": "Cold Wake",
+      "description": "ทำเควสต์อาบน้ำเย็นครบ 7 วัน",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "cold_shower_days_total",
+        "op": ">=",
+        "target": 7
+      },
+      "hide_for_minor": false,
+      "excluded_flags": [
+        "medical_limit",
+        "pregnancy"
+      ]
+    },
+    {
+      "id": "cold_30",
+      "category": "will",
+      "title_th": "ใจเย็นเหมือนน้ำ",
+      "title_en": "Cool Mind",
+      "description": "ทำเควสต์อาบน้ำเย็นครบ 30 วัน",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "cold_shower_days_total",
+        "op": ">=",
+        "target": 30
+      },
+      "hide_for_minor": false,
+      "excluded_flags": [
+        "medical_limit",
+        "pregnancy"
+      ]
+    },
+    {
+      "id": "comeback_1",
+      "category": "will",
+      "title_th": "กลับมาแล้ว",
+      "title_en": "Back Again",
+      "description": "กลับมาทำ Comeback Quest สำเร็จครบ 1 ครั้ง",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "comeback_count",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "comeback_3",
+      "category": "will",
+      "title_th": "กลับมาอีกครั้ง",
+      "title_en": "Return Again",
+      "description": "กลับมาทำ Comeback Quest สำเร็จครบ 3 ครั้ง",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "comeback_count",
+        "op": ">=",
+        "target": 3
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "comeback_10",
+      "category": "will",
+      "title_th": "ไม่เคยทิ้งกัน",
+      "title_en": "Never Gone",
+      "description": "กลับมาทำ Comeback Quest สำเร็จครบ 10 ครั้ง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "comeback_count",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "journal_7",
+      "category": "mind",
+      "title_th": "เขียนครบหนึ่งสัปดาห์",
+      "title_en": "Week Of Writing",
+      "description": "เขียนไดอารี่ครบ 7 ครั้ง",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "journal_entries_total",
+        "op": ">=",
+        "target": 7
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "journal_30",
+      "category": "mind",
+      "title_th": "หนึ่งเดือนบนกระดาษ",
+      "title_en": "Month On Paper",
+      "description": "เขียนไดอารี่ครบ 30 ครั้ง",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "journal_entries_total",
+        "op": ">=",
+        "target": 30
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "journal_100",
+      "category": "mind",
+      "title_th": "ร้อยหน้า",
+      "title_en": "Hundred Pages",
+      "description": "เขียนไดอารี่ครบ 100 ครั้ง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "journal_entries_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "journal_365",
+      "category": "mind",
+      "title_th": "หนังสือของตัวเอง",
+      "title_en": "Book Of Me",
+      "description": "เขียนไดอารี่ครบ 365 ครั้ง",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "journal_entries_total",
+        "op": ">=",
+        "target": 365
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "mood_7",
+      "category": "mind",
+      "title_th": "รู้ทันใจตัวเอง",
+      "title_en": "Know Your Mind",
+      "description": "บันทึกอารมณ์ครบ 7 ครั้ง",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "mood_logs_total",
+        "op": ">=",
+        "target": 7
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "mood_30",
+      "category": "mind",
+      "title_th": "หนึ่งเดือนของอารมณ์",
+      "title_en": "Mood Month",
+      "description": "บันทึกอารมณ์ครบ 30 ครั้ง",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "mood_logs_total",
+        "op": ">=",
+        "target": 30
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "mood_100",
+      "category": "mind",
+      "title_th": "ร้อยครั้งที่ถามใจ",
+      "title_en": "Hundred Check-ins",
+      "description": "บันทึกอารมณ์ครบ 100 ครั้ง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "mood_logs_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "journal_long",
+      "category": "mind",
+      "title_th": "เล่าเต็มที่",
+      "title_en": "Full Story",
+      "description": "เขียนไดอารี่หนึ่งหน้ายาวตั้งแต่ 500 ตัวอักษร",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "journal_entry_chars_max",
+        "op": ">=",
+        "target": 500
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "recap_1",
+      "category": "mind",
+      "title_th": "มองย้อนกลับ",
+      "title_en": "Look Back",
+      "description": "เปิดอ่านสรุป Journey Recap ครบ 1 ครั้ง",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "recap_viewed_total",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "recap_4",
+      "category": "mind",
+      "title_th": "ทบทวนเป็นนิสัย",
+      "title_en": "Review Habit",
+      "description": "เปิดอ่านสรุป Journey Recap ครบ 4 ครั้ง",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "recap_viewed_total",
+        "op": ">=",
+        "target": 4
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "recap_12",
+      "category": "mind",
+      "title_th": "สามเดือนแห่งการทบทวน",
+      "title_en": "Quarter Of Reflection",
+      "description": "เปิดอ่านสรุป Journey Recap ครบ 12 ครั้ง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "recap_viewed_total",
+        "op": ">=",
+        "target": 12
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "journal_month",
+      "category": "mind",
+      "title_th": "เดือนที่ไม่ขาดหน้า",
+      "title_en": "Every Page",
+      "description": "มีไดอารี่ครบทุกวันในหนึ่งเดือนปฏิทิน",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "journal_full_month",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "mood_variety",
+      "category": "mind",
+      "title_th": "ทุกสีของอารมณ์",
+      "title_en": "Every Shade",
+      "description": "เลือกบันทึกอารมณ์ต่างกันอย่างน้อย 5 แบบ",
+      "tier": "silver",
+      "xp": 75,
+      "stat": null,
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "moods_distinct",
+        "op": ">=",
+        "target": 5
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "meals_10",
+      "category": "food",
+      "title_th": "สิบมื้อแรก",
+      "title_en": "First Ten Meals",
+      "description": "บันทึกอาหารครบ 10 มื้อ",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "meal_logs_total",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "meals_50",
+      "category": "food",
+      "title_th": "ห้าสิบมื้อ",
+      "title_en": "Fifty Meals",
+      "description": "บันทึกอาหารครบ 50 มื้อ",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "meal_logs_total",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "meals_150",
+      "category": "food",
+      "title_th": "ร้อยห้าสิบมื้อ",
+      "title_en": "Hundred Fifty Meals",
+      "description": "บันทึกอาหารครบ 150 มื้อ",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "meal_logs_total",
+        "op": ">=",
+        "target": 150
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "meals_500",
+      "category": "food",
+      "title_th": "ห้าร้อยมื้อ",
+      "title_en": "Five Hundred Meals",
+      "description": "บันทึกอาหารครบ 500 มื้อ",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "meal_logs_total",
+        "op": ">=",
+        "target": 500
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fullmeal_7",
+      "category": "food",
+      "title_th": "จดครบทุกมื้อ",
+      "title_en": "Every Meal",
+      "description": "บันทึกมื้อเช้า กลางวัน เย็นครบทั้งสามมื้อ 7 วัน",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "full_meal_days_total",
+        "op": ">=",
+        "target": 7
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "fullmeal_30",
+      "category": "food",
+      "title_th": "จดครบทั้งเดือน",
+      "title_en": "Every Meal Month",
+      "description": "บันทึกมื้อเช้า กลางวัน เย็นครบทั้งสามมื้อ 30 วัน",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "full_meal_days_total",
+        "op": ">=",
+        "target": 30
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "scanfix_1",
+      "category": "food",
+      "title_th": "ตาถึงกว่า AI",
+      "title_en": "Sharper Than AI",
+      "description": "แก้ผลที่ AI สแกนจากรูปอาหารให้ถูกต้องครบ 1 ครั้ง",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "scan_corrections_total",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "scanfix_10",
+      "category": "food",
+      "title_th": "ผู้ตรวจสอบประจำ",
+      "title_en": "Inspector",
+      "description": "แก้ผลที่ AI สแกนจากรูปอาหารให้ถูกต้องครบ 10 ครั้ง",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "scan_corrections_total",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "meal_photo",
+      "category": "food",
+      "title_th": "อัลบั้มอาหาร",
+      "title_en": "Food Album",
+      "description": "แนบรูปอาหารในบันทึกครบ 10 มื้อ",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "meal_photos_total",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "level_5",
+      "category": "rank",
+      "title_th": "เริ่มติดลม",
+      "title_en": "Warming Up",
+      "description": "ถึงเลเวล 5",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "level_reached",
+        "op": ">=",
+        "target": 5
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "level_10",
+      "category": "rank",
+      "title_th": "ครบสิบเลเวล",
+      "title_en": "Level Ten",
+      "description": "ถึงเลเวล 10",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "level_reached",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "level_25",
+      "category": "rank",
+      "title_th": "ยี่สิบห้า",
+      "title_en": "Level 25",
+      "description": "ถึงเลเวล 25",
+      "tier": "silver",
+      "xp": 75,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "level_reached",
+        "op": ">=",
+        "target": 25
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "level_50",
+      "category": "rank",
+      "title_th": "ห้าสิบเลเวล",
+      "title_en": "Level 50",
+      "description": "ถึงเลเวล 50",
+      "tier": "gold",
+      "xp": 200,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "level_reached",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "level_75",
+      "category": "rank",
+      "title_th": "เจ็ดสิบห้า",
+      "title_en": "Level 75",
+      "description": "ถึงเลเวล 75",
+      "tier": "gold",
+      "xp": 200,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "level_reached",
+        "op": ">=",
+        "target": 75
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "level_100",
+      "category": "rank",
+      "title_th": "ร้อยเลเวล",
+      "title_en": "Level 100",
+      "description": "ถึงเลเวล 100",
+      "tier": "gold",
+      "xp": 200,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "level_reached",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "level_150",
+      "category": "rank",
+      "title_th": "ร้อยห้าสิบ",
+      "title_en": "Level 150",
+      "description": "ถึงเลเวล 150",
+      "tier": "legend",
+      "xp": 500,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "level_reached",
+        "op": ">=",
+        "target": 150
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "level_220",
+      "category": "rank",
+      "title_th": "ก่อนถึงบัลลังก์",
+      "title_en": "Before The Throne",
+      "description": "ถึงเลเวล 220",
+      "tier": "legend",
+      "xp": 500,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "level_reached",
+        "op": ">=",
+        "target": 220
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "rank_D",
+      "category": "rank",
+      "title_th": "ก้าวสู่ D",
+      "title_en": "Rank D",
+      "description": "เลื่อนแรงค์เป็น D – Novice",
+      "tier": "silver",
+      "xp": 75,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "rank_reached",
+        "op": "==",
+        "target": "D"
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "rank_C",
+      "category": "rank",
+      "title_th": "ก้าวสู่ C",
+      "title_en": "Rank C",
+      "description": "เลื่อนแรงค์เป็น C – Fighter",
+      "tier": "silver",
+      "xp": 75,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "rank_reached",
+        "op": "==",
+        "target": "C"
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "rank_B",
+      "category": "rank",
+      "title_th": "ก้าวสู่ B",
+      "title_en": "Rank B",
+      "description": "เลื่อนแรงค์เป็น B – Elite",
+      "tier": "gold",
+      "xp": 200,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "rank_reached",
+        "op": "==",
+        "target": "B"
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "rank_A",
+      "category": "rank",
+      "title_th": "ก้าวสู่ A",
+      "title_en": "Rank A",
+      "description": "เลื่อนแรงค์เป็น A – Master",
+      "tier": "gold",
+      "xp": 200,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "rank_reached",
+        "op": "==",
+        "target": "A"
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "rank_S",
+      "category": "rank",
+      "title_th": "ก้าวสู่ S",
+      "title_en": "Rank S",
+      "description": "เลื่อนแรงค์เป็น S – Champion",
+      "tier": "legend",
+      "xp": 500,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "rank_reached",
+        "op": "==",
+        "target": "S"
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "rank_SS",
+      "category": "rank",
+      "title_th": "ก้าวสู่ SS",
+      "title_en": "Rank SS",
+      "description": "เลื่อนแรงค์เป็น SS – National Level",
+      "tier": "legend",
+      "xp": 500,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "rank_reached",
+        "op": "==",
+        "target": "SS"
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "rank_M",
+      "category": "rank",
+      "title_th": "ราชันย์",
+      "title_en": "Monarch",
+      "description": "เลื่อนแรงค์เป็น Monarch",
+      "tier": "legend",
+      "xp": 500,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "rank_reached",
+        "op": "==",
+        "target": "M"
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "quests_10",
+      "category": "quest",
+      "title_th": "สิบเควสต์แรก",
+      "title_en": "First Ten Quests",
+      "description": "ทำเควสต์สำเร็จครบ 10 ข้อ",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "quests_total",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "quests_50",
+      "category": "quest",
+      "title_th": "ห้าสิบเควสต์",
+      "title_en": "Fifty Quests",
+      "description": "ทำเควสต์สำเร็จครบ 50 ข้อ",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "quests_total",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "quests_100",
+      "category": "quest",
+      "title_th": "ร้อยเควสต์",
+      "title_en": "Hundred Quests",
+      "description": "ทำเควสต์สำเร็จครบ 100 ข้อ",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "quests_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "quests_500",
+      "category": "quest",
+      "title_th": "ห้าร้อยเควสต์",
+      "title_en": "Five Hundred Quests",
+      "description": "ทำเควสต์สำเร็จครบ 500 ข้อ",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "quests_total",
+        "op": ">=",
+        "target": 500
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "quests_1000",
+      "category": "quest",
+      "title_th": "พันเควสต์",
+      "title_en": "Thousand Quests",
+      "description": "ทำเควสต์สำเร็จครบ 1,000 ข้อ",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "quests_total",
+        "op": ">=",
+        "target": 1000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "quests_2500",
+      "category": "quest",
+      "title_th": "นักผจญภัยตลอดกาล",
+      "title_en": "Legendary Adventurer",
+      "description": "ทำเควสต์สำเร็จครบ 2,500 ข้อ",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "quests_total",
+        "op": ">=",
+        "target": 2500
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "weekly_1",
+      "category": "quest",
+      "title_th": "เควสต์สัปดาห์แรก",
+      "title_en": "First Weekly",
+      "description": "ทำ Weekly Quest สำเร็จครบ 1 ข้อ",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "weekly_quests_total",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "weekly_10",
+      "category": "quest",
+      "title_th": "สิบเควสต์สัปดาห์",
+      "title_en": "Ten Weeklies",
+      "description": "ทำ Weekly Quest สำเร็จครบ 10 ข้อ",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "weekly_quests_total",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "weekly_50",
+      "category": "quest",
+      "title_th": "ห้าสิบเควสต์สัปดาห์",
+      "title_en": "Fifty Weeklies",
+      "description": "ทำ Weekly Quest สำเร็จครบ 50 ข้อ",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "weekly_quests_total",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "milestone_1",
+      "category": "quest",
+      "title_th": "หมุดหมายแรก",
+      "title_en": "First Milestone",
+      "description": "ทำ Milestone Quest สำเร็จครบ 1 ข้อ",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "milestone_quests_total",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "milestone_5",
+      "category": "quest",
+      "title_th": "ห้าหมุดหมาย",
+      "title_en": "Five Milestones",
+      "description": "ทำ Milestone Quest สำเร็จครบ 5 ข้อ",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "milestone_quests_total",
+        "op": ">=",
+        "target": 5
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "milestone_20",
+      "category": "quest",
+      "title_th": "นักสะสมหมุดหมาย",
+      "title_en": "Milestone Collector",
+      "description": "ทำ Milestone Quest สำเร็จครบ 20 ข้อ",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "milestone_quests_total",
+        "op": ">=",
+        "target": 20
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "personal_10",
+      "category": "quest",
+      "title_th": "ผู้กำหนดกฎเอง",
+      "title_en": "Rule Maker",
+      "description": "ทำ Personal Quest ที่ตั้งเองสำเร็จครบ 10 ครั้ง",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "personal_quests_completed",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "personal_50",
+      "category": "quest",
+      "title_th": "เจ้าของเส้นทางตัวเอง",
+      "title_en": "Own Path",
+      "description": "ทำ Personal Quest ที่ตั้งเองสำเร็จครบ 50 ครั้ง",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "personal_quests_completed",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "swap_10",
+      "category": "quest",
+      "title_th": "ช่างเลือก",
+      "title_en": "Picky",
+      "description": "สลับเควสต์ประจำวันครบ 10 ครั้ง",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": true,
+      "phase": 1,
+      "criteria": {
+        "metric": "quest_swaps_total",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stat_str_25",
+      "category": "stat",
+      "title_th": "แรงเริ่มตื่น",
+      "title_en": "Strength Stirs",
+      "description": "ค่า STR ถึง 25",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "stat_STR",
+        "op": ">=",
+        "target": 25
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stat_str_50",
+      "category": "stat",
+      "title_th": "กำลังแข็งแกร่ง",
+      "title_en": "Strong",
+      "description": "ค่า STR ถึง 50",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "stat_STR",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stat_str_100",
+      "category": "stat",
+      "title_th": "พลังเหล็ก",
+      "title_en": "Iron Strength",
+      "description": "ค่า STR ถึง 100",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "STR",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "stat_STR",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stat_vit_25",
+      "category": "stat",
+      "title_th": "หัวใจเริ่มเต้นแรง",
+      "title_en": "Heart Awakens",
+      "description": "ค่า VIT ถึง 25",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "stat_VIT",
+        "op": ">=",
+        "target": 25
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stat_vit_50",
+      "category": "stat",
+      "title_th": "อึดขึ้นเยอะ",
+      "title_en": "Enduring",
+      "description": "ค่า VIT ถึง 50",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "stat_VIT",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stat_vit_100",
+      "category": "stat",
+      "title_th": "ความอึดไม่หมด",
+      "title_en": "Tireless",
+      "description": "ค่า VIT ถึง 100",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "VIT",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "stat_VIT",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stat_int_25",
+      "category": "stat",
+      "title_th": "ความคิดเริ่มใส",
+      "title_en": "Mind Clears",
+      "description": "ค่า INT ถึง 25",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "stat_INT",
+        "op": ">=",
+        "target": 25
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stat_int_50",
+      "category": "stat",
+      "title_th": "สมองแจ่ม",
+      "title_en": "Sharp Mind",
+      "description": "ค่า INT ถึง 50",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "stat_INT",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stat_int_100",
+      "category": "stat",
+      "title_th": "ปัญญาลึก",
+      "title_en": "Deep Mind",
+      "description": "ค่า INT ถึง 100",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "INT",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "stat_INT",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stat_wil_25",
+      "category": "stat",
+      "title_th": "ใจเริ่มนิ่ง",
+      "title_en": "Steady Heart",
+      "description": "ค่า WIL ถึง 25",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "stat_WIL",
+        "op": ">=",
+        "target": 25
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stat_wil_50",
+      "category": "stat",
+      "title_th": "ใจเหล็ก",
+      "title_en": "Iron Will",
+      "description": "ค่า WIL ถึง 50",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "stat_WIL",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stat_wil_100",
+      "category": "stat",
+      "title_th": "ใจไม่หวั่น",
+      "title_en": "Unshakable",
+      "description": "ค่า WIL ถึง 100",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "stat_WIL",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stat_all_50",
+      "category": "stat",
+      "title_th": "สมดุลทั้งสี่",
+      "title_en": "Four In Balance",
+      "description": "ค่า STR, VIT, INT, WIL ถึง 50 ครบทั้งสี่ค่า",
+      "tier": "gold",
+      "xp": 200,
+      "stat": null,
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "stat_min_all",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "stat_all_100",
+      "category": "stat",
+      "title_th": "ผู้ตื่นรู้สมบูรณ์",
+      "title_en": "Fully Awakened",
+      "description": "ค่า STR, VIT, INT, WIL ถึง 100 ครบทั้งสี่ค่า",
+      "tier": "legend",
+      "xp": 500,
+      "stat": null,
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "stat_min_all",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "app_dashboard",
+      "category": "app",
+      "title_th": "จัดบ้านเอง",
+      "title_en": "My Layout",
+      "description": "ปรับการ์ดบน Dashboard (เปิด ปิด หรือเรียงใหม่)",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:dashboard_customized",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "app_export",
+      "category": "app",
+      "title_th": "สำรองไว้ก่อน",
+      "title_en": "Backed Up",
+      "description": "ส่งออกข้อมูลสำรองครั้งแรก",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:export_done",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "app_lock",
+      "category": "app",
+      "title_th": "ล็อกไว้ใจ",
+      "title_en": "Locked In",
+      "description": "ตั้งรหัสหรือลายนิ้วมือล็อกแอป",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "event:applock_set",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "app_narrator",
+      "category": "app",
+      "title_th": "เปลี่ยนเสียงผู้นำทาง",
+      "title_en": "New Voice",
+      "description": "เปลี่ยนโทนของเสียงผู้นำทาง (Narrator)",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "event:narrator_changed",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "app_widget",
+      "category": "app",
+      "title_th": "ติดหน้าจอ",
+      "title_en": "On The Home Screen",
+      "description": "เพิ่ม Widget ของ Awakened บนหน้าจอหลัก",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 3,
+      "criteria": {
+        "metric": "event:widget_added",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "app_tabs",
+      "category": "app",
+      "title_th": "สำรวจครบห้าแท็บ",
+      "title_en": "Five Tabs",
+      "description": "เปิดดูครบทั้ง 5 แท็บ: Home, Track, Train, Journey, Profile",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "tabs_visited",
+        "op": ">=",
+        "target": 5
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "app_adjust",
+      "category": "app",
+      "title_th": "ปรับให้พอดี",
+      "title_en": "Just Right",
+      "description": "ยอมรับข้อเสนอปรับความยากของแอป (เพิ่มหรือลด) ครั้งแรก",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "event:difficulty_adjusted",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "app_credits",
+      "category": "app",
+      "title_th": "รู้จักเบื้องหลัง",
+      "title_en": "Behind The Scenes",
+      "description": "เปิดอ่านหน้าเครดิตและไลเซนส์",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:credits_viewed",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "active_14",
+      "category": "secret",
+      "title_th": "สองสัปดาห์แรก",
+      "title_en": "First Fortnight",
+      "description": "มีกิจกรรมที่บันทึกรวม 14 วัน (ไม่ต้องติดกัน)",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "active_days_total",
+        "op": ">=",
+        "target": 14
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "active_30",
+      "category": "secret",
+      "title_th": "หนึ่งเดือนแรก",
+      "title_en": "First Month",
+      "description": "มีกิจกรรมที่บันทึกรวม 30 วัน (ไม่ต้องติดกัน)",
+      "tier": "silver",
+      "xp": 75,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "active_days_total",
+        "op": ">=",
+        "target": 30
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "active_66",
+      "category": "secret",
+      "title_th": "หกสิบหกวัน",
+      "title_en": "Sixty-Six Days",
+      "description": "มีกิจกรรมที่บันทึกรวม 66 วัน (ไม่ต้องติดกัน)",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "active_days_total",
+        "op": ">=",
+        "target": 66
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "active_100",
+      "category": "secret",
+      "title_th": "ร้อยวัน",
+      "title_en": "Hundred Days",
+      "description": "มีกิจกรรมที่บันทึกรวม 100 วัน (ไม่ต้องติดกัน)",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "active_days_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "active_365",
+      "category": "secret",
+      "title_th": "หนึ่งปี",
+      "title_en": "One Year",
+      "description": "มีกิจกรรมที่บันทึกรวม 365 วัน (ไม่ต้องติดกัน)",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "active_days_total",
+        "op": ">=",
+        "target": 365
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "active_1000",
+      "category": "secret",
+      "title_th": "หนึ่งพันวัน",
+      "title_en": "Thousand Days",
+      "description": "มีกิจกรรมที่บันทึกรวม 1,000 วัน (ไม่ต้องติดกัน)",
+      "tier": "legend",
+      "xp": 500,
+      "stat": "WIL",
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "active_days_total",
+        "op": ">=",
+        "target": 1000
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "boss_slayer",
+      "category": "secret",
+      "title_th": "ล้มบอสใหญ่",
+      "title_en": "Boss Slayer",
+      "description": "ทำเควสต์ที่ระบบจัดมาสู้กับ \"บอสใหญ่\" ที่เลือกตอนเริ่มครบ 30 ข้อ (ชื่อถ้วยเปลี่ยนตามบอส เช่น ล้มบอสไฟมอดไว)",
+      "tier": "gold",
+      "xp": 200,
+      "stat": "WIL",
+      "hidden": true,
+      "phase": 2,
+      "criteria": {
+        "metric": "boss_quests_total",
+        "op": ">=",
+        "target": 30
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "vow_review",
+      "category": "secret",
+      "title_th": "ทบทวนคำมั่น",
+      "title_en": "Vow Review",
+      "description": "ครบ 66 วันหลังปฏิญาณ เปิดดู Vow ของตัวเองแล้วยืนยันหรือเขียนใหม่",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 2,
+      "criteria": {
+        "metric": "event:vow_reviewed",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "anniversary",
+      "category": "secret",
+      "title_th": "ครบรอบการตื่น",
+      "title_en": "Awakening Anniversary",
+      "description": "มีกิจกรรมในวันครบ 1 ปีหลังกดคำปฏิญาณ",
+      "tier": "gold",
+      "xp": 200,
+      "stat": null,
+      "hidden": true,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:anniversary_activity",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "new_year",
+      "category": "secret",
+      "title_th": "ปีใหม่ก็ยังขยับ",
+      "title_en": "New Year Move",
+      "description": "บันทึกกิจกรรมใดก็ได้ในวันที่ 1 มกราคม",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": true,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:activity_on_jan1",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "songkran",
+      "category": "secret",
+      "title_th": "ชุ่มฉ่ำสงกรานต์",
+      "title_en": "Songkran Splash",
+      "description": "บันทึกการดื่มน้ำในวันที่ 13–15 เมษายน",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": true,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:water_on_songkran",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "midnight",
+      "category": "secret",
+      "title_th": "ก่อนเที่ยงคืน",
+      "title_en": "Before Midnight",
+      "description": "ทำเควสต์สำเร็จในช่วง 23:55–23:59",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": true,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:quest_before_midnight",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": true,
+      "excluded_flags": []
+    },
+    {
+      "id": "early_bird",
+      "category": "secret",
+      "title_th": "ตื่นก่อนอาทิตย์",
+      "title_en": "Before Sunrise",
+      "description": "ทำเควสต์สำเร็จก่อน 06:00 น.",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": true,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:quest_before_6am",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": true,
+      "excluded_flags": []
+    },
+    {
+      "id": "exact_xp",
+      "category": "secret",
+      "title_th": "พอดีเป๊ะ",
+      "title_en": "Dead Even",
+      "description": "เลเวลอัปโดยมี XP เหลือเป็น 0 พอดี",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": true,
+      "phase": 1,
+      "criteria": {
+        "metric": "event:levelup_exact",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "door_open",
+      "category": "secret",
+      "title_th": "ประตูไม่เคยล็อก",
+      "title_en": "Open Door",
+      "description": "กลับมาใช้แอปหลังหายไปอย่างน้อย 30 วัน แล้วทำ Comeback Quest สำเร็จ",
+      "tier": "gold",
+      "xp": 200,
+      "stat": null,
+      "hidden": true,
+      "phase": 2,
+      "criteria": {
+        "metric": "event:return_after_30d",
+        "op": ">=",
+        "target": 1
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "meta_10",
+      "category": "secret",
+      "title_th": "นักสะสมหน้าใหม่",
+      "title_en": "New Collector",
+      "description": "ปลดล็อกถ้วยรางวัลรวม 10 ใบ",
+      "tier": "bronze",
+      "xp": 25,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "achievements_unlocked_total",
+        "op": ">=",
+        "target": 10
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "meta_25",
+      "category": "secret",
+      "title_th": "นักสะสม",
+      "title_en": "Collector",
+      "description": "ปลดล็อกถ้วยรางวัลรวม 25 ใบ",
+      "tier": "silver",
+      "xp": 75,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "achievements_unlocked_total",
+        "op": ">=",
+        "target": 25
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "meta_50",
+      "category": "secret",
+      "title_th": "นักสะสมตัวจริง",
+      "title_en": "True Collector",
+      "description": "ปลดล็อกถ้วยรางวัลรวม 50 ใบ",
+      "tier": "gold",
+      "xp": 200,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "achievements_unlocked_total",
+        "op": ">=",
+        "target": 50
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    },
+    {
+      "id": "meta_100",
+      "category": "secret",
+      "title_th": "ตำนานแห่งถ้วยรางวัล",
+      "title_en": "Trophy Legend",
+      "description": "ปลดล็อกถ้วยรางวัลรวม 100 ใบ",
+      "tier": "legend",
+      "xp": 500,
+      "stat": null,
+      "hidden": false,
+      "phase": 1,
+      "criteria": {
+        "metric": "achievements_unlocked_total",
+        "op": ">=",
+        "target": 100
+      },
+      "hide_for_minor": false,
+      "excluded_flags": []
+    }
+  ]
+}
