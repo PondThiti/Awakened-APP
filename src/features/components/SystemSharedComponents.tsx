@@ -169,33 +169,19 @@ export const CelebrationOverlay: React.FC<{
         useNativeDriver: true,
       }),
       Animated.loop(
-        Animated.sequence([
-          Animated.parallel([
-            Animated.timing(ringScale, {
-              toValue: 1.35,
-              duration: 1300,
-              easing: Easing.out(Easing.quad),
-              useNativeDriver: true,
-            }),
-            Animated.timing(ringOpacity, {
-              toValue: 0,
-              duration: 1300,
-              easing: Easing.out(Easing.quad),
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.parallel([
-            Animated.timing(ringScale, {
-              toValue: 0.75,
-              duration: 0,
-              useNativeDriver: true,
-            }),
-            Animated.timing(ringOpacity, {
-              toValue: 0.7,
-              duration: 0,
-              useNativeDriver: true,
-            }),
-          ]),
+        Animated.parallel([
+          Animated.timing(ringScale, {
+            toValue: 1.35,
+            duration: 1300,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(ringOpacity, {
+            toValue: 0,
+            duration: 1300,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
         ])
       ),
     ]).start();

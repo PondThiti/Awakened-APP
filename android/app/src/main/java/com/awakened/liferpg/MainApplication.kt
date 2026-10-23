@@ -55,12 +55,15 @@ class MainApplication : Application(), ReactApplication {
       val recordedInstallTime = guardPrefs.getLong("first_install_time", -1L)
 
       if (recordedInstallTime != currentInstallTime) {
-        // Fresh install or reinstall after uninstall: wipe any residual databases/files
-        val dataDir = File(applicationInfo.dataDir)
-        File(dataDir, "databases").deleteRecursively()
-        File(dataDir, "files").deleteRecursively()
-        File(dataDir, "cache").deleteRecursively()
-
+        if (recordedInstallTime != -1L) {
+          // Reinstall after uninstall where OEM ROM restored residual data: wipe contents cleanly
+          val dataDir = File(applicationInfo.dataDir)
+          File(dataDir, "databases").deleteRecursively()
+          File(dataDir, "files").listFiles()?.forEach { it.deleteRecursively() }
+          File(dataDir, "cache").listFiles()?.forEach { it.deleteRecursively() }
+        }
+        filesDir.mkdirs()
+        cacheDir.mkdirs()
         guardPrefs.edit().clear().putLong("first_install_time", currentInstallTime).commit()
       }
     } catch (_: Throwable) {

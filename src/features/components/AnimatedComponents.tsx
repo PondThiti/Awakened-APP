@@ -49,9 +49,17 @@ export const AnimatedPressable: React.FC<
     onPressOut?.(e);
   };
 
+  const flat = (StyleSheet.flatten(style) || {}) as ViewStyle;
+  const { flex, flexGrow, flexShrink, ...innerStyle } = flat;
+  const outerLayoutStyle: ViewStyle = {};
+  if (flex !== undefined) outerLayoutStyle.flex = flex;
+  if (flexGrow !== undefined) outerLayoutStyle.flexGrow = flexGrow;
+  if (flexShrink !== undefined) outerLayoutStyle.flexShrink = flexShrink;
+  if (flat.alignSelf !== undefined) outerLayoutStyle.alignSelf = flat.alignSelf;
+
   return (
-    <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} {...rest}>
-      <Animated.View style={[style, { transform: [{ scale }] }]}>
+    <Pressable style={outerLayoutStyle} onPressIn={handlePressIn} onPressOut={handlePressOut} {...rest}>
+      <Animated.View style={[innerStyle, { transform: [{ scale }] }]}>
         {children}
       </Animated.View>
     </Pressable>
@@ -217,13 +225,13 @@ export const AnimatedProgressBar: React.FC<{
           toValue: 0.6,
           duration: 1200,
           easing: Easing.inOut(Easing.quad),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(pulseOpacity, {
           toValue: 0.15,
           duration: 1200,
           easing: Easing.inOut(Easing.quad),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
       ])
     );
@@ -234,6 +242,7 @@ export const AnimatedProgressBar: React.FC<{
   const widthInterpolated = animWidth.interpolate({
     inputRange: [0, 100],
     outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
   });
 
   return (
@@ -297,7 +306,7 @@ export const AnimatedBarColumn: React.FC<{
       toValue: clamped,
       duration: 500,
       delay,
-      easing: Easing.out(Easing.back(1.2)),
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
   }, [clamped, delay, reduceMotion]);
@@ -305,6 +314,7 @@ export const AnimatedBarColumn: React.FC<{
   const heightInterpolated = animHeight.interpolate({
     inputRange: [0, 100],
     outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
   });
 
   return (
