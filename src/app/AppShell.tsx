@@ -16,6 +16,7 @@ import { TrackScreen } from '../features/track/TrackScreen';
 import { TrainScreen } from '../features/train/TrainScreen';
 import { JourneyScreen } from '../features/journey/JourneyScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
+import { OnboardingQuestionnaireScreen } from '../features/onboarding/OnboardingQuestionnaireScreen';
 import {
   CelebrationOverlay,
   QuickAddFabModal,
@@ -37,6 +38,7 @@ export type NavTab = 'home' | 'track' | 'train' | 'journey' | 'profile';
 export const AppShell: React.FC = () => {
   const {
     db,
+    isLoaded,
     levelState,
     currentRank,
     celebrationQueue,
@@ -44,6 +46,8 @@ export const AppShell: React.FC = () => {
     logWater,
     logRestDayCheckin,
     updateProfile,
+    updateOnboardingDraft,
+    completeOnboarding,
   } = useAwakened();
 
   const [activeTab, setActiveTab] = useState<NavTab>('home');
@@ -83,6 +87,26 @@ export const AppShell: React.FC = () => {
     { id: 'journey', icon: 'journal', label: strings.nav.journey },
     { id: 'profile', icon: 'user', label: strings.nav.profile },
   ];
+
+  if (isLoaded && !db.onboarding?.completed) {
+    return (
+      <OnboardingQuestionnaireScreen
+        initialDraft={db.onboarding}
+        theme={theme}
+        lang={lang}
+        soundEnabled={db.profile.soundEnabled}
+        reduceMotion={reduceMotion}
+        onToggleLanguage={() =>
+          updateProfile({ language: db.profile.language === 'th' ? 'en' : 'th' })
+        }
+        onSaveDraft={updateOnboardingDraft}
+        onFinishOnboarding={(finalDraft, pledged) => {
+          completeOnboarding(finalDraft, pledged);
+          setActiveTab('home');
+        }}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>

@@ -154,4 +154,43 @@ CREATE TABLE IF NOT EXISTS streak_log (
   day TEXT PRIMARY KEY,          -- 'YYYY-MM-DD'
   status TEXT NOT NULL           -- active|rest|frozen|missed
 );
+
+-- แบบสอบถามเริ่มต้น (Onboarding Questionnaire v0.2 - Section 9.1)
+CREATE TABLE IF NOT EXISTS onboarding_profile (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  nickname TEXT,
+  age_band TEXT NOT NULL,            -- '13-15','16-17','18-24','25-34','35-44','45-54','55-64','65+'
+  gender TEXT,                       -- 'male','female','other','undisclosed'
+  path TEXT NOT NULL,                -- 'strength'|'discipline'|'full'      (Q4)
+  feeling TEXT,                      -- 'uneasy'|'neutral'|'satisfied'      (Q5)
+  bosses TEXT,                       -- JSON array: fading_fire|self_defeat|no_direction|drained|no_time (Q6)
+  future_feel TEXT,                  -- 'regret'|'loop'|'start_now'         (Q7)
+  vow TEXT,                          -- (Q8)
+  future_self TEXT,                  -- (Q9)
+  freq_band INTEGER,                 -- 0..3 (Q10)
+  pushup_band INTEGER,               -- 0..3 หรือ NULL ถ้าข้าม (Q11)
+  equipment TEXT,                    -- 'bodyweight'|'home_gym'|'full_gym'|'outdoor' (Q12)
+  minutes_per_day INTEGER,           -- 10/15/30/60 (Q13)
+  best_time TEXT,                    -- morning|noon|evening|night|varies (Q14)
+  safety_flags TEXT,                 -- JSON array (Q15) เก็บในเครื่องเท่านั้น
+  energy INTEGER,                    -- 1..5 (Q16)
+  bedtime TEXT, wake_time TEXT,      -- (Q17)
+  activities TEXT,                   -- JSON array (Q18)
+  discipline_picks TEXT,             -- JSON array ≤3 (Q19)
+  water_goal_ml INTEGER DEFAULT 2000,-- เป้าน้ำที่ผู้ใช้เลือก (Q19)
+  narrator TEXT NOT NULL DEFAULT 'friend',  -- gentle|friend|coach|adventurer (Q20)
+  start_tier INTEGER NOT NULL DEFAULT 1,
+  starter_class TEXT,
+  quick_wins_until INTEGER,          -- epoch ที่หมดโหมด Quick Wins (7 วันแรก)
+  pledged_at INTEGER,                -- (Q21) NULL = ยังไม่ปฏิญาณ
+  version INTEGER NOT NULL DEFAULT 2,
+  updated_at INTEGER NOT NULL
+);
+
+-- ค่าสถานะผู้เล่น (STR / VIT / INT / WIL — ไม่ลดลง)
+CREATE TABLE IF NOT EXISTS player_stat (
+  stat TEXT PRIMARY KEY,             -- 'STR'|'VIT'|'INT'|'WIL'
+  value INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL
+);
 `;

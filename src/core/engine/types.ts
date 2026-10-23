@@ -10,6 +10,105 @@ export type QuestType = 'daily' | 'weekly' | 'milestone' | 'personal';
 export type QuestStatus = 'available' | 'in_progress' | 'completed' | 'skipped' | 'expired';
 export type StreakDayStatus = 'active' | 'rest' | 'frozen' | 'missed';
 
+// Onboarding Questionnaire v0.2 Types
+export type AgeBand =
+  | 'under_13'
+  | '13-15'
+  | '16-17'
+  | '18-24'
+  | '25-34'
+  | '35-44'
+  | '45-54'
+  | '55-64'
+  | '65+';
+
+export type GenderOption = 'male' | 'female' | 'other' | 'undisclosed';
+export type AwakeningPath = 'strength' | 'discipline' | 'full';
+export type DailyFeeling = 'uneasy' | 'neutral' | 'satisfied';
+export type BossId = 'fading_fire' | 'self_defeat' | 'no_direction' | 'drained' | 'no_time';
+export type FutureFeel = 'regret' | 'loop' | 'start_now';
+export type FutureSelfId = 'strong_energetic' | 'calm_controlled' | 'confident' | 'role_model';
+export type EquipmentOption = 'bodyweight' | 'home_gym' | 'full_gym' | 'outdoor';
+export type BestTimeOption = 'morning' | 'noon' | 'evening' | 'night' | 'varies';
+export type SafetyFlag =
+  | 'none'
+  | 'past_injury'
+  | 'injured_now'
+  | 'medical_limit'
+  | 'pregnancy'
+  | 'unsure'
+  | 'undisclosed';
+
+export type ActivityPreference =
+  | 'walk'
+  | 'run'
+  | 'bodyweight'
+  | 'weights'
+  | 'yoga_stretch'
+  | 'bike'
+  | 'swim'
+  | 'dance'
+  | 'sport_martial'
+  | 'unsure';
+
+export type DisciplinePickId =
+  | 'no_snooze'
+  | 'water_goal'
+  | 'no_social_30m'
+  | 'read_learn_15m'
+  | 'cold_shower'
+  | 'reduce_sugar_fried'
+  | 'meditate_3m'
+  | 'journal_short'
+  | 'sleep_on_time';
+
+export type NarratorTone = 'gentle' | 'friend' | 'coach' | 'adventurer';
+export type StarterClassId = 'warrior' | 'monk' | 'ranger' | 'scholar' | 'awakened';
+export type PlayerStatKey = 'STR' | 'VIT' | 'INT' | 'WIL';
+export type QuestSlot = 'body' | 'mind' | 'foundation' | 'bonus';
+
+export interface PlayerStats {
+  STR: number;
+  VIT: number;
+  INT: number;
+  WIL: number;
+}
+
+export interface OnboardingProfile {
+  id: 1;
+  nickname: string;
+  ageBand: AgeBand;
+  gender: GenderOption;
+  path: AwakeningPath;
+  feeling: DailyFeeling | null;
+  bosses: BossId[];
+  futureFeel: FutureFeel | null;
+  vow: string;
+  futureSelf: FutureSelfId | null;
+  freqBand: 0 | 1 | 2 | 3;
+  pushupBand: 0 | 1 | 2 | 3 | null;
+  equipment: EquipmentOption;
+  minutesPerDay: 10 | 15 | 30 | 60;
+  bestTime: BestTimeOption;
+  safetyFlags: SafetyFlag[];
+  energy: 1 | 2 | 3 | 4 | 5;
+  bedtime: string;
+  wakeTime: string;
+  activities: ActivityPreference[];
+  disciplinePicks: DisciplinePickId[];
+  waterGoalMl: number;
+  narrator: NarratorTone;
+  startTier: 1 | 2 | 3 | 4;
+  starterClass: StarterClassId;
+  quickWinsUntil: number | null;
+  pledgedAt: number | null;
+  completed: boolean;
+  currentStepIndex: number;
+  lastComebackBonusAt: number | null;
+  version: number;
+  updatedAt: number;
+}
+
 export interface UserProfile {
   id: 1;
   displayName: string;
@@ -110,11 +209,32 @@ export interface QuestTemplate {
   id: string;
   type: QuestType;
   category: 'health' | 'focus' | 'mind' | 'consistency';
+  slot?: QuestSlot;
+  stat?: PlayerStatKey | PlayerStatKey[];
   title_th: string;
   title_en: string;
   condition: QuestCondition;
   reward_xp: number;
   tags?: string[];
+  tier?: number[];
+  duration_min?: [number, number];
+  micro?: boolean;
+  comeback?: boolean;
+  requires?: {
+    equipment_any?: EquipmentOption[];
+  };
+  excludes?: {
+    safety_flags?: SafetyFlag[];
+    age_band?: AgeBand[];
+  };
+  boosts?: {
+    bosses?: BossId[];
+    path?: AwakeningPath[];
+    discipline_picks?: DisciplinePickId[];
+    activities?: ActivityPreference[];
+  };
+  warning_th?: string;
+  warning_en?: string;
   isCustom?: boolean;
   isActive?: boolean;
 }

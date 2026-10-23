@@ -1,0 +1,33 @@
+{
+  "fill": {
+    "automatic-gradient": "extended-srgb:0.08000,0.11000,0.24000,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "image-name": "spark.svg",
+          "name": "spark",
+          "position": { "scale": 1, "translation-in-points": [0, 0] }
+        },
+        {
+          "image-name": "emblem.svg",
+          "name": "emblem",
+          "glass": true,
+          "position": { "scale": 1, "translation-in-points": [0, 0] }
+        },
+        {
+          "image-name": "ring.svg",
+          "name": "ring",
+          "position": { "scale": 1, "translation-in-points": [0, 0] }
+        }
+      ],
+      "shadow": { "kind": "neutral", "opacity": 0.5 },
+      "translucency": { "enabled": true, "value": 0.4 }
+    }
+  ],
+  "supported-platforms": {
+    "circles": ["watchOS"],
+    "squares": "shared"
+  }
+}

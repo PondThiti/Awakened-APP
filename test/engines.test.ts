@@ -5,6 +5,15 @@ import { calculateActivityXp, canRevertXpOnDelete } from '../src/core/engine/xpE
 import { evaluateStreakState } from '../src/core/engine/streakEngine';
 import { clampPersonalQuestXp, evaluateQuestProgress, generateDailyQuestsForDay } from '../src/core/engine/questEngine';
 import { evaluateAdaptivePlan } from '../src/core/engine/adaptivePlanEngine';
+import {
+  calculateInitialStats,
+  calculateStartingTier,
+  createDefaultOnboardingProfile,
+  finalizeOnboardingProfile,
+  shouldHideColdShower,
+  shouldHideReduceSugar,
+  shouldSkipPushupTest,
+} from '../src/core/engine/onboardingEngine';
 
 describe('Awakened Core Engines — Section 18.1 Unit Tests', () => {
   it('1. LevelEngine: computes exact xpToNext and totalXpForLevel matching Appendix B', () => {
@@ -244,5 +253,83 @@ describe('Awakened Core Engines — Section 18.1 Unit Tests', () => {
     const customLevelState = computeLevelState(520, { base: 100, per_level: 20 });
     expect(customLevelState.level).toBe(5);
     expect(customLevelState.xpInLevel).toBe(0);
+  });
+
+  it('12. OnboardingEngine (Section 11.1): enforces teen safety rules (16-17), injury safety flags, Quick Wins, and Comeback Quests', () => {
+    const now = 1_700_000_000_000;
+    const base = createDefaultOnboardingProfile(now);
+
+    // Case A: Age 16-17 skips Q11 pushup test & hides reduce_sugar_fried
+    expect(shouldSkipPushupTest('16-17', ['none'])).toBe(true);
+    expect(shouldHideReduceSugar('16-17')).toBe(true);
+    const teenFinal = finalizeOnboardingProfile(
+      {
+        ...base,
+        ageBand: '16-17',
+        pushupBand: 3,
+        disciplinePicks: ['reduce_sugar_fried', 'water_goal'],
+      },
+      true,
+      now
+    );
+    expect(teenFinal.pushupBand).toBeNull();
+    expect(teenFinal.disciplinePicks.includes('reduce_sugar_fried')).toBe(false);
+
+    // Case B: Q15 = injured_now forces Tier 1 & hides cold_shower
+    expect(shouldHideColdShower(['injured_now'])).toBe(true);
+    const injuredTier = calculateStartingTier({
+      ageBand: '25-34',
+      freqBand: 3,
+      pushupBand: 3,
+      energy: 5,
+      path: 'strength',
+      bosses: [],
+      safetyFlags: ['injured_now'],
+    });
+    expect(injuredTier).toBe(1);
+
+    // Case C: Q6 fading_fire enables Quick Wins mode for 7 days & selects micro body quests
+    const fadingFireProfile = finalizeOnboardingProfile(
+      {
+        ...base,
+        bosses: ['fading_fire'],
+        minutesPerDay: 10,
+      },
+      true,
+      now
+    );
+    expect(fadingFireProfile.quickWinsUntil).toBe(now + 7 * 86400000);
+    const quickWinQuests = generateDailyQuestsForDay({
+      dayKey: '2026-10-23',
+      isRestDay: false,
+      availableMinutesPerDay: 10,
+      waterGoalMl: 2000,
+      onboarding: fadingFireProfile,
+      nowMs: now + 1000,
+    });
+    expect(quickWinQuests.length).toBeGreaterThanOrEqual(3);
+    expect(quickWinQuests.every((q) => q.template.micro || q.template.slot !== 'body')).toBe(true);
+
+    // Case D: Missed >= 2 days triggers Comeback Quest set without penalty
+    const comebackQuests = generateDailyQuestsForDay({
+      dayKey: '2026-10-25',
+      isRestDay: false,
+      availableMinutesPerDay: 15,
+      waterGoalMl: 2000,
+      onboarding: fadingFireProfile,
+      missedDaysInRow: 2,
+      nowMs: now + 2 * 86400000,
+    });
+    expect(comebackQuests.some((q) => q.template.comeback || q.template.micro)).toBe(true);
+
+    // Case E: Not ready button saves pledgedAt = null and valid initial stats
+    const unpledged = finalizeOnboardingProfile(base, false, now);
+    expect(unpledged.pledgedAt).toBeNull();
+    expect(unpledged.completed).toBe(true);
+    const stats = calculateInitialStats(unpledged);
+    expect(stats.STR).toBeGreaterThanOrEqual(10);
+    expect(stats.VIT).toBeGreaterThanOrEqual(10);
+    expect(stats.INT).toBeGreaterThanOrEqual(10);
+    expect(stats.WIL).toBeGreaterThanOrEqual(10);
   });
 });

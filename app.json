@@ -16,7 +16,7 @@
       "allowBackup": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0E162B"
+        "backgroundColor": "#141C3D"
       },
       "permissions": [
         "POST_NOTIFICATIONS",

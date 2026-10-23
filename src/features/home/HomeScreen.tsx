@@ -19,6 +19,11 @@ import {
   AnimatedPulseView,
 } from '../components/AnimatedComponents';
 import { getDaysInWeekRange, getWeekdayOneBased } from '../../core/utils/dateUtils';
+import {
+  getNarratorMessages,
+  getPathLabel,
+  getStarterClassLabel,
+} from '../../core/engine/onboardingEngine';
 
 export const HomeScreen: React.FC<{
   theme: AppTheme;
@@ -36,9 +41,11 @@ export const HomeScreen: React.FC<{
     dailyRepeatableXpToday,
     logWater,
     swapDailyQuest,
+    completeManualDailyQuest,
     toggleRestModeToday,
     logRestDayCheckin,
     updateProfile,
+    reopenOnboarding,
   } = useAwakened();
 
   const [showCustomize, setShowCustomize] = useState(false);
@@ -132,6 +139,95 @@ export const HomeScreen: React.FC<{
           lang={lang}
           reduceMotion={reduceMotion}
         />
+
+        {/* Awakening Vow, Starter Class & Base Stats (STR / VIT / INT / WIL) */}
+        {db.onboarding && (
+          <View
+            style={{
+              marginTop: 12,
+              padding: 12,
+              borderRadius: 12,
+              backgroundColor: theme.bgSecondary,
+              borderWidth: 1,
+              borderColor: theme.border,
+              gap: 6,
+            }}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+              <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '800' }}>
+                {getStarterClassLabel(db.onboarding.starterClass, lang).name} ·{' '}
+                {getPathLabel(db.onboarding.path, lang)}
+              </Text>
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700' }}>
+                Tier {db.onboarding.startTier}/4 · ~{db.onboarding.minutesPerDay}m
+              </Text>
+            </View>
+
+            {Boolean(db.onboarding.vow) && (
+              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+                Vow: “{db.onboarding.vow}”
+              </Text>
+            )}
+
+            <Text style={{ color: theme.success, fontSize: 11.5, fontWeight: '600' }}>
+              {getNarratorMessages(db.onboarding.narrator, lang).dailyGreeting}
+            </Text>
+
+            {/* 4 RPG Stats Pills */}
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
+              {(
+                [
+                  { k: 'STR', v: db.playerStats?.STR ?? 12, c: '#F97316' },
+                  { k: 'VIT', v: db.playerStats?.VIT ?? 12, c: '#3DDC97' },
+                  { k: 'INT', v: db.playerStats?.INT ?? 12, c: '#5B8CFF' },
+                  { k: 'WIL', v: db.playerStats?.WIL ?? 12, c: '#A855F7' },
+                ] as const
+              ).map((st) => (
+                <View
+                  key={st.k}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 6,
+                    paddingHorizontal: 6,
+                    borderRadius: 8,
+                    backgroundColor: theme.card,
+                    borderWidth: 1,
+                    borderColor: `${st.c}55`,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: st.c, fontSize: 10.5, fontWeight: '900' }}>{st.k}</Text>
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>
+                    {st.v}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {!db.onboarding.pledgedAt && (
+              <AnimatedPressable
+                reduceMotion={reduceMotion}
+                style={{
+                  marginTop: 6,
+                  paddingVertical: 8,
+                  paddingHorizontal: 10,
+                  borderRadius: 8,
+                  backgroundColor: `${theme.primary}20`,
+                  borderWidth: 1,
+                  borderColor: theme.primary,
+                  alignItems: 'center',
+                }}
+                onPress={reopenOnboarding}
+              >
+                <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '800' }}>
+                  {isTh
+                    ? 'พร้อมทำแบบสอบถาม / ปฏิญาณเริ่มต้นเพื่อรับ +50 XP คลิกที่นี่'
+                    : 'Ready to complete your Awakening Pledge (+50 XP)? Tap here'}
+                </Text>
+              </AnimatedPressable>
+            )}
+          </View>
+        )}
 
         {/* Rest Mode / Recovery Toggle Bar */}
         <View style={styles.recoveryBar}>
@@ -374,6 +470,11 @@ export const HomeScreen: React.FC<{
                   <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>
                     {isTh ? 'ความคืบหน้า' : 'Progress'}: {q.progress} / {q.target} ({pct}%)
                   </Text>
+                  {q.template.warning_th && (
+                    <Text style={{ color: theme.warning, fontSize: 11, marginTop: 3 }}>
+                      {isTh ? q.template.warning_th : q.template.warning_en}
+                    </Text>
+                  )}
                 </View>
 
                 <View style={styles.questRightCol}>
@@ -386,19 +487,55 @@ export const HomeScreen: React.FC<{
                   >
                     +{q.template.reward_xp} XP
                   </Text>
-                  {!done && !swapAlreadyUsed && (
-                    <AnimatedPressable
-                      reduceMotion={reduceMotion}
-                      style={[styles.swapMiniBtn, { borderColor: theme.border }]}
-                      onPress={() => swapDailyQuest(q.id)}
-                    >
-                      <View style={styles.inlineIconRow}>
-                        <AppIcon name="swap" size={11} color={theme.textSecondary} />
-                        <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: '700' }}>
-                          {isTh ? 'สลับ' : 'Swap'}
-                        </Text>
-                      </View>
-                    </AnimatedPressable>
+                  {!done && (
+                    <View style={{ flexDirection: 'row', gap: 5, alignItems: 'center' }}>
+                      {(q.template.condition.metric === 'manual' || q.template.micro) && (
+                        <AnimatedPressable
+                          reduceMotion={reduceMotion}
+                          style={[
+                            styles.swapMiniBtn,
+                            {
+                              backgroundColor: `${theme.success}22`,
+                              borderColor: theme.success,
+                            },
+                          ]}
+                          onPress={() => completeManualDailyQuest(q.id)}
+                        >
+                          <View style={styles.inlineIconRow}>
+                            <AppIcon name="check" size={11} color={theme.success} />
+                            <Text
+                              style={{
+                                color: theme.success,
+                                fontSize: 10,
+                                fontWeight: '800',
+                              }}
+                            >
+                              {isTh ? 'สำเร็จ' : 'Done'}
+                            </Text>
+                          </View>
+                        </AnimatedPressable>
+                      )}
+                      {!swapAlreadyUsed && (
+                        <AnimatedPressable
+                          reduceMotion={reduceMotion}
+                          style={[styles.swapMiniBtn, { borderColor: theme.border }]}
+                          onPress={() => swapDailyQuest(q.id)}
+                        >
+                          <View style={styles.inlineIconRow}>
+                            <AppIcon name="swap" size={11} color={theme.textSecondary} />
+                            <Text
+                              style={{
+                                color: theme.textSecondary,
+                                fontSize: 10,
+                                fontWeight: '700',
+                              }}
+                            >
+                              {isTh ? 'สลับ' : 'Swap'}
+                            </Text>
+                          </View>
+                        </AnimatedPressable>
+                      )}
+                    </View>
                   )}
                 </View>
               </View>

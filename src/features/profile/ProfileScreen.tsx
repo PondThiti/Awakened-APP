@@ -34,6 +34,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
     completePersonalQuest,
     deletePersonalQuest,
     updateProfile,
+    reopenOnboarding,
     exportBackupJson,
     importBackupJson,
     deleteCategoryData,
@@ -526,6 +527,30 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             );
           })}
         </View>
+
+        {/* Edit / Re-run Onboarding Questionnaire (Section 1 & 11.1) */}
+        <AnimatedPressable
+          reduceMotion={reduceMotion}
+          style={[
+            styles.primaryBtn,
+            {
+              backgroundColor: `${theme.primary}22`,
+              borderColor: theme.primary,
+              borderWidth: 1,
+              marginTop: 14,
+            },
+          ]}
+          onPress={reopenOnboarding}
+        >
+          <View style={styles.inlineIconRow}>
+            <AppIcon name="edit" size={14} color={theme.primary} />
+            <Text style={{ color: theme.primary, fontWeight: '900', fontSize: 13 }}>
+              {isTh
+                ? 'ปรับแผนของฉัน (แก้ไขคำตอบแบบสอบถามเริ่มต้น)'
+                : 'Adjust My Plan (Edit Onboarding Questionnaire)'}
+            </Text>
+          </View>
+        </AnimatedPressable>
 
         {/* Export / Import Backup JSON */}
         <View style={[styles.inlineIconRow, { marginTop: 16, marginBottom: 8 }]}>

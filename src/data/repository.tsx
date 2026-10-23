@@ -15,6 +15,9 @@ import {
   LevelState,
   MealDetail,
   MoodEntry,
+  OnboardingProfile,
+  PlayerStatKey,
+  PlayerStats,
   QuestInstance,
   QuestTemplate,
   RankDef,
@@ -26,6 +29,11 @@ import {
   WorkoutDetail,
   XpEventRecord,
 } from '../core/engine/types';
+import {
+  calculateInitialStats,
+  createDefaultOnboardingProfile,
+  finalizeOnboardingProfile,
+} from '../core/engine/onboardingEngine';
 import { computeLevelState } from '../core/engine/levelEngine';
 import { getRankForLevel, MonarchEligibility } from '../core/engine/rankEngine';
 import {
@@ -71,9 +79,12 @@ export interface ActiveTimerState {
 
 export interface AwakenedDatabaseState {
   profile: UserProfile;
+  onboarding: OnboardingProfile;
+  playerStats: PlayerStats;
   activities: ActivityRecord[];
   xpEvents: XpEventRecord[];
   dailyQuestsByDay: Record<string, QuestInstance[]>;
+  manualDailyQuestDoneByDay: Record<string, string[]>; // dayKey -> templateIds[]
   weeklyQuestsByWeek: Record<string, QuestInstance[]>;
   milestoneQuests: QuestInstance[];
   personalQuestTemplates: QuestTemplate[];
@@ -139,12 +150,15 @@ function createInitialState(): AwakenedDatabaseState {
   const todayKey = getLocalDayKey();
   const weekday = getWeekdayOneBased(todayKey);
   const isRestToday = DEFAULT_TRAINING_PLAN.find((d) => d.weekday === weekday)?.dayType === 'rest';
+  const defaultOnboarding = createDefaultOnboardingProfile();
+  const initialStats = calculateInitialStats(defaultOnboarding);
 
   const dailyQuests = generateDailyQuestsForDay({
     dayKey: todayKey,
     isRestDay: Boolean(isRestToday),
     availableMinutesPerDay: DEFAULT_PROFILE.availableMinutesPerDay,
     waterGoalMl: DEFAULT_PROFILE.waterGoalMl,
+    onboarding: defaultOnboarding,
   });
 
   const weekKey = getWeekStartDayKey(todayKey, 1);
@@ -165,9 +179,12 @@ function createInitialState(): AwakenedDatabaseState {
 
   return {
     profile: DEFAULT_PROFILE,
+    onboarding: defaultOnboarding,
+    playerStats: initialStats,
     activities: [],
     xpEvents: [],
     dailyQuestsByDay: { [todayKey]: dailyQuests },
+    manualDailyQuestDoneByDay: {},
     weeklyQuestsByWeek: { [weekKey]: weeklyQuests },
     milestoneQuests: createInitialMilestoneQuests(),
     personalQuestTemplates: [
@@ -236,12 +253,18 @@ export interface AwakenedContextValue {
 
   // Quests & Plan
   swapDailyQuest: (questInstanceId: number) => boolean;
+  completeManualDailyQuest: (questInstanceId: number) => void;
   addPersonalQuest: (title: string, rewardXp: 10 | 25 | 50, category?: QuestTemplate['category']) => void;
   completePersonalQuest: (templateId: string) => void;
   deletePersonalQuest: (templateId: string) => void;
   toggleRestModeToday: () => void;
   updateTrainingPlanDay: (weekday: number, dayType: TrainingDayType, note?: string) => void;
   applyTrainingPreset: (preset: 'light' | 'balanced' | 'flexible') => void;
+
+  // Onboarding Questionnaire v0.2
+  updateOnboardingDraft: (patch: Partial<OnboardingProfile>) => void;
+  completeOnboarding: (finalDraft: OnboardingProfile, pledged: boolean) => void;
+  reopenOnboarding: () => void;
 
   // Persistent Timers
   setPomodoroTimerState: (timer: ActiveTimerState | null) => void;
@@ -273,10 +296,19 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw && mounted) {
           const parsed = JSON.parse(raw) as AwakenedDatabaseState;
+          const defaultOnb = createDefaultOnboardingProfile();
+          const mergedOnboarding: OnboardingProfile = {
+            ...defaultOnb,
+            ...(parsed.onboarding ?? {}),
+          };
           setDb((prev) => ({
             ...prev,
             ...parsed,
             profile: { ...DEFAULT_PROFILE, ...parsed.profile },
+            onboarding: mergedOnboarding,
+            playerStats:
+              parsed.playerStats ?? calculateInitialStats(mergedOnboarding),
+            manualDailyQuestDoneByDay: parsed.manualDailyQuestDoneByDay ?? {},
           }));
         }
       } catch {
@@ -324,6 +356,7 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           isRestDay: planRest,
           availableMinutesPerDay: prev.profile.availableMinutesPerDay,
           waterGoalMl: prev.profile.waterGoalMl,
+          onboarding: prev.onboarding,
         });
         next.dailyQuestsByDay = { ...prev.dailyQuestsByDay, [todayKey]: quests };
         changed = true;
@@ -465,6 +498,7 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         activeActivities.length + state.journals.length + state.moods.length,
       longest_streak: streak.longestStreak,
       total_active_days: totalActiveDays,
+      manual_done_ids: state.manualDailyQuestDoneByDay?.[todayKey] ?? [],
     };
 
     return { metrics, streak, dailyRepeatableXp };
@@ -528,10 +562,23 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         currentDaily.length > 0 && currentDaily.every((q) => q.status === 'completed');
 
       let questXpBonusTotal = 0;
+      const nextStats: PlayerStats = { ...(working.playerStats ?? { STR: 10, VIT: 10, INT: 10, WIL: 10 }) };
       const updatedDaily = currentDaily.map((q) => {
         const res = evaluateQuestProgress(q, afterSnap.metrics, now);
         if (res.newlyCompleted) {
           questXpBonusTotal += res.updated.template.reward_xp;
+          const statKeys: PlayerStatKey[] = Array.isArray(res.updated.template.stat)
+            ? res.updated.template.stat
+            : res.updated.template.stat
+            ? [res.updated.template.stat]
+            : res.updated.template.slot === 'body'
+            ? ['STR']
+            : res.updated.template.slot === 'mind'
+            ? ['WIL']
+            : ['VIT'];
+          for (const sk of statKeys) {
+            nextStats[sk] = Math.min(100, (nextStats[sk] ?? 10) + 1);
+          }
           working.xpEvents = [
             ...working.xpEvents,
             {
@@ -595,6 +642,7 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         ...working.dailyQuestsByDay,
         [todayKey]: updatedDaily,
       };
+      working.playerStats = nextStats;
 
       // Evaluate Weekly Quests
       const currentWeekly = working.weeklyQuestsByWeek[weekKey] ?? [];
@@ -1569,6 +1617,7 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isRestDay: turningOn,
         availableMinutesPerDay: prev.profile.availableMinutesPerDay,
         waterGoalMl: prev.profile.waterGoalMl,
+        onboarding: prev.onboarding,
       });
 
       return {
@@ -1583,6 +1632,171 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         },
       };
     });
+  };
+
+  const completeManualDailyQuest = (questInstanceId: number) => {
+    executeTransaction((draft) => {
+      const list = draft.dailyQuestsByDay[todayKey] ?? [];
+      const targetQuest = list.find((q) => q.id === questInstanceId);
+      if (!targetQuest || targetQuest.status === 'completed') {
+        return { nextState: draft, directXpGained: 0 };
+      }
+
+      const doneList = draft.manualDailyQuestDoneByDay?.[todayKey] ?? [];
+      const nextDoneList = doneList.includes(targetQuest.templateId)
+        ? doneList
+        : [...doneList, targetQuest.templateId];
+
+      // Also mark non-manual micro quests completed directly if triggered from quick complete
+      const updatedList = list.map((q) =>
+        q.id === questInstanceId && q.template.condition.metric !== 'manual'
+          ? {
+              ...q,
+              progress: q.target,
+              status: 'completed' as const,
+              completedAt: Date.now(),
+            }
+          : q
+      );
+
+      let directBonus = 0;
+      let nextXpEvents = draft.xpEvents;
+      const nextStats: PlayerStats = { ...(draft.playerStats ?? { STR: 10, VIT: 10, INT: 10, WIL: 10 }) };
+
+      if (targetQuest.template.condition.metric !== 'manual') {
+        directBonus = targetQuest.template.reward_xp;
+        const now = Date.now();
+        nextXpEvents = [
+          ...draft.xpEvents,
+          {
+            id: now + Math.floor(Math.random() * 10000),
+            amount: directBonus,
+            sourceType: 'quest',
+            sourceId: targetQuest.templateId,
+            reasonKey: `quest_${targetQuest.templateId}`,
+            configVersion: xpConfigJson.version,
+            occurredAt: now,
+          },
+        ];
+        const statKeys: PlayerStatKey[] = Array.isArray(targetQuest.template.stat)
+          ? targetQuest.template.stat
+          : targetQuest.template.stat
+          ? [targetQuest.template.stat]
+          : ['STR'];
+        for (const sk of statKeys) {
+          nextStats[sk] = Math.min(100, (nextStats[sk] ?? 10) + 1);
+        }
+      }
+
+      return {
+        nextState: {
+          ...draft,
+          playerStats: nextStats,
+          xpEvents: nextXpEvents,
+          manualDailyQuestDoneByDay: {
+            ...(draft.manualDailyQuestDoneByDay ?? {}),
+            [todayKey]: nextDoneList,
+          },
+          dailyQuestsByDay: {
+            ...draft.dailyQuestsByDay,
+            [todayKey]: updatedList,
+          },
+        },
+        directXpGained: directBonus,
+      };
+    });
+  };
+
+  const updateOnboardingDraft = (patch: Partial<OnboardingProfile>) => {
+    setDb((prev) => ({
+      ...prev,
+      onboarding: {
+        ...prev.onboarding,
+        ...patch,
+        updatedAt: Date.now(),
+      },
+    }));
+  };
+
+  const completeOnboarding = (finalDraft: OnboardingProfile, pledged: boolean) => {
+    executeTransaction((draft) => {
+      const now = Date.now();
+      const finalized = finalizeOnboardingProfile(finalDraft, pledged, now);
+      const calculatedStats = calculateInitialStats(finalized);
+
+      // Keep higher of existing stats or newly calculated base stats (never decrease per Section 5.3)
+      const mergedStats: PlayerStats = {
+        STR: Math.max(draft.playerStats?.STR ?? 0, calculatedStats.STR),
+        VIT: Math.max(draft.playerStats?.VIT ?? 0, calculatedStats.VIT),
+        INT: Math.max(draft.playerStats?.INT ?? 0, calculatedStats.INT),
+        WIL: Math.max(draft.playerStats?.WIL ?? 0, calculatedStats.WIL),
+      };
+
+      // Award +50 XP Awakening Bonus once when user pledges for the first time (Section 3 Q21 & 4.6)
+      const alreadyGotPledgeBonus = draft.xpEvents.some(
+        (e) => e.reasonKey === 'onboarding_awakening_pledge'
+      );
+      const pledgeBonusXp = pledged && !alreadyGotPledgeBonus ? 50 : 0;
+      const nextXpEvents =
+        pledgeBonusXp > 0
+          ? [
+              ...draft.xpEvents,
+              {
+                id: now + 777,
+                amount: pledgeBonusXp,
+                sourceType: 'bonus' as const,
+                reasonKey: 'onboarding_awakening_pledge',
+                configVersion: xpConfigJson.version,
+                occurredAt: now,
+              },
+            ]
+          : draft.xpEvents;
+
+      const weekday = getWeekdayOneBased(todayKey);
+      const isRest =
+        draft.trainingPlan.find((d) => d.weekday === weekday)?.dayType === 'rest' ||
+        draft.profile.restModeToday === todayKey;
+
+      const regeneratedQuests = generateDailyQuestsForDay({
+        dayKey: todayKey,
+        isRestDay: Boolean(isRest),
+        availableMinutesPerDay: finalized.minutesPerDay,
+        waterGoalMl: finalized.waterGoalMl,
+        onboarding: finalized,
+        nowMs: now,
+      });
+
+      return {
+        nextState: {
+          ...draft,
+          onboarding: finalized,
+          playerStats: mergedStats,
+          xpEvents: nextXpEvents,
+          profile: {
+            ...draft.profile,
+            displayName: finalized.nickname || draft.profile.displayName,
+            waterGoalMl: finalized.waterGoalMl || draft.profile.waterGoalMl,
+            availableMinutesPerDay: finalized.minutesPerDay || draft.profile.availableMinutesPerDay,
+          },
+          dailyQuestsByDay: {
+            ...draft.dailyQuestsByDay,
+            [todayKey]: regeneratedQuests,
+          },
+        },
+        directXpGained: pledgeBonusXp,
+      };
+    });
+  };
+
+  const reopenOnboarding = () => {
+    setDb((prev) => ({
+      ...prev,
+      onboarding: {
+        ...prev.onboarding,
+        completed: false,
+        currentStepIndex: 0,
+      },
+    }));
   };
 
   const updateTrainingPlanDay = (
@@ -1776,12 +1990,16 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     deleteJournalEntry,
     logMoodEntry,
     swapDailyQuest,
+    completeManualDailyQuest,
     addPersonalQuest,
     completePersonalQuest,
     deletePersonalQuest,
     toggleRestModeToday,
     updateTrainingPlanDay,
     applyTrainingPreset,
+    updateOnboardingDraft,
+    completeOnboarding,
+    reopenOnboarding,
     setPomodoroTimerState,
     setWorkoutTimerState,
     updateProfile,
