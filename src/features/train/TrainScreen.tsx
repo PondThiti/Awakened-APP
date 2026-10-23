@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  NativeModules,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -7,7 +8,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useKeepAwake } from 'expo-keep-awake';
 import { AppTheme } from '../../app/theme';
 import { useAwakened } from '../../data/repository';
 import { t } from '../../l10n/translations';
@@ -23,6 +23,15 @@ import {
   getWeekdayOneBased,
 } from '../../core/utils/dateUtils';
 import { playSystemFeedback } from '../../services/soundService';
+import { AppIcon, AppIconName } from '../components/AppIcons';
+import {
+  AnimatedBarColumn,
+  AnimatedCard,
+  AnimatedNumberText,
+  AnimatedPressable,
+  AnimatedPulseView,
+  AnimatedScreenWrapper,
+} from '../components/AnimatedComponents';
 
 const EXERCISES = [
   'Squat',
@@ -36,7 +45,20 @@ const EXERCISES = [
 
 export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
   // Keep screen awake during workouts & timers (Section 6.5)
-  useKeepAwake();
+  useEffect(() => {
+    try {
+      NativeModules?.AwakenedNative?.setKeepScreenOn?.(true);
+    } catch {
+      // Ignore if unavailable
+    }
+    return () => {
+      try {
+        NativeModules?.AwakenedNative?.setKeepScreenOn?.(false);
+      } catch {
+        // Ignore if unavailable
+      }
+    };
+  }, []);
 
   const {
     db,
@@ -54,6 +76,7 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
   const lang = db.profile.language;
   const strings = t(lang);
   const isTh = lang === 'th';
+  const reduceMotion = db.profile.reduceEffects;
 
   // 1. Rep Counter state
   const [selectedExercise, setSelectedExercise] = useState('Push-up');
@@ -72,7 +95,7 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
     return () => clearInterval(id);
   }, [restCountdownSec]);
 
-  // 2. Timestamp-based Workout Timer (Section 6.5: recovers elapsed time if backgrounded/closed)
+  // 2. Timestamp-based Workout Timer (Section 6.5)
   const [workoutType, setWorkoutType] = useState<WorkoutType>('walk');
   const [, setTick] = useState(0);
 
@@ -107,6 +130,18 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
     addDaysToDayKey(todayKey, -(6 - i))
   );
 
+  const subTabs: ReadonlyArray<{
+    id: 'reps' | 'timer' | 'pomodoro' | 'plan' | 'history';
+    icon: AppIconName;
+    label: string;
+  }> = [
+    { id: 'reps', icon: 'dumbbell', label: strings.train.repCounterTab },
+    { id: 'timer', icon: 'clock', label: strings.train.timerTab },
+    { id: 'pomodoro', icon: 'quest', label: strings.train.pomodoroTab },
+    { id: 'plan', icon: 'calendar', label: strings.train.planTab },
+    { id: 'history', icon: 'chart', label: strings.train.historyTab },
+  ];
+
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <View
@@ -115,15 +150,7 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
           { backgroundColor: theme.card, borderBottomColor: theme.border },
         ]}
       >
-        {(
-          [
-            { id: 'reps', label: strings.train.repCounterTab },
-            { id: 'timer', label: strings.train.timerTab },
-            { id: 'pomodoro', label: strings.train.pomodoroTab },
-            { id: 'plan', label: strings.train.planTab },
-            { id: 'history', label: strings.train.historyTab },
-          ] as const
-        ).map((tab) => {
+        {subTabs.map((tab) => {
           const active = subTab === tab.id;
           return (
             <Pressable
@@ -137,237 +164,58 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
               ]}
               onPress={() => setSubTab(tab.id)}
             >
-              <Text
-                style={{
-                  color: active ? theme.primary : theme.textSecondary,
-                  fontWeight: '800',
-                  fontSize: 11,
-                }}
-              >
-                {tab.label}
-              </Text>
+              <View style={styles.inlineIconRow}>
+                <AppIcon
+                  name={tab.icon}
+                  size={13}
+                  color={active ? theme.primary : theme.textSecondary}
+                />
+                <Text
+                  style={{
+                    color: active ? theme.primary : theme.textSecondary,
+                    fontWeight: '800',
+                    fontSize: 11,
+                  }}
+                >
+                  {tab.label}
+                </Text>
+              </View>
             </Pressable>
           );
         })}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* 1. REP COUNTER */}
-        {subTab === 'reps' && (
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <View style={styles.headerRow}>
-              <Text style={[styles.cardTitle, { color: theme.text }]}>
-                🔢 {isTh ? 'นับจำนวนครั้ง & เซต (Rep Counter)' : 'Exercise Rep & Set Counter'}
-              </Text>
-              <Text style={{ color: theme.success, fontSize: 11, fontWeight: '700' }}>
-                🔒 {strings.train.wakelockActive}
-              </Text>
-            </View>
-
-            <View style={[styles.chipRow, { marginTop: 10 }]}>
-              {EXERCISES.map((ex) => {
-                const active = selectedExercise === ex;
-                return (
-                  <Pressable
-                    key={ex}
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor: active ? `${theme.workout}25` : theme.bgSecondary,
-                        borderColor: active ? theme.workout : theme.border,
-                      },
-                    ]}
-                    onPress={() => setSelectedExercise(ex)}
-                  >
-                    <Text
-                      style={{
-                        color: active ? theme.workout : theme.textSecondary,
-                        fontWeight: '800',
-                        fontSize: 12,
-                      }}
-                    >
-                      {ex}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <TextInput
-              value={customExercise}
-              onChangeText={(txt) => {
-                setCustomExercise(txt);
-                if (txt.trim()) setSelectedExercise(txt.trim());
-              }}
-              placeholder={isTh ? 'หรือพิมพ์ชื่อท่าฝึกเอง...' : 'Or type custom exercise...'}
-              placeholderTextColor={theme.textMuted}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.bgSecondary,
-                  color: theme.text,
-                  borderColor: theme.border,
-                  marginTop: 10,
-                },
-              ]}
-            />
-
-            {/* Big Rep Counter Display */}
-            <View
-              style={[
-                styles.repBox,
-                { backgroundColor: theme.bgSecondary, borderColor: theme.border },
-              ]}
+      <AnimatedScreenWrapper triggerKey={subTab} reduceMotion={reduceMotion}>
+        <ScrollView contentContainerStyle={styles.content}>
+          {/* 1. REP COUNTER */}
+          {subTab === 'reps' && (
+            <AnimatedCard
+              index={0}
+              reduceMotion={reduceMotion}
+              style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
             >
-              <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '700' }}>
-                {selectedExercise} · Set #{loggedSets.length + 1}
-              </Text>
-              <Text style={[styles.repNumber, { color: theme.workout }]}>{currentReps}</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 12 }}>REPS</Text>
-
-              <View style={styles.repBtnRow}>
-                <Pressable
-                  style={[styles.repControlBtn, { borderColor: theme.border, backgroundColor: theme.card }]}
-                  onPress={() => setCurrentReps((r) => Math.max(1, r - 1))}
-                >
-                  <Text style={[styles.repControlText, { color: theme.text }]}>−1</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.repControlBtn, { borderColor: theme.workout, backgroundColor: `${theme.workout}20` }]}
-                  onPress={() => setCurrentReps((r) => r + 1)}
-                >
-                  <Text style={[styles.repControlText, { color: theme.workout }]}>+1</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.repControlBtn, { borderColor: theme.primary, backgroundColor: `${theme.primary}20` }]}
-                  onPress={() => setCurrentReps((r) => r + 5)}
-                >
-                  <Text style={[styles.repControlText, { color: theme.primary }]}>+5</Text>
-                </Pressable>
+              <View style={styles.headerRow}>
+                <View style={styles.inlineIconRow}>
+                  <AppIcon name="dumbbell" size={18} color={theme.workout} />
+                  <Text style={[styles.cardTitle, { color: theme.text }]}>
+                    {isTh ? 'นับจำนวนครั้ง & เซต (Rep Counter)' : 'Exercise Rep & Set Counter'}
+                  </Text>
+                </View>
+                <View style={styles.inlineIconRow}>
+                  <AppIcon name="shield" size={12} color={theme.success} />
+                  <Text style={{ color: theme.success, fontSize: 10, fontWeight: '700' }}>
+                    Wakelock
+                  </Text>
+                </View>
               </View>
 
-              <Pressable
-                style={[styles.primaryBtn, { backgroundColor: theme.workout, width: '100%', marginTop: 12 }]}
-                onPress={() => {
-                  setLoggedSets((prev) => [
-                    ...prev,
-                    {
-                      exerciseName: selectedExercise,
-                      setIndex: prev.length + 1,
-                      reps: currentReps,
-                      restSec: 60,
-                    },
-                  ]);
-                  setRestCountdownSec(60);
-                  playSystemFeedback('xp', db.profile.soundEnabled);
-                }}
-              >
-                <Text style={styles.primaryBtnText}>
-                  ✓ {strings.train.finishSet} (Set #{loggedSets.length + 1}) & พัก 60 วินาที
-                </Text>
-              </Pressable>
-
-              {restCountdownSec > 0 && (
-                <View style={styles.restBanner}>
-                  <Text style={{ color: theme.warning, fontWeight: '800', fontSize: 14 }}>
-                    ⏳ {isTh ? 'เวลาพักระหว่างเซต:' : 'Rest Timer:'}{' '}
-                    {formatDurationMMSS(restCountdownSec)}
-                  </Text>
-                  <Pressable onPress={() => setRestCountdownSec(0)}>
-                    <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-                      {isTh ? 'ข้ามเวลาพัก' : 'Skip Rest'}
-                    </Text>
-                  </Pressable>
-                </View>
-              )}
-            </View>
-
-            {/* Logged Sets & Complete Workout */}
-            {loggedSets.length > 0 && (
-              <View style={{ marginTop: 14 }}>
-                <Text style={{ color: theme.text, fontWeight: '800', marginBottom: 6 }}>
-                  {isTh ? `เซตที่ทำแล้ว (${loggedSets.length} เซต):` : `Completed Sets (${loggedSets.length}):`}
-                </Text>
-                {loggedSets.map((s, idx) => (
-                  <Text key={idx} style={{ color: theme.textSecondary, fontSize: 13, marginBottom: 2 }}>
-                    • Set #{s.setIndex}: {s.exerciseName} — {s.reps} reps
-                  </Text>
-                ))}
-
-                {/* Feeling 1-5 */}
-                <View style={[styles.chipRow, { marginTop: 10 }]}>
-                  <Text style={{ color: theme.textSecondary, fontSize: 12, alignSelf: 'center' }}>
-                    {isTh ? 'ความรู้สึกหลังฝึก (1-5):' : 'Feeling (1-5):'}
-                  </Text>
-                  {[1, 2, 3, 4, 5].map((f) => (
-                    <Pressable
-                      key={f}
-                      style={[
-                        styles.chip,
-                        {
-                          backgroundColor: feelingRating === f ? `${theme.success}25` : theme.bgSecondary,
-                          borderColor: feelingRating === f ? theme.success : theme.border,
-                        },
-                      ]}
-                      onPress={() => setFeelingRating(f)}
-                    >
-                      <Text style={{ color: feelingRating === f ? theme.success : theme.text }}>
-                        {f} ⭐
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-
-                <Pressable
-                  style={[
-                    styles.primaryBtn,
-                    { backgroundColor: theme.success, marginTop: 12, alignItems: 'center' },
-                  ]}
-                  onPress={() => {
-                    const estDurationSec = Math.max(300, loggedSets.length * 180);
-                    logWorkout(
-                      `${selectedExercise} (${loggedSets.length} sets)`,
-                      {
-                        workoutType: 'strength',
-                        durationSec: estDurationSec,
-                        feeling: feelingRating,
-                        planCompleted: loggedSets.length >= 3,
-                        sets: loggedSets,
-                      },
-                      `Completed ${loggedSets.length} sets`
-                    );
-                    setLoggedSets([]);
-                    setRestCountdownSec(0);
-                  }}
-                >
-                  <Text style={styles.primaryBtnText}>
-                    🏆 {strings.train.completeWorkout} (+30 XP พื้นฐาน + โบนัสเวลา & แผน)
-                  </Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* 2. WORKOUT TIMER */}
-        {subTab === 'timer' && (
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>
-              ⏱️ {isTh ? 'จับเวลาออกกำลังกาย (Timestamp-Based)' : 'Workout Timer (Timestamp-Based)'}
-            </Text>
-            <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 4 }}>
-              {isTh
-                ? 'ทำงานต่อแม้พับหน้าจอหรือปิดแอป คำนวณเวลาจริงจาก Timestamp เสมอ'
-                : 'Continues across backgrounding/reopening via wall-clock timestamps.'}
-            </Text>
-
-            <View style={[styles.chipRow, { marginTop: 10 }]}>
-              {(['walk', 'run', 'bike', 'stretch', 'cardio', 'strength'] as WorkoutType[]).map(
-                (wt) => {
-                  const active = workoutType === wt;
+              <View style={[styles.chipRow, { marginTop: 10 }]}>
+                {EXERCISES.map((ex) => {
+                  const active = selectedExercise === ex;
                   return (
-                    <Pressable
-                      key={wt}
+                    <AnimatedPressable
+                      key={ex}
+                      reduceMotion={reduceMotion}
                       style={[
                         styles.chip,
                         {
@@ -375,7 +223,7 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                           borderColor: active ? theme.workout : theme.border,
                         },
                       ]}
-                      onPress={() => setWorkoutType(wt)}
+                      onPress={() => setSelectedExercise(ex)}
                     >
                       <Text
                         style={{
@@ -384,425 +232,708 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                           fontSize: 12,
                         }}
                       >
-                        {wt.toUpperCase()}
+                        {ex}
+                      </Text>
+                    </AnimatedPressable>
+                  );
+                })}
+              </View>
+
+              <TextInput
+                value={customExercise}
+                onChangeText={(txt) => {
+                  setCustomExercise(txt);
+                  if (txt.trim()) setSelectedExercise(txt.trim());
+                }}
+                placeholder={isTh ? 'หรือพิมพ์ชื่อท่าฝึกเอง...' : 'Or type custom exercise...'}
+                placeholderTextColor={theme.textMuted}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.bgSecondary,
+                    color: theme.text,
+                    borderColor: theme.border,
+                    marginTop: 10,
+                  },
+                ]}
+              />
+
+              {/* Big Animated Rep Counter Display */}
+              <View
+                style={[
+                  styles.repBox,
+                  { backgroundColor: theme.bgSecondary, borderColor: theme.border },
+                ]}
+              >
+                <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '700' }}>
+                  {selectedExercise} · Set #{loggedSets.length + 1}
+                </Text>
+                <AnimatedNumberText
+                  value={currentReps}
+                  reduceMotion={reduceMotion}
+                  style={[styles.repNumber, { color: theme.workout }]}
+                />
+                <Text style={{ color: theme.textMuted, fontSize: 12 }}>REPS</Text>
+
+                <View style={styles.repBtnRow}>
+                  <AnimatedPressable
+                    reduceMotion={reduceMotion}
+                    style={[styles.repControlBtn, { borderColor: theme.border, backgroundColor: theme.card }]}
+                    onPress={() => setCurrentReps((r) => Math.max(1, r - 1))}
+                  >
+                    <Text style={[styles.repControlText, { color: theme.text }]}>−1</Text>
+                  </AnimatedPressable>
+                  <AnimatedPressable
+                    reduceMotion={reduceMotion}
+                    style={[styles.repControlBtn, { borderColor: theme.workout, backgroundColor: `${theme.workout}20` }]}
+                    onPress={() => setCurrentReps((r) => r + 1)}
+                  >
+                    <Text style={[styles.repControlText, { color: theme.workout }]}>+1</Text>
+                  </AnimatedPressable>
+                  <AnimatedPressable
+                    reduceMotion={reduceMotion}
+                    style={[styles.repControlBtn, { borderColor: theme.primary, backgroundColor: `${theme.primary}20` }]}
+                    onPress={() => setCurrentReps((r) => r + 5)}
+                  >
+                    <Text style={[styles.repControlText, { color: theme.primary }]}>+5</Text>
+                  </AnimatedPressable>
+                </View>
+
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[styles.primaryBtn, { backgroundColor: theme.workout, width: 260, marginTop: 12 }]}
+                  onPress={() => {
+                    setLoggedSets((prev) => [
+                      ...prev,
+                      {
+                        exerciseName: selectedExercise,
+                        setIndex: prev.length + 1,
+                        reps: currentReps,
+                        restSec: 60,
+                      },
+                    ]);
+                    setRestCountdownSec(60);
+                    playSystemFeedback('xp', db.profile.soundEnabled);
+                  }}
+                >
+                  <Text style={styles.primaryBtnText}>
+                    {strings.train.finishSet} (Set #{loggedSets.length + 1}) & พัก 60 วินาที
+                  </Text>
+                </AnimatedPressable>
+
+                {restCountdownSec > 0 && (
+                  <View style={styles.restBanner}>
+                    <View style={styles.inlineIconRow}>
+                      <AppIcon name="clock" size={14} color={theme.warning} />
+                      <Text style={{ color: theme.warning, fontWeight: '800', fontSize: 14 }}>
+                        {isTh ? 'เวลาพักระหว่างเซต:' : 'Rest Timer:'}{' '}
+                        {formatDurationMMSS(restCountdownSec)}
+                      </Text>
+                    </View>
+                    <Pressable onPress={() => setRestCountdownSec(0)}>
+                      <Text style={{ color: theme.textMuted, fontSize: 12 }}>
+                        {isTh ? 'ข้ามเวลาพัก' : 'Skip Rest'}
                       </Text>
                     </Pressable>
-                  );
-                }
-              )}
-            </View>
-
-            <View
-              style={[
-                styles.repBox,
-                { backgroundColor: theme.bgSecondary, borderColor: theme.border, marginTop: 14 },
-              ]}
-            >
-              <Text style={[styles.repNumber, { color: theme.primary }]}>
-                {formatDurationMMSS(workoutElapsedSec)}
-              </Text>
-              <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-                {isTh
-                  ? `+30 XP พื้นฐาน และ +1 XP ทุก 2 นาที (สูงสุด +15 XP)`
-                  : `+30 base XP + 1 XP per 2 min (up to +15 XP)`}
-              </Text>
-
-              <View style={[styles.repBtnRow, { marginTop: 14 }]}>
-                {!wTimer?.isRunning ? (
-                  <Pressable
-                    style={[styles.primaryBtn, { backgroundColor: theme.primary, flex: 1 }]}
-                    onPress={() =>
-                      setWorkoutTimerState({
-                        isRunning: true,
-                        isPaused: false,
-                        startedAtMs: Date.now(),
-                        accumulatedSec: wTimer?.accumulatedSec ?? 0,
-                        targetSec: 0,
-                        label: workoutType,
-                        mode: 'workout',
-                        workoutType,
-                      })
-                    }
-                  >
-                    <Text style={styles.primaryBtnText}>
-                      ▶ {wTimer ? (isTh ? 'ทำต่อ (Resume)' : 'Resume') : isTh ? 'เริ่มจับเวลา' : 'Start Workout'}
-                    </Text>
-                  </Pressable>
-                ) : (
-                  <Pressable
-                    style={[styles.primaryBtn, { backgroundColor: theme.warning, flex: 1 }]}
-                    onPress={() =>
-                      setWorkoutTimerState({
-                        ...wTimer,
-                        isRunning: false,
-                        isPaused: true,
-                        accumulatedSec: workoutElapsedSec,
-                        startedAtMs: null,
-                      })
-                    }
-                  >
-                    <Text style={styles.primaryBtnText}>⏸ {isTh ? 'พักชั่วคราว' : 'Pause'}</Text>
-                  </Pressable>
-                )}
-
-                {workoutElapsedSec > 0 && (
-                  <Pressable
-                    style={[styles.primaryBtn, { backgroundColor: theme.success, flex: 1 }]}
-                    onPress={() => {
-                      logWorkout(
-                        `${workoutType.toUpperCase()} Session`,
-                        {
-                          workoutType,
-                          durationSec: Math.max(60, workoutElapsedSec),
-                          feeling: 4,
-                          planCompleted: true,
-                        }
-                      );
-                      setWorkoutTimerState(null);
-                    }}
-                  >
-                    <Text style={styles.primaryBtnText}>
-                      ✓ {isTh ? 'จบและรับ XP' : 'Finish & Claim XP'}
-                    </Text>
-                  </Pressable>
+                  </View>
                 )}
               </View>
-            </View>
-          </View>
-        )}
 
-        {/* 3. POMODORO FOCUS TIMER */}
-        {subTab === 'pomodoro' && (
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>
-              🍅 Pomodoro Focus Timer
-            </Text>
-            <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 4 }}>
-              {strings.train.pomodoroNote}
-            </Text>
+              {/* Logged Sets & Complete Workout */}
+              {loggedSets.length > 0 && (
+                <View style={{ marginTop: 14 }}>
+                  <Text style={{ color: theme.text, fontWeight: '800', marginBottom: 6 }}>
+                    {isTh ? `เซตที่ทำแล้ว (${loggedSets.length} เซต):` : `Completed Sets (${loggedSets.length}):`}
+                  </Text>
+                  {loggedSets.map((s, idx) => (
+                    <Text key={idx} style={{ color: theme.textSecondary, fontSize: 13, marginBottom: 2 }}>
+                      • Set #{s.setIndex}: {s.exerciseName} — {s.reps} reps
+                    </Text>
+                  ))}
 
-            <TextInput
-              value={pomoTaskName}
-              onChangeText={setPomoTaskName}
-              placeholder={isTh ? 'สิ่งที่กำลังโฟกัส เช่น อ่านบทที่ 3, เขียนโค้ด...' : 'Task name...'}
-              placeholderTextColor={theme.textMuted}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.bgSecondary,
-                  color: theme.text,
-                  borderColor: theme.border,
-                  marginTop: 12,
-                },
-              ]}
-            />
+                  {/* Feeling 1-5 */}
+                  <View style={[styles.chipRow, { marginTop: 10 }]}>
+                    <Text style={{ color: theme.textSecondary, fontSize: 12, alignSelf: 'center' }}>
+                      {isTh ? 'ความรู้สึกหลังฝึก (1-5):' : 'Feeling (1-5):'}
+                    </Text>
+                    {[1, 2, 3, 4, 5].map((f) => (
+                      <AnimatedPressable
+                        key={f}
+                        reduceMotion={reduceMotion}
+                        style={[
+                          styles.chip,
+                          {
+                            backgroundColor: feelingRating === f ? `${theme.success}25` : theme.bgSecondary,
+                            borderColor: feelingRating === f ? theme.success : theme.border,
+                          },
+                        ]}
+                        onPress={() => setFeelingRating(f)}
+                      >
+                        <View style={styles.inlineIconRow}>
+                          <Text style={{ color: feelingRating === f ? theme.success : theme.text, fontWeight: '800' }}>
+                            {f}
+                          </Text>
+                          <AppIcon
+                            name="star"
+                            size={12}
+                            color={feelingRating === f ? theme.success : theme.warning}
+                          />
+                        </View>
+                      </AnimatedPressable>
+                    ))}
+                  </View>
 
-            {/* Duration Presets */}
-            <View style={[styles.chipRow, { marginTop: 10 }]}>
-              {[
-                { min: 25, label: '25 min (Standard)' },
-                { min: 15, label: '15 min (Short)' },
-                { min: 45, label: '45 min (Deep)' },
-              ].map((p) => {
-                const active = pomoFocusMin === p.min && !pTimer;
-                return (
-                  <Pressable
-                    key={p.min}
+                  <AnimatedPressable
+                    reduceMotion={reduceMotion}
                     style={[
-                      styles.chip,
-                      {
-                        backgroundColor: active ? `${theme.focus}25` : theme.bgSecondary,
-                        borderColor: active ? theme.focus : theme.border,
-                      },
+                      styles.primaryBtn,
+                      { backgroundColor: theme.success, marginTop: 12, alignItems: 'center' },
                     ]}
                     onPress={() => {
-                      setPomoFocusMin(p.min);
-                      setPomodoroTimerState(null);
+                      const estDurationSec = Math.max(300, loggedSets.length * 180);
+                      logWorkout(
+                        `${selectedExercise} (${loggedSets.length} sets)`,
+                        {
+                          workoutType: 'strength',
+                          durationSec: estDurationSec,
+                          feeling: feelingRating,
+                          planCompleted: loggedSets.length >= 3,
+                          sets: loggedSets,
+                        },
+                        `Completed ${loggedSets.length} sets`
+                      );
+                      setLoggedSets([]);
+                      setRestCountdownSec(0);
                     }}
                   >
-                    <Text
-                      style={{
-                        color: active ? theme.focus : theme.textSecondary,
-                        fontWeight: '800',
-                        fontSize: 12,
-                      }}
-                    >
-                      {p.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+                    <View style={styles.inlineIconRow}>
+                      <AppIcon name="trophy" size={16} color="#0E1220" />
+                      <Text style={styles.primaryBtnText}>
+                        {strings.train.completeWorkout} (+30 XP พื้นฐาน + โบนัส)
+                      </Text>
+                    </View>
+                  </AnimatedPressable>
+                </View>
+              )}
+            </AnimatedCard>
+          )}
 
-            <View
-              style={[
-                styles.repBox,
-                { backgroundColor: theme.bgSecondary, borderColor: theme.border, marginTop: 14 },
-              ]}
+          {/* 2. WORKOUT TIMER */}
+          {subTab === 'timer' && (
+            <AnimatedCard
+              index={0}
+              reduceMotion={reduceMotion}
+              style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
             >
-              <Text style={{ color: theme.focus, fontWeight: '800', fontSize: 13 }}>
-                {pomoTaskName.trim() || (isTh ? 'รอบโฟกัสปัจจุบัน' : 'Focus Session')}
-              </Text>
-              <Text style={[styles.repNumber, { color: theme.focus }]}>
-                {formatDurationMMSS(pomoRemainingSec)}
+              <View style={styles.inlineIconRow}>
+                <AppIcon name="clock" size={18} color={theme.primary} />
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  {isTh ? 'จับเวลาออกกำลังกาย (Timestamp-Based)' : 'Workout Timer (Timestamp-Based)'}
+                </Text>
+              </View>
+              <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 4 }}>
+                {isTh
+                  ? 'ทำงานต่อแม้พับหน้าจอหรือปิดแอป คำนวณเวลาจริงจาก Timestamp เสมอ'
+                  : 'Continues across backgrounding/reopening via wall-clock timestamps.'}
               </Text>
 
-              <View style={[styles.repBtnRow, { marginTop: 12 }]}>
-                {!pTimer?.isRunning ? (
-                  <Pressable
-                    style={[styles.primaryBtn, { backgroundColor: theme.focus, flex: 1 }]}
-                    onPress={() =>
-                      setPomodoroTimerState({
-                        isRunning: true,
-                        isPaused: false,
-                        startedAtMs: Date.now(),
-                        accumulatedSec: pTimer?.accumulatedSec ?? 0,
-                        targetSec: pTimer?.targetSec ?? pomoFocusMin * 60,
-                        label: pomoTaskName || 'Focus',
-                        mode: 'focus',
-                      })
-                    }
-                  >
-                    <Text style={styles.primaryBtnText}>
-                      ▶ {pTimer ? (isTh ? 'โฟกัสต่อ' : 'Resume') : isTh ? 'เริ่มโฟกัส' : 'Start Focus'}
-                    </Text>
-                  </Pressable>
-                ) : (
-                  <Pressable
-                    style={[styles.primaryBtn, { backgroundColor: theme.warning, flex: 1 }]}
-                    onPress={() =>
-                      setPomodoroTimerState({
-                        ...pTimer,
-                        isRunning: false,
-                        isPaused: true,
-                        accumulatedSec: pomoElapsedSec,
-                        startedAtMs: null,
-                      })
-                    }
-                  >
-                    <Text style={styles.primaryBtnText}>⏸ {isTh ? 'พัก' : 'Pause'}</Text>
-                  </Pressable>
-                )}
-
-                {pTimer && (
-                  <Pressable
-                    style={[styles.secondaryBtn, { borderColor: theme.danger }]}
-                    onPress={() => setPomodoroTimerState(null)}
-                  >
-                    <Text style={{ color: theme.danger, fontWeight: '800', fontSize: 12 }}>
-                      ✕ {isTh ? 'ยกเลิก (ไม่หัก XP)' : 'Cancel (0 Penalty)'}
-                    </Text>
-                  </Pressable>
+              <View style={[styles.chipRow, { marginTop: 10 }]}>
+                {(['walk', 'run', 'bike', 'stretch', 'cardio', 'strength'] as WorkoutType[]).map(
+                  (wt) => {
+                    const active = workoutType === wt;
+                    return (
+                      <AnimatedPressable
+                        key={wt}
+                        reduceMotion={reduceMotion}
+                        style={[
+                          styles.chip,
+                          {
+                            backgroundColor: active ? `${theme.workout}25` : theme.bgSecondary,
+                            borderColor: active ? theme.workout : theme.border,
+                          },
+                        ]}
+                        onPress={() => setWorkoutType(wt)}
+                      >
+                        <Text
+                          style={{
+                            color: active ? theme.workout : theme.textSecondary,
+                            fontWeight: '800',
+                            fontSize: 12,
+                          }}
+                        >
+                          {wt.toUpperCase()}
+                        </Text>
+                      </AnimatedPressable>
+                    );
+                  }
                 )}
               </View>
 
-              <Pressable
+              <View
                 style={[
-                  styles.primaryBtn,
-                  { backgroundColor: theme.success, width: '100%', marginTop: 12 },
+                  styles.repBox,
+                  { backgroundColor: theme.bgSecondary, borderColor: theme.border, marginTop: 14 },
                 ]}
-                onPress={() => {
-                  playSystemFeedback('timerDone', db.profile.soundEnabled);
-                  logPomodoro({
-                    taskName: pomoTaskName.trim() || (isTh ? 'โฟกัสงานสำเร็จ' : 'Pomodoro Session'),
-                    focusSec: pomoFocusMin * 60,
-                    plannedSec: pomoFocusMin * 60,
-                    completed: true,
-                  });
-                  setPomodoroTimerState(null);
-                  setPomoTaskName('');
-                }}
               >
-                <Text style={styles.primaryBtnText}>
-                  ✓ {isTh ? 'ยืนยันจบรอบโฟกัส (+15 XP)' : 'Complete Focus Round (+15 XP)'}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-
-        {/* 4. WEEKLY TRAINING PLAN */}
-        {subTab === 'plan' && (
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>
-              📅 {isTh ? 'ตารางฝึกซ้อมรายสัปดาห์ (วันพัก = ทำตามแผนสำเร็จ)' : 'Weekly Training Plan'}
-            </Text>
-            <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 4, marginBottom: 10 }}>
-              {isTh
-                ? 'เลือกแม่แบบเริ่มต้น หรือแตะแต่ละวันเพื่อสลับประเภทการฝึกและวันพัก (Rest Day)'
-                : 'Choose a preset template or tap any day to customize your schedule & Rest Days.'}
-            </Text>
-
-            <View style={[styles.chipRow, { marginBottom: 12 }]}>
-              {(
-                [
-                  { id: 'light', label: isTh ? '🌱 แผนเริ่มต้น (เบา)' : '🌱 Light Preset' },
-                  { id: 'balanced', label: isTh ? '⚖️ แผนสมดุล (กลาง)' : '⚖️ Balanced Preset' },
-                  { id: 'flexible', label: isTh ? '⚡ แผนอิสระ' : '⚡ Flexible Preset' },
-                ] as const
-              ).map((pr) => (
-                <Pressable
-                  key={pr.id}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.bgSecondary, borderColor: theme.primary },
-                  ]}
-                  onPress={() => applyTrainingPreset(pr.id)}
+                <AnimatedPulseView
+                  active={Boolean(wTimer?.isRunning)}
+                  reduceMotion={reduceMotion}
+                  minScale={1}
+                  maxScale={1.06}
+                  duration={1000}
                 >
-                  <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 12 }}>
-                    {pr.label}
+                  <Text style={[styles.repNumber, { color: theme.primary }]}>
+                    {formatDurationMMSS(workoutElapsedSec)}
                   </Text>
-                </Pressable>
-              ))}
-            </View>
+                </AnimatedPulseView>
+                <Text style={{ color: theme.textMuted, fontSize: 12 }}>
+                  {isTh
+                    ? '+30 XP พื้นฐาน และ +1 XP ทุก 2 นาที (สูงสุด +15 XP)'
+                    : '+30 base XP + 1 XP per 2 min (up to +15 XP)'}
+                </Text>
 
-            {db.trainingPlan.map((day) => {
-              const dayNames = isTh
-                ? ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์']
-                : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-              const types: TrainingDayType[] = [
-                'upper',
-                'lower',
-                'full',
-                'cardio',
-                'stretch',
-                'rest',
-              ];
-              const isTodayWeekday = getWeekdayOneBased(todayKey) === day.weekday;
-
-              return (
-                <View
-                  key={day.weekday}
-                  style={[
-                    styles.planRow,
-                    {
-                      backgroundColor: isTodayWeekday
-                        ? `${theme.primary}15`
-                        : theme.bgSecondary,
-                      borderColor: isTodayWeekday ? theme.primary : theme.border,
-                    },
-                  ]}
-                >
-                  <View style={{ width: 90 }}>
-                    <Text style={{ color: theme.text, fontWeight: '800', fontSize: 13 }}>
-                      {dayNames[day.weekday - 1]}
-                    </Text>
-                    {isTodayWeekday && (
-                      <Text style={{ color: theme.primary, fontSize: 10, fontWeight: '800' }}>
-                        {isTh ? 'วันนี้' : 'TODAY'}
+                <View style={[styles.repBtnRow, { marginTop: 14 }]}>
+                  {!wTimer?.isRunning ? (
+                    <AnimatedPressable
+                      reduceMotion={reduceMotion}
+                      style={[styles.primaryBtn, { backgroundColor: theme.primary, flex: 1 }]}
+                      onPress={() =>
+                        setWorkoutTimerState({
+                          isRunning: true,
+                          isPaused: false,
+                          startedAtMs: Date.now(),
+                          accumulatedSec: wTimer?.accumulatedSec ?? 0,
+                          targetSec: 0,
+                          label: workoutType,
+                          mode: 'workout',
+                          workoutType,
+                        })
+                      }
+                    >
+                      <Text style={styles.primaryBtnText}>
+                        {wTimer ? (isTh ? 'ทำต่อ (Resume)' : 'Resume') : isTh ? 'เริ่มจับเวลา' : 'Start Workout'}
                       </Text>
-                    )}
-                  </View>
+                    </AnimatedPressable>
+                  ) : (
+                    <AnimatedPressable
+                      reduceMotion={reduceMotion}
+                      style={[styles.primaryBtn, { backgroundColor: theme.warning, flex: 1 }]}
+                      onPress={() =>
+                        setWorkoutTimerState({
+                          ...wTimer,
+                          isRunning: false,
+                          isPaused: true,
+                          accumulatedSec: workoutElapsedSec,
+                          startedAtMs: null,
+                        })
+                      }
+                    >
+                      <Text style={styles.primaryBtnText}>{isTh ? 'พักชั่วคราว' : 'Pause'}</Text>
+                    </AnimatedPressable>
+                  )}
 
-                  <View style={[styles.chipRow, { flex: 1 }]}>
-                    {types.map((tp) => {
-                      const active = day.dayType === tp;
-                      return (
-                        <Pressable
-                          key={tp}
-                          style={[
-                            styles.miniPlanChip,
-                            {
-                              backgroundColor: active
-                                ? tp === 'rest'
-                                  ? theme.success
-                                  : theme.primary
-                                : theme.card,
-                              borderColor: theme.border,
-                            },
-                          ]}
-                          onPress={() => updateTrainingPlanDay(day.weekday, tp)}
-                        >
-                          <Text
-                            style={{
-                              color: active ? '#0E1220' : theme.textSecondary,
-                              fontSize: 10,
-                              fontWeight: '800',
-                            }}
-                          >
-                            {tp.toUpperCase()}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                  {workoutElapsedSec > 0 && (
+                    <AnimatedPressable
+                      reduceMotion={reduceMotion}
+                      style={[styles.primaryBtn, { backgroundColor: theme.success, flex: 1 }]}
+                      onPress={() => {
+                        logWorkout(
+                          `${workoutType.toUpperCase()} Session`,
+                          {
+                            workoutType,
+                            durationSec: Math.max(60, workoutElapsedSec),
+                            feeling: 4,
+                            planCompleted: true,
+                          }
+                        );
+                        setWorkoutTimerState(null);
+                      }}
+                    >
+                      <Text style={styles.primaryBtnText}>
+                        {isTh ? 'จบและรับ XP' : 'Finish & Claim XP'}
+                      </Text>
+                    </AnimatedPressable>
+                  )}
                 </View>
-              );
-            })}
+              </View>
+            </AnimatedCard>
+          )}
 
-            <Pressable
-              style={[
-                styles.primaryBtn,
-                { backgroundColor: theme.success, marginTop: 12, alignItems: 'center' },
-              ]}
-              onPress={() => logRestDayCheckin('Scheduled Rest Day Check-in')}
+          {/* 3. POMODORO FOCUS TIMER */}
+          {subTab === 'pomodoro' && (
+            <AnimatedCard
+              index={0}
+              reduceMotion={reduceMotion}
+              style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
             >
-              <Text style={styles.primaryBtnText}>
-                🌿 {isTh ? 'เช็กอินวันพักตามแผนวันนี้ (+25 XP)' : 'Check-in Planned Rest Day (+25 XP)'}
+              <View style={styles.inlineIconRow}>
+                <AppIcon name="quest" size={18} color={theme.focus} />
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  Pomodoro Focus Timer
+                </Text>
+              </View>
+              <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 4 }}>
+                {strings.train.pomodoroNote}
               </Text>
-            </Pressable>
-          </View>
-        )}
 
-        {/* 5. TRAINING & FOCUS HISTORY */}
-        {subTab === 'history' && (
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>
-              📊 {isTh ? 'สถิติการฝึก & โฟกัส 7 วันย้อนหลัง' : '7-Day Workout & Focus Trends'}
-            </Text>
+              <TextInput
+                value={pomoTaskName}
+                onChangeText={setPomoTaskName}
+                placeholder={isTh ? 'สิ่งที่กำลังโฟกัส เช่น อ่านบทที่ 3, เขียนโค้ด...' : 'Task name...'}
+                placeholderTextColor={theme.textMuted}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.bgSecondary,
+                    color: theme.text,
+                    borderColor: theme.border,
+                    marginTop: 12,
+                  },
+                ]}
+              />
 
-            <View style={styles.chartRow}>
-              {last7Days.map((dk) => {
-                const wMin = db.activities
-                  .filter(
-                    (a) =>
-                      !a.deletedAt &&
-                      a.type === 'workout' &&
-                      getLocalDayKey(a.occurredAt, a.tzOffsetMin) === dk
-                  )
-                  .reduce((s, a) => s + a.value, 0);
-                const fMin = db.activities
-                  .filter(
-                    (a) =>
-                      !a.deletedAt &&
-                      a.type === 'focus' &&
-                      getLocalDayKey(a.occurredAt, a.tzOffsetMin) === dk
-                  )
-                  .reduce((s, a) => s + a.value, 0);
-                const total = wMin + fMin;
-                const hPct = Math.min(100, Math.max(8, Math.round((total / 60) * 100)));
+              {/* Duration Presets */}
+              <View style={[styles.chipRow, { marginTop: 10 }]}>
+                {[
+                  { min: 25, label: '25 min (Standard)' },
+                  { min: 15, label: '15 min (Short)' },
+                  { min: 45, label: '45 min (Deep)' },
+                ].map((p) => {
+                  const active = pomoFocusMin === p.min && !pTimer;
+                  return (
+                    <AnimatedPressable
+                      key={p.min}
+                      reduceMotion={reduceMotion}
+                      style={[
+                        styles.chip,
+                        {
+                          backgroundColor: active ? `${theme.focus}25` : theme.bgSecondary,
+                          borderColor: active ? theme.focus : theme.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        setPomoFocusMin(p.min);
+                        setPomodoroTimerState(null);
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: active ? theme.focus : theme.textSecondary,
+                          fontWeight: '800',
+                          fontSize: 12,
+                        }}
+                      >
+                        {p.label}
+                      </Text>
+                    </AnimatedPressable>
+                  );
+                })}
+              </View>
+
+              <View
+                style={[
+                  styles.repBox,
+                  { backgroundColor: theme.bgSecondary, borderColor: theme.border, marginTop: 14 },
+                ]}
+              >
+                <Text style={{ color: theme.focus, fontWeight: '800', fontSize: 13 }}>
+                  {pomoTaskName.trim() || (isTh ? 'รอบโฟกัสปัจจุบัน' : 'Focus Session')}
+                </Text>
+                <AnimatedPulseView
+                  active={Boolean(pTimer?.isRunning)}
+                  reduceMotion={reduceMotion}
+                  minScale={1}
+                  maxScale={1.06}
+                  duration={1000}
+                >
+                  <Text style={[styles.repNumber, { color: theme.focus }]}>
+                    {formatDurationMMSS(pomoRemainingSec)}
+                  </Text>
+                </AnimatedPulseView>
+
+                <View style={[styles.repBtnRow, { marginTop: 12 }]}>
+                  {!pTimer?.isRunning ? (
+                    <AnimatedPressable
+                      reduceMotion={reduceMotion}
+                      style={[styles.primaryBtn, { backgroundColor: theme.focus, flex: 1 }]}
+                      onPress={() =>
+                        setPomodoroTimerState({
+                          isRunning: true,
+                          isPaused: false,
+                          startedAtMs: Date.now(),
+                          accumulatedSec: pTimer?.accumulatedSec ?? 0,
+                          targetSec: pTimer?.targetSec ?? pomoFocusMin * 60,
+                          label: pomoTaskName || 'Focus',
+                          mode: 'focus',
+                        })
+                      }
+                    >
+                      <Text style={styles.primaryBtnText}>
+                        {pTimer ? (isTh ? 'โฟกัสต่อ' : 'Resume') : isTh ? 'เริ่มโฟกัส' : 'Start Focus'}
+                      </Text>
+                    </AnimatedPressable>
+                  ) : (
+                    <AnimatedPressable
+                      reduceMotion={reduceMotion}
+                      style={[styles.primaryBtn, { backgroundColor: theme.warning, flex: 1 }]}
+                      onPress={() =>
+                        setPomodoroTimerState({
+                          ...pTimer,
+                          isRunning: false,
+                          isPaused: true,
+                          accumulatedSec: pomoElapsedSec,
+                          startedAtMs: null,
+                        })
+                      }
+                    >
+                      <Text style={styles.primaryBtnText}>{isTh ? 'พัก' : 'Pause'}</Text>
+                    </AnimatedPressable>
+                  )}
+
+                  {pTimer && (
+                    <AnimatedPressable
+                      reduceMotion={reduceMotion}
+                      style={[styles.secondaryBtn, { borderColor: theme.danger }]}
+                      onPress={() => setPomodoroTimerState(null)}
+                    >
+                      <Text style={{ color: theme.danger, fontWeight: '800', fontSize: 12 }}>
+                        {isTh ? 'ยกเลิก (ไม่หัก XP)' : 'Cancel (0 Penalty)'}
+                      </Text>
+                    </AnimatedPressable>
+                  )}
+                </View>
+
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[
+                    styles.primaryBtn,
+                    { backgroundColor: theme.success, width: 260, marginTop: 12 },
+                  ]}
+                  onPress={() => {
+                    playSystemFeedback('timerDone', db.profile.soundEnabled);
+                    logPomodoro({
+                      taskName: pomoTaskName.trim() || (isTh ? 'โฟกัสงานสำเร็จ' : 'Pomodoro Session'),
+                      focusSec: pomoFocusMin * 60,
+                      plannedSec: pomoFocusMin * 60,
+                      completed: true,
+                    });
+                    setPomodoroTimerState(null);
+                    setPomoTaskName('');
+                  }}
+                >
+                  <Text style={styles.primaryBtnText}>
+                    {isTh ? 'ยืนยันจบรอบโฟกัส (+15 XP)' : 'Complete Focus Round (+15 XP)'}
+                  </Text>
+                </AnimatedPressable>
+              </View>
+            </AnimatedCard>
+          )}
+
+          {/* 4. WEEKLY TRAINING PLAN */}
+          {subTab === 'plan' && (
+            <AnimatedCard
+              index={0}
+              reduceMotion={reduceMotion}
+              style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+            >
+              <View style={styles.inlineIconRow}>
+                <AppIcon name="calendar" size={18} color={theme.primary} />
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  {isTh ? 'ตารางฝึกซ้อมรายสัปดาห์ (วันพัก = ทำตามแผนสำเร็จ)' : 'Weekly Training Plan'}
+                </Text>
+              </View>
+              <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 4, marginBottom: 10 }}>
+                {isTh
+                  ? 'เลือกแม่แบบเริ่มต้น หรือแตะแต่ละวันเพื่อสลับประเภทการฝึกและวันพัก (Rest Day)'
+                  : 'Choose a preset template or tap any day to customize your schedule & Rest Days.'}
+              </Text>
+
+              <View style={[styles.chipRow, { marginBottom: 12 }]}>
+                {(
+                  [
+                    { id: 'light', icon: 'leaf' as AppIconName, label: isTh ? 'แผนเริ่มต้น (เบา)' : 'Light Preset' },
+                    { id: 'balanced', icon: 'shield' as AppIconName, label: isTh ? 'แผนสมดุล (กลาง)' : 'Balanced Preset' },
+                    { id: 'flexible', icon: 'bolt' as AppIconName, label: isTh ? 'แผนอิสระ' : 'Flexible Preset' },
+                  ] as const
+                ).map((pr) => (
+                  <AnimatedPressable
+                    key={pr.id}
+                    reduceMotion={reduceMotion}
+                    style={[
+                      styles.chip,
+                      { backgroundColor: theme.bgSecondary, borderColor: theme.primary },
+                    ]}
+                    onPress={() => applyTrainingPreset(pr.id)}
+                  >
+                    <View style={styles.inlineIconRow}>
+                      <AppIcon name={pr.icon} size={13} color={theme.primary} />
+                      <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 12 }}>
+                        {pr.label}
+                      </Text>
+                    </View>
+                  </AnimatedPressable>
+                ))}
+              </View>
+
+              {db.trainingPlan.map((day) => {
+                const dayNames = isTh
+                  ? ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์']
+                  : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                const types: TrainingDayType[] = [
+                  'upper',
+                  'lower',
+                  'full',
+                  'cardio',
+                  'stretch',
+                  'rest',
+                ];
+                const isTodayWeekday = getWeekdayOneBased(todayKey) === day.weekday;
 
                 return (
-                  <View key={dk} style={styles.chartBarCol}>
-                    <Text style={{ color: theme.textMuted, fontSize: 10 }}>{total}m</Text>
-                    <View
-                      style={[styles.chartBarTrack, { backgroundColor: theme.bgSecondary }]}
-                    >
-                      <View
-                        style={{
-                          width: '100%',
-                          height: `${hPct}%`,
-                          backgroundColor: wMin >= fMin ? theme.workout : theme.focus,
-                          borderRadius: 6,
-                        }}
-                      />
+                  <View
+                    key={day.weekday}
+                    style={[
+                      styles.planRow,
+                      {
+                        backgroundColor: isTodayWeekday
+                          ? `${theme.primary}15`
+                          : theme.bgSecondary,
+                        borderColor: isTodayWeekday ? theme.primary : theme.border,
+                      },
+                    ]}
+                  >
+                    <View style={{ width: 90 }}>
+                      <Text style={{ color: theme.text, fontWeight: '800', fontSize: 13 }}>
+                        {dayNames[day.weekday - 1]}
+                      </Text>
+                      {isTodayWeekday && (
+                        <Text style={{ color: theme.primary, fontSize: 10, fontWeight: '800' }}>
+                          {isTh ? 'วันนี้' : 'TODAY'}
+                        </Text>
+                      )}
                     </View>
-                    <Text style={{ color: theme.textSecondary, fontSize: 10 }}>
-                      {dk.slice(8)}
-                    </Text>
+
+                    <View style={[styles.chipRow, { flex: 1 }]}>
+                      {types.map((tp) => {
+                        const active = day.dayType === tp;
+                        return (
+                          <Pressable
+                            key={tp}
+                            style={[
+                              styles.miniPlanChip,
+                              {
+                                backgroundColor: active
+                                  ? tp === 'rest'
+                                    ? theme.success
+                                    : theme.primary
+                                  : theme.card,
+                                borderColor: theme.border,
+                              },
+                            ]}
+                            onPress={() => updateTrainingPlanDay(day.weekday, tp)}
+                          >
+                            <Text
+                              style={{
+                                color: active ? '#0E1220' : theme.textSecondary,
+                                fontSize: 10,
+                                fontWeight: '800',
+                              }}
+                            >
+                              {tp.toUpperCase()}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
                   </View>
                 );
               })}
-            </View>
-          </View>
-        )}
-      </ScrollView>
+
+              <AnimatedPressable
+                reduceMotion={reduceMotion}
+                style={[
+                  styles.primaryBtn,
+                  { backgroundColor: theme.success, marginTop: 12, alignItems: 'center' },
+                ]}
+                onPress={() => logRestDayCheckin('Scheduled Rest Day Check-in')}
+              >
+                <View style={styles.inlineIconRow}>
+                  <AppIcon name="leaf" size={14} color="#0E1220" />
+                  <Text style={styles.primaryBtnText}>
+                    {isTh ? 'เช็กอินวันพักตามแผนวันนี้ (+25 XP)' : 'Check-in Planned Rest Day (+25 XP)'}
+                  </Text>
+                </View>
+              </AnimatedPressable>
+            </AnimatedCard>
+          )}
+
+          {/* 5. TRAINING & FOCUS HISTORY */}
+          {subTab === 'history' && (
+            <AnimatedCard
+              index={0}
+              reduceMotion={reduceMotion}
+              style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+            >
+              <View style={styles.inlineIconRow}>
+                <AppIcon name="chart" size={18} color={theme.workout} />
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  {isTh ? 'สถิติการฝึก & โฟกัส 7 วันย้อนหลัง' : '7-Day Workout & Focus Trends'}
+                </Text>
+              </View>
+
+              <View style={styles.chartRow}>
+                {last7Days.map((dk, idx) => {
+                  const wMin = db.activities
+                    .filter(
+                      (a) =>
+                        !a.deletedAt &&
+                        a.type === 'workout' &&
+                        getLocalDayKey(a.occurredAt, a.tzOffsetMin) === dk
+                    )
+                    .reduce((s, a) => s + a.value, 0);
+                  const fMin = db.activities
+                    .filter(
+                      (a) =>
+                        !a.deletedAt &&
+                        a.type === 'focus' &&
+                        getLocalDayKey(a.occurredAt, a.tzOffsetMin) === dk
+                    )
+                    .reduce((s, a) => s + a.value, 0);
+                  const total = wMin + fMin;
+                  const hPct = Math.min(100, Math.max(8, Math.round((total / 60) * 100)));
+
+                  return (
+                    <View key={dk} style={styles.chartBarCol}>
+                      <Text style={{ color: theme.textMuted, fontSize: 10 }}>{total}m</Text>
+                      <AnimatedBarColumn
+                        percent={hPct}
+                        color={wMin >= fMin ? theme.workout : theme.focus}
+                        trackColor={theme.bgSecondary}
+                        delay={idx * 45}
+                        reduceMotion={reduceMotion}
+                      />
+                      <Text style={{ color: theme.textSecondary, fontSize: 10 }}>
+                        {dk.slice(8)}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </AnimatedCard>
+          )}
+        </ScrollView>
+      </AnimatedScreenWrapper>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  inlineIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
   subTabBar: {
     flexDirection: 'row',
     paddingHorizontal: 10,
@@ -872,9 +1003,10 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 8,
     width: '100%',
+    justifyContent: 'center',
   },
   repControlBtn: {
-    flex: 1,
+    width: 82,
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1.5,
@@ -940,12 +1072,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     gap: 4,
-  },
-  chartBarTrack: {
-    width: 22,
-    height: 90,
-    borderRadius: 6,
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
   },
 });

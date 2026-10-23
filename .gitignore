@@ -1,8 +1,11 @@
 node_modules/
-.expo/
 .npm-cache/
+.expo/
+.build-tools/
 dist/
 web-build/
-*.jks
-*.keystore
-key.properties
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.log

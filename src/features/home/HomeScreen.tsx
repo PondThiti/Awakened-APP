@@ -10,6 +10,14 @@ import { AppTheme } from '../../app/theme';
 import { useAwakened } from '../../data/repository';
 import { t } from '../../l10n/translations';
 import { RankBadge, XpBar } from '../components/SystemSharedComponents';
+import { AppIcon, AppIconName } from '../components/AppIcons';
+import {
+  AnimatedCard,
+  AnimatedNumberText,
+  AnimatedPressable,
+  AnimatedProgressBar,
+  AnimatedPulseView,
+} from '../components/AnimatedComponents';
 import { getDaysInWeekRange, getWeekdayOneBased } from '../../core/utils/dateUtils';
 
 export const HomeScreen: React.FC<{
@@ -37,6 +45,7 @@ export const HomeScreen: React.FC<{
   const lang = db.profile.language;
   const strings = t(lang);
   const isTh = lang === 'th';
+  const reduceMotion = db.profile.reduceEffects;
 
   const completedQuestsCount = todayQuests.filter((q) => q.status === 'completed').length;
   const swapAlreadyUsed = db.profile.dailyQuestSwapUsedDay === todayKey;
@@ -61,6 +70,10 @@ export const HomeScreen: React.FC<{
     (a) => !a.deletedAt && a.type === 'meal' && a.occurredAt >= new Date(todayKey).getTime() - 86400000
   );
   const totalEstKcal = todayMeals.reduce((s, m) => s + (m.mealDetail?.caloriesEst ?? m.value ?? 0), 0);
+  const waterPct = Math.min(
+    100,
+    Math.round((todayMetrics.water_ml / Math.max(1, db.profile.waterGoalMl)) * 100)
+  );
 
   return (
     <ScrollView
@@ -68,7 +81,9 @@ export const HomeScreen: React.FC<{
       contentContainerStyle={styles.content}
     >
       {/* Top RPG System Window Card */}
-      <View
+      <AnimatedCard
+        index={0}
+        reduceMotion={reduceMotion}
         style={[
           styles.systemWindow,
           {
@@ -79,28 +94,35 @@ export const HomeScreen: React.FC<{
       >
         <View style={styles.systemTopRow}>
           <View>
-            <Text style={[styles.systemLabel, { color: theme.primary }]}>
-              ◈ {strings.home.systemStatus}
-            </Text>
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="bolt" size={14} color={theme.primary} />
+              <Text style={[styles.systemLabel, { color: theme.primary }]}>
+                {strings.home.systemStatus}
+              </Text>
+            </View>
             <Text style={[styles.playerName, { color: theme.text }]}>
               {db.profile.displayName}
             </Text>
           </View>
-          <Pressable
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
             style={[
               styles.customizeBtn,
               { backgroundColor: theme.cardElevated, borderColor: theme.border },
             ]}
             onPress={() => setShowCustomize(!showCustomize)}
           >
-            <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
-              ⚙️ {strings.home.customizeCards}
-            </Text>
-          </Pressable>
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="settings" size={14} color={theme.textSecondary} />
+              <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                {strings.home.customizeCards}
+              </Text>
+            </View>
+          </AnimatedPressable>
         </View>
 
         <View style={{ marginTop: 8 }}>
-          <RankBadge rank={currentRank} lang={lang} size="md" />
+          <RankBadge rank={currentRank} lang={lang} size="md" reduceMotion={reduceMotion} />
         </View>
 
         <XpBar
@@ -108,11 +130,13 @@ export const HomeScreen: React.FC<{
           theme={theme}
           dailyRepeatableXp={dailyRepeatableXpToday}
           lang={lang}
+          reduceMotion={reduceMotion}
         />
 
         {/* Rest Mode / Recovery Toggle Bar */}
         <View style={styles.recoveryBar}>
-          <Pressable
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
             style={[
               styles.restModeBtn,
               {
@@ -122,33 +146,46 @@ export const HomeScreen: React.FC<{
             ]}
             onPress={toggleRestModeToday}
           >
-            <Text
-              style={{
-                color: isRestToday ? theme.success : theme.textSecondary,
-                fontSize: 12,
-                fontWeight: '700',
-              }}
-            >
-              {isRestToday ? strings.home.restDayActive : `🌿 ${strings.home.restDayButton}`}
-            </Text>
-          </Pressable>
+            <View style={styles.inlineIconRow}>
+              <AppIcon
+                name="leaf"
+                size={14}
+                color={isRestToday ? theme.success : theme.textSecondary}
+              />
+              <Text
+                style={{
+                  color: isRestToday ? theme.success : theme.textSecondary,
+                  fontSize: 12,
+                  fontWeight: '700',
+                }}
+              >
+                {isRestToday ? strings.home.restDayActive : strings.home.restDayButton}
+              </Text>
+            </View>
+          </AnimatedPressable>
 
           {isRestToday && (
-            <Pressable
+            <AnimatedPressable
+              reduceMotion={reduceMotion}
               style={[styles.restCheckinBtn, { backgroundColor: theme.success }]}
               onPress={() => logRestDayCheckin('Recovery check-in')}
             >
-              <Text style={{ color: '#0E1220', fontSize: 12, fontWeight: '800' }}>
-                ✓ {strings.home.checkInRest}
-              </Text>
-            </Pressable>
+              <View style={styles.inlineIconRow}>
+                <AppIcon name="check" size={13} color="#0E1220" />
+                <Text style={{ color: '#0E1220', fontSize: 12, fontWeight: '800' }}>
+                  {strings.home.checkInRest}
+                </Text>
+              </View>
+            </AnimatedPressable>
           )}
         </View>
-      </View>
+      </AnimatedCard>
 
       {/* Dashboard Card Customizer Drawer */}
       {showCustomize && (
-        <View
+        <AnimatedCard
+          index={1}
+          reduceMotion={reduceMotion}
           style={[
             styles.card,
             { backgroundColor: theme.cardElevated, borderColor: theme.primary },
@@ -158,17 +195,20 @@ export const HomeScreen: React.FC<{
             {isTh ? 'เปิด/ปิดการ์ดบนหน้า Dashboard' : 'Toggle Dashboard Cards'}
           </Text>
           <View style={styles.chipRow}>
-            {[
-              { key: 'water', label: isTh ? '💧 ดื่มน้ำด่วน' : '💧 Quick Water' },
-              { key: 'quests', label: isTh ? '⚔️ ภารกิจรายวัน' : '⚔️ Daily Quests' },
-              { key: 'streak', label: isTh ? '🔥 ความต่อเนื่อง' : '🔥 Streak' },
-              { key: 'stats', label: isTh ? '📊 สรุปวันนี้' : '📊 Today Stats' },
-              { key: 'adaptive', label: isTh ? '🧠 แผนปรับตัว' : '🧠 Adaptive Plan' },
-            ].map((item) => {
+            {(
+              [
+                { key: 'water', icon: 'water' as AppIconName, label: isTh ? 'ดื่มน้ำด่วน' : 'Quick Water' },
+                { key: 'quests', icon: 'quest' as AppIconName, label: isTh ? 'ภารกิจรายวัน' : 'Daily Quests' },
+                { key: 'streak', icon: 'fire' as AppIconName, label: isTh ? 'ความต่อเนื่อง' : 'Streak' },
+                { key: 'stats', icon: 'chart' as AppIconName, label: isTh ? 'สรุปวันนี้' : 'Today Stats' },
+                { key: 'adaptive', icon: 'brain' as AppIconName, label: isTh ? 'แผนปรับตัว' : 'Adaptive Plan' },
+              ]
+            ).map((item) => {
               const active = !hiddenCards.has(item.key);
               return (
-                <Pressable
+                <AnimatedPressable
                   key={item.key}
+                  reduceMotion={reduceMotion}
                   style={[
                     styles.filterChip,
                     {
@@ -178,59 +218,67 @@ export const HomeScreen: React.FC<{
                   ]}
                   onPress={() => toggleCardVisibility(item.key)}
                 >
-                  <Text
-                    style={{
-                      color: active ? theme.primary : theme.textMuted,
-                      fontWeight: '700',
-                      fontSize: 12,
-                    }}
-                  >
-                    {active ? '✓ ' : '+ '}
-                    {item.label}
-                  </Text>
-                </Pressable>
+                  <View style={styles.inlineIconRow}>
+                    <AppIcon
+                      name={item.icon}
+                      size={13}
+                      color={active ? theme.primary : theme.textMuted}
+                    />
+                    <Text
+                      style={{
+                        color: active ? theme.primary : theme.textMuted,
+                        fontWeight: '700',
+                        fontSize: 12,
+                      }}
+                    >
+                      {item.label}
+                    </Text>
+                  </View>
+                </AnimatedPressable>
               );
             })}
           </View>
-        </View>
+        </AnimatedCard>
       )}
 
       {/* 1. One-Tap Water Card (<= 2 taps Principle 15.1) */}
       {!hiddenCards.has('water') && (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <AnimatedCard
+          index={1}
+          reduceMotion={reduceMotion}
+          style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+        >
           <View style={styles.cardHeaderRow}>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>
-              💧 {strings.home.waterToday}
-            </Text>
-            <Text style={{ color: theme.water, fontWeight: '800', fontSize: 14 }}>
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="water" size={18} color={theme.water} />
+              <Text style={[styles.cardTitle, { color: theme.text }]}>
+                {strings.home.waterToday}
+              </Text>
+            </View>
+            <AnimatedNumberText
+              value={todayMetrics.water_ml}
+              reduceMotion={reduceMotion}
+              style={{ color: theme.water, fontWeight: '800', fontSize: 14 }}
+            >
               {todayMetrics.water_ml.toLocaleString()} / {db.profile.waterGoalMl.toLocaleString()} ml
-            </Text>
+            </AnimatedNumberText>
           </View>
 
-          <View
-            style={[
-              styles.progressBarBg,
-              { backgroundColor: theme.bgSecondary, borderColor: theme.border },
-            ]}
-          >
-            <View
-              style={[
-                styles.progressBarFill,
-                {
-                  width: `${Math.min(
-                    100,
-                    Math.round((todayMetrics.water_ml / Math.max(1, db.profile.waterGoalMl)) * 100)
-                  )}%`,
-                  backgroundColor: theme.water,
-                },
-              ]}
-            />
-          </View>
+          <AnimatedProgressBar
+            percent={waterPct}
+            fillColor={theme.water}
+            trackColor={theme.bgSecondary}
+            borderColor={theme.border}
+            height={10}
+            reduceMotion={reduceMotion}
+            style={{ marginBottom: 12 }}
+          />
 
           <View style={styles.waterQuickRow}>
             {[100, 150, 250, 500].map((ml) => (
-              <Pressable
+              <AnimatedPressable
                 key={ml}
+                reduceMotion={reduceMotion}
                 style={[
                   styles.waterQuickBtn,
                   { backgroundColor: `${theme.water}18`, borderColor: theme.water },
@@ -240,19 +288,26 @@ export const HomeScreen: React.FC<{
                 <Text style={{ color: theme.water, fontWeight: '800', fontSize: 13 }}>
                   +{ml}ml
                 </Text>
-              </Pressable>
+              </AnimatedPressable>
             ))}
           </View>
-        </View>
+        </AnimatedCard>
       )}
 
       {/* 2. Daily Quests Card */}
       {!hiddenCards.has('quests') && (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <AnimatedCard
+          index={2}
+          reduceMotion={reduceMotion}
+          style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+        >
           <View style={styles.cardHeaderRow}>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>
-              ⚔️ {strings.home.dailyQuests}
-            </Text>
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="quest" size={18} color={theme.primary} />
+              <Text style={[styles.cardTitle, { color: theme.text }]}>
+                {strings.home.dailyQuests}
+              </Text>
+            </View>
             <View
               style={[
                 styles.questCountBadge,
@@ -272,7 +327,7 @@ export const HomeScreen: React.FC<{
                   fontSize: 13,
                 }}
               >
-                {completedQuestsCount} / {todayQuests.length} ✓
+                {completedQuestsCount} / {todayQuests.length}
               </Text>
             </View>
           </View>
@@ -293,6 +348,17 @@ export const HomeScreen: React.FC<{
               >
                 <View style={{ flex: 1 }}>
                   <View style={styles.questTitleLine}>
+                    <View
+                      style={[
+                        styles.checkCircle,
+                        {
+                          borderColor: done ? theme.success : theme.textMuted,
+                          backgroundColor: done ? theme.success : 'transparent',
+                        },
+                      ]}
+                    >
+                      {done && <AppIcon name="check" size={11} color="#0E1220" />}
+                    </View>
                     <Text
                       style={[
                         styles.questTitle,
@@ -302,11 +368,10 @@ export const HomeScreen: React.FC<{
                         },
                       ]}
                     >
-                      {done ? '☑ ' : '☐ '}
                       {isTh ? q.template.title_th : q.template.title_en}
                     </Text>
                   </View>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>
                     {isTh ? 'ความคืบหน้า' : 'Progress'}: {q.progress} / {q.target} ({pct}%)
                   </Text>
                 </View>
@@ -322,54 +387,81 @@ export const HomeScreen: React.FC<{
                     +{q.template.reward_xp} XP
                   </Text>
                   {!done && !swapAlreadyUsed && (
-                    <Pressable
+                    <AnimatedPressable
+                      reduceMotion={reduceMotion}
                       style={[styles.swapMiniBtn, { borderColor: theme.border }]}
                       onPress={() => swapDailyQuest(q.id)}
                     >
-                      <Text style={{ color: theme.textSecondary, fontSize: 10 }}>
-                        🔄 {isTh ? 'สลับ' : 'Swap'}
-                      </Text>
-                    </Pressable>
+                      <View style={styles.inlineIconRow}>
+                        <AppIcon name="swap" size={11} color={theme.textSecondary} />
+                        <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: '700' }}>
+                          {isTh ? 'สลับ' : 'Swap'}
+                        </Text>
+                      </View>
+                    </AnimatedPressable>
                   )}
                 </View>
               </View>
             );
           })}
 
-          <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 6 }}>
-            {isTh
-              ? '💡 ทำครบทุกข้อรับโบนัสพิเศษ +30 XP (ไม่คิดรวมใน Soft Cap)'
-              : '💡 Complete all Daily Quests for +30 Bonus XP (bypasses Soft Cap)'}
-          </Text>
-        </View>
+          <View style={[styles.inlineIconRow, { marginTop: 6 }]}>
+            <AppIcon name="star" size={13} color={theme.warning} />
+            <Text style={{ color: theme.textMuted, fontSize: 11 }}>
+              {isTh
+                ? 'ทำครบทุกข้อรับโบนัสพิเศษ +30 XP (ไม่คิดรวมใน Soft Cap)'
+                : 'Complete all Daily Quests for +30 Bonus XP (bypasses Soft Cap)'}
+            </Text>
+          </View>
+        </AnimatedCard>
       )}
 
       {/* 3. Streak & Weekly Consistency Card */}
       {!hiddenCards.has('streak') && (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <AnimatedCard
+          index={3}
+          reduceMotion={reduceMotion}
+          style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+        >
           <View style={styles.cardHeaderRow}>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>
-              🔥 {strings.home.streakTitle}
-            </Text>
+            <View style={styles.inlineIconRow}>
+              <AnimatedPulseView
+                active={streakState.currentStreak > 0}
+                reduceMotion={reduceMotion}
+                minScale={1}
+                maxScale={1.12}
+                duration={1200}
+              >
+                <AppIcon name="fire" size={18} color={theme.warning} />
+              </AnimatedPulseView>
+              <Text style={[styles.cardTitle, { color: theme.text }]}>
+                {strings.home.streakTitle}
+              </Text>
+            </View>
             <Text style={{ color: theme.warning, fontWeight: '800', fontSize: 14 }}>
-              🔥 {streakState.currentStreak} {isTh ? 'วัน' : 'days'}
+              {streakState.currentStreak} {isTh ? 'วัน' : 'days'}
             </Text>
           </View>
 
           <View style={styles.streakStatsRow}>
             <View style={[styles.streakBox, { backgroundColor: theme.bgSecondary }]}>
-              <Text style={[styles.streakNum, { color: theme.warning }]}>
-                {streakState.currentStreak}
-              </Text>
+              <AnimatedNumberText
+                value={streakState.currentStreak}
+                reduceMotion={reduceMotion}
+                style={[styles.streakNum, { color: theme.warning }]}
+              />
               <Text style={[styles.streakLabel, { color: theme.textSecondary }]}>
                 {strings.home.dayStreak}
               </Text>
             </View>
 
             <View style={[styles.streakBox, { backgroundColor: theme.bgSecondary }]}>
-              <Text style={[styles.streakNum, { color: theme.water }]}>
-                ❄️ {streakState.freezeTokensRemaining}/2
-              </Text>
+              <View style={styles.inlineIconRow}>
+                <AppIcon name="snowflake" size={14} color={theme.water} />
+                <Text style={[styles.streakNum, { color: theme.water }]}>
+                  {streakState.freezeTokensRemaining}/2
+                </Text>
+              </View>
               <Text style={[styles.streakLabel, { color: theme.textSecondary }]}>
                 {strings.home.freezeTokens}
               </Text>
@@ -419,34 +511,44 @@ export const HomeScreen: React.FC<{
                   >
                     {isTh ? dayNamesTh[idx] : dayNamesEn[idx]}
                   </Text>
-                  <Text
-                    style={{
-                      color: st ? '#0E1220' : theme.textMuted,
-                      fontSize: 10,
-                    }}
-                  >
-                    {st === 'active' ? '✓' : st === 'rest' ? '🌿' : st === 'frozen' ? '❄️' : '·'}
-                  </Text>
+                  <View style={{ marginTop: 2, height: 12, justifyContent: 'center' }}>
+                    {st === 'active' ? (
+                      <AppIcon name="check" size={11} color="#0E1220" />
+                    ) : st === 'rest' ? (
+                      <AppIcon name="leaf" size={11} color="#0E1220" />
+                    ) : st === 'frozen' ? (
+                      <AppIcon name="snowflake" size={11} color="#0E1220" />
+                    ) : (
+                      <Text style={{ color: theme.textMuted, fontSize: 10 }}>·</Text>
+                    )}
+                  </View>
                 </View>
               );
             })}
           </View>
-        </View>
+        </AnimatedCard>
       )}
 
       {/* 4. 2x2 Summary Stat Grid (Matches Wireframe 15.5) */}
       {!hiddenCards.has('stats') && (
-        <View style={styles.statsGrid}>
+        <AnimatedCard index={4} reduceMotion={reduceMotion} style={styles.statsGrid}>
           <Pressable
             style={[styles.statTile, { backgroundColor: theme.card, borderColor: theme.border }]}
             onPress={() => onNavigateTab('track')}
           >
-            <Text style={[styles.statTileHeader, { color: theme.water }]}>
-              💧 {strings.home.waterToday}
-            </Text>
-            <Text style={[styles.statTileValue, { color: theme.text }]}>
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="water" size={15} color={theme.water} />
+              <Text style={[styles.statTileHeader, { color: theme.water }]}>
+                {strings.home.waterToday}
+              </Text>
+            </View>
+            <AnimatedNumberText
+              value={todayMetrics.water_ml}
+              reduceMotion={reduceMotion}
+              style={[styles.statTileValue, { color: theme.text }]}
+            >
               {todayMetrics.water_ml.toLocaleString()} ml
-            </Text>
+            </AnimatedNumberText>
             <Text style={{ color: theme.textMuted, fontSize: 11 }}>
               {isTh ? `เป้าหมาย ${db.profile.waterGoalMl} ml` : `Goal ${db.profile.waterGoalMl} ml`}
             </Text>
@@ -456,12 +558,19 @@ export const HomeScreen: React.FC<{
             style={[styles.statTile, { backgroundColor: theme.card, borderColor: theme.border }]}
             onPress={() => onNavigateTab('train')}
           >
-            <Text style={[styles.statTileHeader, { color: theme.focus }]}>
-              ⏱️ {strings.home.focusToday}
-            </Text>
-            <Text style={[styles.statTileValue, { color: theme.text }]}>
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="clock" size={15} color={theme.focus} />
+              <Text style={[styles.statTileHeader, { color: theme.focus }]}>
+                {strings.home.focusToday}
+              </Text>
+            </View>
+            <AnimatedNumberText
+              value={todayMetrics.pomodoro_count}
+              reduceMotion={reduceMotion}
+              style={[styles.statTileValue, { color: theme.text }]}
+            >
               {todayMetrics.pomodoro_count} {isTh ? 'รอบ' : 'rounds'}
-            </Text>
+            </AnimatedNumberText>
             <Text style={{ color: theme.textMuted, fontSize: 11 }}>
               {isTh
                 ? `สัปดาห์นี้ ${todayMetrics.weekly_focus_min} นาที`
@@ -473,12 +582,19 @@ export const HomeScreen: React.FC<{
             style={[styles.statTile, { backgroundColor: theme.card, borderColor: theme.border }]}
             onPress={() => onNavigateTab('train')}
           >
-            <Text style={[styles.statTileHeader, { color: theme.workout }]}>
-              🏋️ {strings.home.workoutToday}
-            </Text>
-            <Text style={[styles.statTileValue, { color: theme.text }]}>
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="dumbbell" size={15} color={theme.workout} />
+              <Text style={[styles.statTileHeader, { color: theme.workout }]}>
+                {strings.home.workoutToday}
+              </Text>
+            </View>
+            <AnimatedNumberText
+              value={todayMetrics.workout_min}
+              reduceMotion={reduceMotion}
+              style={[styles.statTileValue, { color: theme.text }]}
+            >
               {todayMetrics.workout_min} {isTh ? 'นาที' : 'min'}
-            </Text>
+            </AnimatedNumberText>
             <Text style={{ color: theme.textMuted, fontSize: 11 }}>
               {todayMetrics.workout_count} {isTh ? 'ครั้งวันนี้' : 'sessions today'}
             </Text>
@@ -488,25 +604,39 @@ export const HomeScreen: React.FC<{
             style={[styles.statTile, { backgroundColor: theme.card, borderColor: theme.border }]}
             onPress={() => onNavigateTab('track')}
           >
-            <Text style={[styles.statTileHeader, { color: theme.meal }]}>
-              🍚 {strings.home.mealsToday}
-            </Text>
-            <Text style={[styles.statTileValue, { color: theme.text }]}>
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="meal" size={15} color={theme.meal} />
+              <Text style={[styles.statTileHeader, { color: theme.meal }]}>
+                {strings.home.mealsToday}
+              </Text>
+            </View>
+            <AnimatedNumberText
+              value={todayMetrics.meal_count}
+              reduceMotion={reduceMotion}
+              style={[styles.statTileValue, { color: theme.text }]}
+            >
               {todayMetrics.meal_count} {isTh ? 'มื้อ' : 'meals'}
-            </Text>
+            </AnimatedNumberText>
             <Text style={{ color: theme.textMuted, fontSize: 11 }}>
               ~{totalEstKcal.toLocaleString()} kcal ({strings.track.estimateBadge})
             </Text>
           </Pressable>
-        </View>
+        </AnimatedCard>
       )}
 
       {/* 5. Adaptive Personal Plan Card */}
       {!hiddenCards.has('adaptive') && (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Text style={[styles.cardTitle, { color: theme.text, marginBottom: 8 }]}>
-            🧠 {strings.profile.adaptivePlan}
-          </Text>
+        <AnimatedCard
+          index={5}
+          reduceMotion={reduceMotion}
+          style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+        >
+          <View style={[styles.inlineIconRow, { marginBottom: 8 }]}>
+            <AppIcon name="brain" size={18} color={theme.primary} />
+            <Text style={[styles.cardTitle, { color: theme.text }]}>
+              {strings.profile.adaptivePlan}
+            </Text>
+          </View>
           {adaptiveRecommendations.map((rec) => (
             <View
               key={rec.id}
@@ -522,7 +652,8 @@ export const HomeScreen: React.FC<{
                 {rec.description}
               </Text>
               {rec.suggestedWeeklyGoalDays && (
-                <Pressable
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
                   style={[styles.adaptiveActionBtn, { backgroundColor: theme.primary }]}
                   onPress={() =>
                     updateProfile({ weeklyGoalDays: rec.suggestedWeeklyGoalDays })
@@ -531,11 +662,11 @@ export const HomeScreen: React.FC<{
                   <Text style={{ color: '#0E1220', fontWeight: '800', fontSize: 12 }}>
                     {rec.actionLabel}
                   </Text>
-                </Pressable>
+                </AnimatedPressable>
               )}
             </View>
           ))}
-        </View>
+        </AnimatedCard>
       )}
     </ScrollView>
   );
@@ -549,6 +680,11 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
     gap: 14,
+  },
+  inlineIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   systemWindow: {
     borderRadius: 18,
@@ -588,6 +724,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   restCheckinBtn: {
     paddingVertical: 9,
@@ -610,17 +747,6 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '800',
-  },
-  progressBarBg: {
-    height: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    overflow: 'hidden',
-    marginBottom: 12,
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 999,
   },
   waterQuickRow: {
     flexDirection: 'row',
@@ -651,6 +777,15 @@ const styles = StyleSheet.create({
   questTitleLine: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  checkCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   questTitle: {
     fontSize: 14,

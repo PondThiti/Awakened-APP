@@ -5,12 +5,13 @@
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:apk": "powershell -ExecutionPolicy Bypass -File ./build-apk.ps1"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",

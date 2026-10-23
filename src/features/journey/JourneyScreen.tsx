@@ -11,15 +11,22 @@ import { AppTheme } from '../../app/theme';
 import { useAwakened } from '../../data/repository';
 import { t } from '../../l10n/translations';
 import { addDaysToDayKey, getLocalDayKey } from '../../core/utils/dateUtils';
+import { AppIcon, AppIconName } from '../components/AppIcons';
+import {
+  AnimatedCard,
+  AnimatedPressable,
+  AnimatedProgressBar,
+  AnimatedScreenWrapper,
+} from '../components/AnimatedComponents';
 
 const MOOD_LEVELS = [
-  { level: 1, emoji: '😣', th: 'ล้ามาก', en: 'Exhausted' },
-  { level: 2, emoji: '😔', th: 'เหนื่อย', en: 'Drained' },
-  { level: 3, emoji: '😐', th: 'เฉย ๆ', en: 'Neutral' },
-  { level: 4, emoji: '😌', th: 'สงบ', en: 'Calm' },
-  { level: 5, emoji: '🙂', th: 'ดี', en: 'Good' },
-  { level: 6, emoji: '😄', th: 'สดชื่น', en: 'Energetic' },
-  { level: 7, emoji: '🤩', th: 'ยอดเยี่ยม', en: 'Inspired' },
+  { level: 1, color: '#EF4444', th: 'ล้ามาก', en: 'Exhausted' },
+  { level: 2, color: '#F97316', th: 'เหนื่อย', en: 'Drained' },
+  { level: 3, color: '#EAB308', th: 'เฉย ๆ', en: 'Neutral' },
+  { level: 4, color: '#38BDF8', th: 'สงบ', en: 'Calm' },
+  { level: 5, color: '#10B981', th: 'ดี', en: 'Good' },
+  { level: 6, color: '#8B5CF6', th: 'สดชื่น', en: 'Energetic' },
+  { level: 7, color: '#EC4899', th: 'ยอดเยี่ยม', en: 'Inspired' },
 ];
 
 const MOOD_TAGS = [
@@ -46,6 +53,7 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
   const lang = db.profile.language;
   const strings = t(lang);
   const isTh = lang === 'th';
+  const reduceMotion = db.profile.reduceEffects;
 
   // Journal state
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
@@ -82,6 +90,17 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
   }));
   const topMood = [...moodDistribution].sort((a, b) => b.count - a.count)[0];
 
+  const subTabs: ReadonlyArray<{
+    id: 'journal' | 'mood' | 'calendar' | 'recap';
+    icon: AppIconName;
+    label: string;
+  }> = [
+    { id: 'journal', icon: 'journal', label: strings.journey.journalTab },
+    { id: 'mood', icon: 'heart', label: strings.journey.moodTab },
+    { id: 'calendar', icon: 'calendar', label: strings.journey.calendarTab },
+    { id: 'recap', icon: 'activity', label: strings.journey.recapTab },
+  ];
+
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <View
@@ -90,14 +109,7 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
           { backgroundColor: theme.card, borderBottomColor: theme.border },
         ]}
       >
-        {(
-          [
-            { id: 'journal', label: strings.journey.journalTab },
-            { id: 'mood', label: strings.journey.moodTab },
-            { id: 'calendar', label: strings.journey.calendarTab },
-            { id: 'recap', label: strings.journey.recapTab },
-          ] as const
-        ).map((tab) => {
+        {subTabs.map((tab) => {
           const active = subTab === tab.id;
           return (
             <Pressable
@@ -111,49 +123,308 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
               ]}
               onPress={() => setSubTab(tab.id)}
             >
-              <Text
-                style={{
-                  color: active ? theme.primary : theme.textSecondary,
-                  fontWeight: '800',
-                  fontSize: 12,
-                }}
-              >
-                {tab.label}
-              </Text>
+              <View style={styles.inlineIconRow}>
+                <AppIcon
+                  name={tab.icon}
+                  size={14}
+                  color={active ? theme.primary : theme.textSecondary}
+                />
+                <Text
+                  style={{
+                    color: active ? theme.primary : theme.textSecondary,
+                    fontWeight: '800',
+                    fontSize: 12,
+                  }}
+                >
+                  {tab.label}
+                </Text>
+              </View>
             </Pressable>
           );
         })}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* 1. DAILY JOURNAL */}
-        {subTab === 'journal' && (
-          <>
-            <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <Text style={[styles.cardTitle, { color: theme.text }]}>
-                📔 {editingId ? (isTh ? 'แก้ไขไดอารี่' : 'Edit Journal') : isTh ? 'เขียนบันทึกประจำวัน' : 'Write Daily Journal'}
-              </Text>
-              <Text
-                style={{
-                  color: charCount >= 20 ? theme.success : theme.textSecondary,
-                  fontSize: 12,
-                  marginTop: 4,
-                  marginBottom: 10,
-                }}
+      <AnimatedScreenWrapper triggerKey={subTab} reduceMotion={reduceMotion}>
+        <ScrollView contentContainerStyle={styles.content}>
+          {/* 1. DAILY JOURNAL */}
+          {subTab === 'journal' && (
+            <>
+              <AnimatedCard
+                index={0}
+                reduceMotion={reduceMotion}
+                style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
               >
-                {strings.journey.journalHint} ({charCount}/20 {isTh ? 'ตัวอักษร' : 'chars'})
-              </Text>
+                <View style={styles.inlineIconRow}>
+                  <AppIcon name="journal" size={18} color={theme.mind} />
+                  <Text style={[styles.cardTitle, { color: theme.text }]}>
+                    {editingId
+                      ? isTh
+                        ? 'แก้ไขไดอารี่'
+                        : 'Edit Journal'
+                      : isTh
+                      ? 'เขียนบันทึกประจำวัน'
+                      : 'Write Daily Journal'}
+                  </Text>
+                </View>
+                <Text
+                  style={{
+                    color: charCount >= 20 ? theme.success : theme.textSecondary,
+                    fontSize: 12,
+                    marginTop: 4,
+                    marginBottom: 10,
+                  }}
+                >
+                  {strings.journey.journalHint} ({charCount}/20 {isTh ? 'ตัวอักษร' : 'chars'})
+                </Text>
 
-              <View style={[styles.chipRow, { marginBottom: 10 }]}>
-                {[
-                  { id: 'reflection', label: isTh ? '💭 ทบทวนตัวเอง' : '💭 Reflection' },
-                  { id: 'gratitude', label: isTh ? '🙏 ขอบคุณสิ่งดี ๆ' : '🙏 Gratitude' },
-                  { id: 'wins', label: isTh ? '🏆 ความสำเร็จเล็ก ๆ' : '🏆 Small Wins' },
-                ].map((c) => {
-                  const active = journalCat === c.id;
+                <View style={[styles.chipRow, { marginBottom: 10 }]}>
+                  {(
+                    [
+                      { id: 'reflection', icon: 'brain' as AppIconName, label: isTh ? 'ทบทวนตัวเอง' : 'Reflection' },
+                      { id: 'gratitude', icon: 'heart' as AppIconName, label: isTh ? 'ขอบคุณสิ่งดี ๆ' : 'Gratitude' },
+                      { id: 'wins', icon: 'trophy' as AppIconName, label: isTh ? 'ความสำเร็จเล็ก ๆ' : 'Small Wins' },
+                    ]
+                  ).map((c) => {
+                    const active = journalCat === c.id;
+                    return (
+                      <AnimatedPressable
+                        key={c.id}
+                        reduceMotion={reduceMotion}
+                        style={[
+                          styles.chip,
+                          {
+                            backgroundColor: active ? `${theme.mind}25` : theme.bgSecondary,
+                            borderColor: active ? theme.mind : theme.border,
+                          },
+                        ]}
+                        onPress={() => setJournalCat(c.id)}
+                      >
+                        <View style={styles.inlineIconRow}>
+                          <AppIcon
+                            name={c.icon}
+                            size={13}
+                            color={active ? theme.mind : theme.textSecondary}
+                          />
+                          <Text
+                            style={{
+                              color: active ? theme.mind : theme.textSecondary,
+                              fontWeight: '800',
+                              fontSize: 12,
+                            }}
+                          >
+                            {c.label}
+                          </Text>
+                        </View>
+                      </AnimatedPressable>
+                    );
+                  })}
+                </View>
+
+                <TextInput
+                  value={journalTitle}
+                  onChangeText={setJournalTitle}
+                  placeholder={isTh ? 'หัวข้อวันนี้ (ไม่บังคับ)...' : 'Entry title (optional)...'}
+                  placeholderTextColor={theme.textMuted}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.bgSecondary,
+                      color: theme.text,
+                      borderColor: theme.border,
+                      marginBottom: 8,
+                    },
+                  ]}
+                />
+
+                <TextInput
+                  value={journalBody}
+                  onChangeText={setJournalBody}
+                  multiline
+                  numberOfLines={4}
+                  placeholder={
+                    isTh
+                      ? 'วันนี้เกิดอะไรขึ้นบ้าง? คุณได้เรียนรู้อะไร หรืออยากขอบคุณตัวเองเรื่องอะไร...'
+                      : 'What happened today? What small win are you proud of?'
+                  }
+                  placeholderTextColor={theme.textMuted}
+                  style={[
+                    styles.textArea,
+                    {
+                      backgroundColor: theme.bgSecondary,
+                      color: theme.text,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                />
+
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[
+                    styles.primaryBtn,
+                    { backgroundColor: theme.mind, marginTop: 12 },
+                  ]}
+                  onPress={() => {
+                    if (!journalBody.trim()) return;
+                    saveJournalEntry({
+                      id: editingId,
+                      title: journalTitle,
+                      body: journalBody,
+                      category: journalCat,
+                    });
+                    setEditingId(undefined);
+                    setJournalTitle('');
+                    setJournalBody('');
+                  }}
+                >
+                  <Text style={styles.primaryBtnText}>
+                    {editingId
+                      ? isTh
+                        ? 'บันทึกการแก้ไข'
+                        : 'Save Changes'
+                      : isTh
+                      ? 'บันทึกไดอารี่ (+15 XP เมื่อ ≥20 ตัวอักษร)'
+                      : 'Save Journal (+15 XP if ≥20 chars)'}
+                  </Text>
+                </AnimatedPressable>
+              </AnimatedCard>
+
+              {/* Search & Past Entries */}
+              <AnimatedCard
+                index={1}
+                reduceMotion={reduceMotion}
+                style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+              >
+                <TextInput
+                  value={searchText}
+                  onChangeText={setSearchText}
+                  placeholder={isTh ? 'ค้นหาข้อความหรือวันที่ (YYYY-MM-DD)...' : 'Search journal entries...'}
+                  placeholderTextColor={theme.textMuted}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.bgSecondary,
+                      color: theme.text,
+                      borderColor: theme.border,
+                      marginBottom: 10,
+                    },
+                  ]}
+                />
+
+                {filteredJournals.map((j) => (
+                  <View
+                    key={j.id}
+                    style={[
+                      styles.journalCard,
+                      { backgroundColor: theme.bgSecondary, borderColor: theme.border },
+                    ]}
+                  >
+                    <View style={styles.headerRow}>
+                      <Text style={{ color: theme.text, fontWeight: '800', fontSize: 14 }}>
+                        {j.title}
+                      </Text>
+                      <Text style={{ color: theme.mind, fontSize: 11, fontWeight: '700' }}>
+                        {j.entryDate} · +{j.xpAwarded} XP
+                      </Text>
+                    </View>
+                    <Text style={{ color: theme.textSecondary, fontSize: 13, marginTop: 6, lineHeight: 19 }}>
+                      {j.body}
+                    </Text>
+                    <View style={[styles.chipRow, { marginTop: 8 }]}>
+                      <Pressable
+                        style={styles.inlineIconRow}
+                        onPress={() => {
+                          setEditingId(j.id);
+                          setJournalTitle(j.title);
+                          setJournalBody(j.body);
+                          setJournalCat(j.category);
+                        }}
+                      >
+                        <AppIcon name="edit" size={13} color={theme.primary} />
+                        <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '700' }}>
+                          {isTh ? 'แก้ไข' : 'Edit'}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.inlineIconRow, { marginLeft: 8 }]}
+                        onPress={() => deleteJournalEntry(j.id)}
+                      >
+                        <AppIcon name="trash" size={13} color={theme.danger} />
+                        <Text style={{ color: theme.danger, fontSize: 12, fontWeight: '700' }}>
+                          {isTh ? 'ลบ' : 'Delete'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
+              </AnimatedCard>
+            </>
+          )}
+
+          {/* 2. MOOD TRACKER */}
+          {subTab === 'mood' && (
+            <AnimatedCard
+              index={0}
+              reduceMotion={reduceMotion}
+              style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+            >
+              <View style={styles.inlineIconRow}>
+                <AppIcon name="heart" size={18} color={theme.mind} />
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  {isTh ? 'สำรวจความรู้สึกตอนนี้ (+5 XP, สูงสุด 2 ครั้ง/วัน)' : 'Mood Check-in (+5 XP, up to 2x/day)'}
+                </Text>
+              </View>
+
+              <View style={styles.moodRow}>
+                {MOOD_LEVELS.map((m) => {
+                  const active = selectedMood === m.level;
                   return (
-                    <Pressable
-                      key={c.id}
+                    <AnimatedPressable
+                      key={m.level}
+                      reduceMotion={reduceMotion}
+                      style={[
+                        styles.moodBtn,
+                        {
+                          backgroundColor: active ? `${m.color}22` : theme.bgSecondary,
+                          borderColor: active ? m.color : theme.border,
+                        },
+                      ]}
+                      onPress={() => setSelectedMood(m.level)}
+                    >
+                      <View
+                        style={[
+                          styles.moodBadgeCircle,
+                          { backgroundColor: `${m.color}28`, borderColor: m.color },
+                        ]}
+                      >
+                        <Text style={{ color: m.color, fontWeight: '900', fontSize: 13 }}>
+                          {m.level}
+                        </Text>
+                      </View>
+                      <Text
+                        style={{
+                          color: active ? m.color : theme.textSecondary,
+                          fontSize: 11,
+                          fontWeight: '800',
+                          marginTop: 4,
+                        }}
+                      >
+                        {isTh ? m.th : m.en}
+                      </Text>
+                    </AnimatedPressable>
+                  );
+                })}
+              </View>
+
+              <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 12, marginBottom: 6 }}>
+                {isTh ? 'แท็กบริบทที่เกี่ยวข้อง:' : 'Context tags:'}
+              </Text>
+              <View style={styles.chipRow}>
+                {MOOD_TAGS.map((tag) => {
+                  const active = selectedTags.includes(tag.id);
+                  return (
+                    <AnimatedPressable
+                      key={tag.id}
+                      reduceMotion={reduceMotion}
                       style={[
                         styles.chip,
                         {
@@ -161,26 +432,32 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                           borderColor: active ? theme.mind : theme.border,
                         },
                       ]}
-                      onPress={() => setJournalCat(c.id)}
+                      onPress={() => {
+                        setSelectedTags((prev) =>
+                          prev.includes(tag.id)
+                            ? prev.filter((t) => t !== tag.id)
+                            : [...prev, tag.id]
+                        );
+                      }}
                     >
                       <Text
                         style={{
                           color: active ? theme.mind : theme.textSecondary,
-                          fontWeight: '800',
                           fontSize: 12,
+                          fontWeight: '700',
                         }}
                       >
-                        {c.label}
+                        #{isTh ? tag.th : tag.en}
                       </Text>
-                    </Pressable>
+                    </AnimatedPressable>
                   );
                 })}
               </View>
 
               <TextInput
-                value={journalTitle}
-                onChangeText={setJournalTitle}
-                placeholder={isTh ? 'หัวข้อวันนี้ (ไม่บังคับ)...' : 'Entry title (optional)...'}
+                value={moodNote}
+                onChangeText={setMoodNote}
+                placeholder={isTh ? 'คำอธิบายสั้น ๆ (ไม่บังคับ)...' : 'Short note (optional)...'}
                 placeholderTextColor={theme.textMuted}
                 style={[
                   styles.input,
@@ -188,369 +465,195 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                     backgroundColor: theme.bgSecondary,
                     color: theme.text,
                     borderColor: theme.border,
-                    marginBottom: 8,
+                    marginTop: 12,
                   },
                 ]}
               />
 
-              <TextInput
-                value={journalBody}
-                onChangeText={setJournalBody}
-                multiline
-                numberOfLines={4}
-                placeholder={
-                  isTh
-                    ? 'วันนี้เกิดอะไรขึ้นบ้าง? คุณได้เรียนรู้อะไร หรืออยากขอบคุณตัวเองเรื่องอะไร...'
-                    : 'What happened today? What small win are you proud of?'
-                }
-                placeholderTextColor={theme.textMuted}
-                style={[
-                  styles.textArea,
-                  {
-                    backgroundColor: theme.bgSecondary,
-                    color: theme.text,
-                    borderColor: theme.border,
-                  },
-                ]}
-              />
-
-              <Pressable
-                style={[
-                  styles.primaryBtn,
-                  { backgroundColor: theme.mind, marginTop: 12 },
-                ]}
+              <AnimatedPressable
+                reduceMotion={reduceMotion}
+                style={[styles.primaryBtn, { backgroundColor: theme.mind, marginTop: 12 }]}
                 onPress={() => {
-                  if (!journalBody.trim()) return;
-                  saveJournalEntry({
-                    id: editingId,
-                    title: journalTitle,
-                    body: journalBody,
-                    category: journalCat,
-                  });
-                  setEditingId(undefined);
-                  setJournalTitle('');
-                  setJournalBody('');
+                  logMoodEntry(selectedMood, moodNote, selectedTags);
+                  setMoodNote('');
                 }}
               >
                 <Text style={styles.primaryBtnText}>
-                  ✓ {editingId ? (isTh ? 'บันทึกการแก้ไข' : 'Save Changes') : isTh ? 'บันทึกไดอารี่ (+15 XP เมื่อ ≥20 ตัวอักษร)' : 'Save Journal (+15 XP if ≥20 chars)'}
+                  {isTh ? 'บันทึกอารมณ์ (+5 XP)' : 'Log Mood (+5 XP)'}
                 </Text>
-              </Pressable>
-            </View>
+              </AnimatedPressable>
+            </AnimatedCard>
+          )}
 
-            {/* Search & Past Entries */}
-            <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <TextInput
-                value={searchText}
-                onChangeText={setSearchText}
-                placeholder={isTh ? '🔍 ค้นหาข้อความหรือวันที่ (YYYY-MM-DD)...' : '🔍 Search journal entries...'}
-                placeholderTextColor={theme.textMuted}
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: theme.bgSecondary,
-                    color: theme.text,
-                    borderColor: theme.border,
-                    marginBottom: 10,
-                  },
-                ]}
-              />
-
-              {filteredJournals.map((j) => (
-                <View
-                  key={j.id}
-                  style={[
-                    styles.journalCard,
-                    { backgroundColor: theme.bgSecondary, borderColor: theme.border },
-                  ]}
-                >
-                  <View style={styles.headerRow}>
-                    <Text style={{ color: theme.text, fontWeight: '800', fontSize: 14 }}>
-                      {j.title}
-                    </Text>
-                    <Text style={{ color: theme.mind, fontSize: 11, fontWeight: '700' }}>
-                      {j.entryDate} · +{j.xpAwarded} XP
-                    </Text>
-                  </View>
-                  <Text style={{ color: theme.textSecondary, fontSize: 13, marginTop: 6, lineHeight: 19 }}>
-                    {j.body}
-                  </Text>
-                  <View style={[styles.chipRow, { marginTop: 8 }]}>
-                    <Pressable
-                      onPress={() => {
-                        setEditingId(j.id);
-                        setJournalTitle(j.title);
-                        setJournalBody(j.body);
-                        setJournalCat(j.category);
-                      }}
-                    >
-                      <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '700' }}>
-                        ✏️ {isTh ? 'แก้ไข' : 'Edit'}
-                      </Text>
-                    </Pressable>
-                    <Pressable onPress={() => deleteJournalEntry(j.id)}>
-                      <Text style={{ color: theme.danger, fontSize: 12, fontWeight: '700' }}>
-                        🗑️ {isTh ? 'ลบ' : 'Delete'}
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </>
-        )}
-
-        {/* 2. MOOD TRACKER */}
-        {subTab === 'mood' && (
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>
-              🙂 {isTh ? 'สำรวจความรู้สึกตอนนี้ (+5 XP, สูงสุด 2 ครั้ง/วัน)' : 'Mood Check-in (+5 XP, up to 2x/day)'}
-            </Text>
-
-            <View style={styles.moodRow}>
-              {MOOD_LEVELS.map((m) => {
-                const active = selectedMood === m.level;
-                return (
-                  <Pressable
-                    key={m.level}
-                    style={[
-                      styles.moodBtn,
-                      {
-                        backgroundColor: active ? `${theme.primary}25` : theme.bgSecondary,
-                        borderColor: active ? theme.primary : theme.border,
-                      },
-                    ]}
-                    onPress={() => setSelectedMood(m.level)}
-                  >
-                    <Text style={{ fontSize: 24 }}>{m.emoji}</Text>
-                    <Text
-                      style={{
-                        color: active ? theme.primary : theme.textSecondary,
-                        fontSize: 10,
-                        fontWeight: '800',
-                        marginTop: 2,
-                      }}
-                    >
-                      {isTh ? m.th : m.en}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 12, marginBottom: 6 }}>
-              {isTh ? 'แท็กบริบทที่เกี่ยวข้อง:' : 'Context tags:'}
-            </Text>
-            <View style={styles.chipRow}>
-              {MOOD_TAGS.map((tag) => {
-                const active = selectedTags.includes(tag.id);
-                return (
-                  <Pressable
-                    key={tag.id}
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor: active ? `${theme.mind}25` : theme.bgSecondary,
-                        borderColor: active ? theme.mind : theme.border,
-                      },
-                    ]}
-                    onPress={() => {
-                      setSelectedTags((prev) =>
-                        prev.includes(tag.id)
-                          ? prev.filter((t) => t !== tag.id)
-                          : [...prev, tag.id]
-                      );
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: active ? theme.mind : theme.textSecondary,
-                        fontSize: 12,
-                        fontWeight: '700',
-                      }}
-                    >
-                      #{isTh ? tag.th : tag.en}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <TextInput
-              value={moodNote}
-              onChangeText={setMoodNote}
-              placeholder={isTh ? 'คำอธิบายสั้น ๆ (ไม่บังคับ)...' : 'Short note (optional)...'}
-              placeholderTextColor={theme.textMuted}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.bgSecondary,
-                  color: theme.text,
-                  borderColor: theme.border,
-                  marginTop: 12,
-                },
-              ]}
-            />
-
-            <Pressable
-              style={[styles.primaryBtn, { backgroundColor: theme.mind, marginTop: 12 }]}
-              onPress={() => {
-                logMoodEntry(selectedMood, moodNote, selectedTags);
-                setMoodNote('');
-              }}
+          {/* 3. CALENDAR VIEW */}
+          {subTab === 'calendar' && (
+            <AnimatedCard
+              index={0}
+              reduceMotion={reduceMotion}
+              style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
             >
-              <Text style={styles.primaryBtnText}>
-                ✓ {isTh ? 'บันทึกอารมณ์ (+5 XP)' : 'Log Mood (+5 XP)'}
-              </Text>
-            </Pressable>
-          </View>
-        )}
-
-        {/* 3. CALENDAR VIEW */}
-        {subTab === 'calendar' && (
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Text style={[styles.cardTitle, { color: theme.text, marginBottom: 10 }]}>
-              🗓️ {isTh ? 'ปฏิทินการเดินทาง 14 วันล่าสุด' : '14-Day Journey Calendar'}
-            </Text>
-
-            <View style={styles.calendarGrid}>
-              {last14Days.map((dk) => {
-                const st = streakState.updatedLogs[dk];
-                const hasJournal = db.journals.some((j) => j.entryDate === dk);
-                const hasMood = db.moods.some((m) => m.dayKey === dk);
-                const selected = selectedDayKey === dk;
-
-                return (
-                  <Pressable
-                    key={dk}
-                    style={[
-                      styles.calCell,
-                      {
-                        backgroundColor: selected ? `${theme.primary}25` : theme.bgSecondary,
-                        borderColor: selected ? theme.primary : theme.border,
-                      },
-                    ]}
-                    onPress={() => setSelectedDayKey(dk)}
-                  >
-                    <Text style={{ color: theme.text, fontWeight: '800', fontSize: 12 }}>
-                      {dk.slice(5)}
-                    </Text>
-                    <View style={styles.dotRow}>
-                      {st === 'active' && (
-                        <View style={[styles.dot, { backgroundColor: theme.success }]} />
-                      )}
-                      {st === 'rest' && (
-                        <View style={[styles.dot, { backgroundColor: theme.primary }]} />
-                      )}
-                      {hasJournal && (
-                        <View style={[styles.dot, { backgroundColor: theme.mind }]} />
-                      )}
-                      {hasMood && (
-                        <View style={[styles.dot, { backgroundColor: theme.warning }]} />
-                      )}
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <View
-              style={[
-                styles.journalCard,
-                { backgroundColor: theme.bgSecondary, borderColor: theme.border, marginTop: 14 },
-              ]}
-            >
-              <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 14 }}>
-                📌 {isTh ? `สรุปวันที่ ${selectedDayKey}` : `Logs on ${selectedDayKey}`}
-              </Text>
-              <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 4 }}>
-                • {isTh ? 'กิจกรรมที่บันทึก:' : 'Activities:'}{' '}
-                {
-                  db.activities.filter(
-                    (a) =>
-                      !a.deletedAt &&
-                      getLocalDayKey(a.occurredAt, a.tzOffsetMin) === selectedDayKey
-                  ).length
-                }{' '}
-                {isTh ? 'รายการ' : 'items'}
-              </Text>
-              <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 2 }}>
-                • {isTh ? 'ไดอารี่:' : 'Journals:'}{' '}
-                {db.journals.filter((j) => j.entryDate === selectedDayKey).length}
-              </Text>
-              <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 2 }}>
-                • {isTh ? 'บันทึกอารมณ์:' : 'Mood logs:'}{' '}
-                {db.moods.filter((m) => m.dayKey === selectedDayKey).length}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* 4. JOURNEY RECAP (Non-Diagnostic Rule Section 6.7) */}
-        {subTab === 'recap' && (
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>
-              📈 {isTh ? 'สรุปการเดินทาง (Journey Recap)' : 'Journey Recap'}
-            </Text>
-            <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 4, marginBottom: 12 }}>
-              ℹ️ {strings.journey.recapDisclaimer}
-            </Text>
-
-            <View
-              style={[
-                styles.journalCard,
-                { backgroundColor: theme.bgSecondary, borderColor: theme.border },
-              ]}
-            >
-              <Text style={{ color: theme.text, fontWeight: '800', fontSize: 14 }}>
-                {isTh
-                  ? `สัปดาห์นี้คุณมีวัน Active ${streakState.weeklyActiveDays} วัน และสะสมเวลาโฟกัส ${todayMetrics.weekly_focus_min} นาที`
-                  : `This week you logged ${streakState.weeklyActiveDays} active days and ${todayMetrics.weekly_focus_min} focus minutes.`}
-              </Text>
-              <Text style={{ color: theme.textSecondary, fontSize: 13, marginTop: 6 }}>
-                {topMood && topMood.count > 0
-                  ? isTh
-                    ? `จากการบันทึกของคุณ คุณเลือกอารมณ์ '${topMood.th}' ${topMood.count} ครั้ง`
-                    : `Based on your logs, you selected the mood '${topMood.en}' ${topMood.count} times.`
-                  : isTh
-                  ? 'ยังไม่มีการบันทึกอารมณ์ในสัปดาห์นี้ ลองบันทึกอารมณ์เพื่อดูสถิติย้อนหลังได้นะ'
-                  : 'No mood entries logged yet this week.'}
-              </Text>
-            </View>
-
-            {/* Mood Distribution Bars */}
-            <Text style={{ color: theme.text, fontWeight: '800', marginTop: 12, marginBottom: 8 }}>
-              {isTh ? 'การกระจายอารมณ์ที่คุณเลือก:' : 'Mood Selection Distribution:'}
-            </Text>
-            {moodDistribution.map((m) => (
-              <View key={m.level} style={styles.distRow}>
-                <Text style={{ width: 90, color: theme.textSecondary, fontSize: 12 }}>
-                  {m.emoji} {isTh ? m.th : m.en}
-                </Text>
-                <View style={[styles.distBarBg, { backgroundColor: theme.bgSecondary }]}>
-                  <View
-                    style={{
-                      width: `${Math.min(100, m.count * 20)}%`,
-                      height: '100%',
-                      backgroundColor: theme.mind,
-                      borderRadius: 6,
-                    }}
-                  />
-                </View>
-                <Text style={{ width: 35, textAlign: 'right', color: theme.text, fontSize: 12 }}>
-                  {m.count}
+              <View style={[styles.inlineIconRow, { marginBottom: 10 }]}>
+                <AppIcon name="calendar" size={18} color={theme.primary} />
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  {isTh ? 'ปฏิทินการเดินทาง 14 วันล่าสุด' : '14-Day Journey Calendar'}
                 </Text>
               </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+
+              <View style={styles.calendarGrid}>
+                {last14Days.map((dk) => {
+                  const st = streakState.updatedLogs[dk];
+                  const hasJournal = db.journals.some((j) => j.entryDate === dk);
+                  const hasMood = db.moods.some((m) => m.dayKey === dk);
+                  const selected = selectedDayKey === dk;
+
+                  return (
+                    <AnimatedPressable
+                      key={dk}
+                      reduceMotion={reduceMotion}
+                      style={[
+                        styles.calCell,
+                        {
+                          backgroundColor: selected ? `${theme.primary}25` : theme.bgSecondary,
+                          borderColor: selected ? theme.primary : theme.border,
+                        },
+                      ]}
+                      onPress={() => setSelectedDayKey(dk)}
+                    >
+                      <Text style={{ color: theme.text, fontWeight: '800', fontSize: 12 }}>
+                        {dk.slice(5)}
+                      </Text>
+                      <View style={styles.dotRow}>
+                        {st === 'active' && (
+                          <View style={[styles.dot, { backgroundColor: theme.success }]} />
+                        )}
+                        {st === 'rest' && (
+                          <View style={[styles.dot, { backgroundColor: theme.primary }]} />
+                        )}
+                        {hasJournal && (
+                          <View style={[styles.dot, { backgroundColor: theme.mind }]} />
+                        )}
+                        {hasMood && (
+                          <View style={[styles.dot, { backgroundColor: theme.warning }]} />
+                        )}
+                      </View>
+                    </AnimatedPressable>
+                  );
+                })}
+              </View>
+
+              <View
+                style={[
+                  styles.journalCard,
+                  { backgroundColor: theme.bgSecondary, borderColor: theme.border, marginTop: 14 },
+                ]}
+              >
+                <View style={styles.inlineIconRow}>
+                  <AppIcon name="calendar" size={14} color={theme.primary} />
+                  <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 14 }}>
+                    {isTh ? `สรุปวันที่ ${selectedDayKey}` : `Logs on ${selectedDayKey}`}
+                  </Text>
+                </View>
+                <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 4 }}>
+                  • {isTh ? 'กิจกรรมที่บันทึก:' : 'Activities:'}{' '}
+                  {
+                    db.activities.filter(
+                      (a) =>
+                        !a.deletedAt &&
+                        getLocalDayKey(a.occurredAt, a.tzOffsetMin) === selectedDayKey
+                    ).length
+                  }{' '}
+                  {isTh ? 'รายการ' : 'items'}
+                </Text>
+                <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 2 }}>
+                  • {isTh ? 'ไดอารี่:' : 'Journals:'}{' '}
+                  {db.journals.filter((j) => j.entryDate === selectedDayKey).length}
+                </Text>
+                <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 2 }}>
+                  • {isTh ? 'บันทึกอารมณ์:' : 'Mood logs:'}{' '}
+                  {db.moods.filter((m) => m.dayKey === selectedDayKey).length}
+                </Text>
+              </View>
+            </AnimatedCard>
+          )}
+
+          {/* 4. JOURNEY RECAP (Non-Diagnostic Rule Section 6.7) */}
+          {subTab === 'recap' && (
+            <AnimatedCard
+              index={0}
+              reduceMotion={reduceMotion}
+              style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+            >
+              <View style={styles.inlineIconRow}>
+                <AppIcon name="activity" size={18} color={theme.primary} />
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  {isTh ? 'สรุปการเดินทาง (Journey Recap)' : 'Journey Recap'}
+                </Text>
+              </View>
+              <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 4, marginBottom: 12 }}>
+                {strings.journey.recapDisclaimer}
+              </Text>
+
+              <View
+                style={[
+                  styles.journalCard,
+                  { backgroundColor: theme.bgSecondary, borderColor: theme.border },
+                ]}
+              >
+                <Text style={{ color: theme.text, fontWeight: '800', fontSize: 14 }}>
+                  {isTh
+                    ? `สัปดาห์นี้คุณมีวัน Active ${streakState.weeklyActiveDays} วัน และสะสมเวลาโฟกัส ${todayMetrics.weekly_focus_min} นาที`
+                    : `This week you logged ${streakState.weeklyActiveDays} active days and ${todayMetrics.weekly_focus_min} focus minutes.`}
+                </Text>
+                <Text style={{ color: theme.textSecondary, fontSize: 13, marginTop: 6 }}>
+                  {topMood && topMood.count > 0
+                    ? isTh
+                      ? `จากการบันทึกของคุณ คุณเลือกอารมณ์ '${topMood.th}' ${topMood.count} ครั้ง`
+                      : `Based on your logs, you selected the mood '${topMood.en}' ${topMood.count} times.`
+                    : isTh
+                    ? 'ยังไม่มีการบันทึกอารมณ์ในสัปดาห์นี้ ลองบันทึกอารมณ์เพื่อดูสถิติย้อนหลังได้นะ'
+                    : 'No mood entries logged yet this week.'}
+                </Text>
+              </View>
+
+              {/* Animated Mood Distribution Bars */}
+              <Text style={{ color: theme.text, fontWeight: '800', marginTop: 12, marginBottom: 8 }}>
+                {isTh ? 'การกระจายอารมณ์ที่คุณเลือก:' : 'Mood Selection Distribution:'}
+              </Text>
+              {moodDistribution.map((m) => (
+                <View key={m.level} style={styles.distRow}>
+                  <Text style={{ width: 90, color: theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                    Lv.{m.level} {isTh ? m.th : m.en}
+                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <AnimatedProgressBar
+                      percent={Math.min(100, m.count * 20)}
+                      fillColor={m.color}
+                      trackColor={theme.bgSecondary}
+                      borderColor={theme.border}
+                      height={10}
+                      reduceMotion={reduceMotion}
+                    />
+                  </View>
+                  <Text style={{ width: 35, textAlign: 'right', color: theme.text, fontSize: 12 }}>
+                    {m.count}
+                  </Text>
+                </View>
+              ))}
+            </AnimatedCard>
+          )}
+        </ScrollView>
+      </AnimatedScreenWrapper>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  inlineIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   subTabBar: {
     flexDirection: 'row',
     paddingHorizontal: 10,
@@ -636,11 +739,20 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   moodBtn: {
-    width: '22%',
+    width: 74,
+    flexGrow: 1,
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
+  },
+  moodBadgeCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   calendarGrid: {
     flexDirection: 'row',
@@ -648,7 +760,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   calCell: {
-    width: '22.5%',
+    width: 72,
+    flexGrow: 1,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
@@ -670,11 +783,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
     gap: 8,
-  },
-  distBarBg: {
-    flex: 1,
-    height: 10,
-    borderRadius: 6,
-    overflow: 'hidden',
   },
 });

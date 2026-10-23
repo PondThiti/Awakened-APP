@@ -18,3 +18,5 @@
 | `assets/config/quests.json` | คลังภารกิจออริจินัลตาม `Awakened.md` (MIT) |
 | `assets/config/achievements.json` | ระบบเหรียญตราความสำเร็จออริจินัล (MIT) |
 | `assets/config/thai_foods.json` | ค่าประมาณโภชนาการอ้างอิงจากตารางโภชนาการอาหารไทย (กรมอนามัย / USDA Public Domain) แสดงเป็นช่วงค่าประมาณเท่านั้น |
+| `Awakened.ico` & `assets/icon.png` | ไอคอนหลักของแอป Awakened สำหรับติดตั้งบน Android (`mipmap-*`, `drawable-*`) และแสดงผลใน Header |
+| `assets/icons/*.svg` (`AppIcons.tsx`) | ชุดไอคอนเวกเตอร์ SVG ดาวน์โหลดจาก [freeicons.io](https://freeicons.io/) (Iconly Essential Icons & Free Vector Sets) แสดงผลผ่าน `react-native-svg` |

@@ -4,19 +4,26 @@
     "slug": "awakened-life-rpg",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.awakened.liferpg"
     },
     "android": {
       "package": "com.awakened.liferpg",
+      "allowBackup": false,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0E162B"
+      },
       "permissions": [
         "POST_NOTIFICATIONS",
         "SCHEDULE_EXACT_ALARM",
         "FOREGROUND_SERVICE",
-        "CAMERA"
+        "CAMERA",
+        "VIBRATE"
       ]
     },
     "web": {

@@ -1,10 +1,10 @@
-import { Platform } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { NativeModules, Platform, Vibration } from 'react-native';
 
 /**
  * Sound & Haptics Service (Section 6.9 & 15)
- * Uses Web Audio API synthesizer when available + native Haptics on Android/iOS,
- * requiring zero external audio files and strictly respecting `soundEnabled`.
+ * Uses native Android ToneGenerator + Vibration on Android APK,
+ * and Web Audio API synthesizer on Web, requiring zero external audio files
+ * and strictly respecting `soundEnabled`.
  */
 export function playSystemFeedback(
   type: 'xp' | 'quest' | 'levelUp' | 'rankUp' | 'timerDone',
@@ -12,16 +12,25 @@ export function playSystemFeedback(
 ): void {
   if (!soundEnabled) return;
 
-  // Trigger native haptics on mobile devices
+  // Trigger native haptics & RPG tone on mobile devices
   if (Platform.OS !== 'web') {
     try {
       if (type === 'levelUp' || type === 'rankUp') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Vibration.vibrate([0, 50, 70, 110]);
       } else {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Vibration.vibrate(25);
       }
     } catch {
-      // Ignore if device doesn't support haptics
+      // Ignore if device doesn't support vibration
+    }
+
+    try {
+      const nativeMod = NativeModules?.AwakenedNative;
+      if (nativeMod && typeof nativeMod.playTone === 'function') {
+        nativeMod.playTone(type);
+      }
+    } catch {
+      // Ignore if native tone module is unavailable
     }
   }
 

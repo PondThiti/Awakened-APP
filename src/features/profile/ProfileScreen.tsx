@@ -14,6 +14,11 @@ import { useAwakened } from '../../data/repository';
 import { t } from '../../l10n/translations';
 import { AchievementDef, RankDef } from '../../core/engine/types';
 import { RankBadge, XpBar } from '../components/SystemSharedComponents';
+import { AppIcon } from '../components/AppIcons';
+import {
+  AnimatedCard,
+  AnimatedPressable,
+} from '../components/AnimatedComponents';
 
 export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
   const {
@@ -38,6 +43,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
   const lang = db.profile.language;
   const strings = t(lang);
   const isTh = lang === 'th';
+  const reduceMotion = db.profile.reduceEffects;
 
   const [nameInput, setNameInput] = useState(db.profile.displayName);
   const [newQuestTitle, setNewQuestTitle] = useState('');
@@ -57,28 +63,50 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
       contentContainerStyle={styles.content}
     >
       {/* 1. Player Profile & Rank Card */}
-      <View
+      <AnimatedCard
+        index={0}
+        reduceMotion={reduceMotion}
         style={[
           styles.card,
           { backgroundColor: theme.card, borderColor: currentRank.color, borderWidth: 1.5 },
         ]}
       >
-        <RankBadge rank={currentRank} lang={lang} size="lg" />
-        <Text style={[styles.playerTitle, { color: theme.text }]}>
-          {db.profile.displayName}
-        </Text>
+        <View style={styles.profileHeaderRow}>
+          <View
+            style={[
+              styles.avatarCircle,
+              {
+                backgroundColor: `${currentRank.color}20`,
+                borderColor: currentRank.color,
+              },
+            ]}
+          >
+            <AppIcon name="user" size={28} color={currentRank.color} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <RankBadge rank={currentRank} lang={lang} size="md" reduceMotion={reduceMotion} />
+            <Text style={[styles.playerTitle, { color: theme.text }]}>
+              {db.profile.displayName}
+            </Text>
+          </View>
+        </View>
+
         <XpBar
           levelState={levelState}
           theme={theme}
           dailyRepeatableXp={dailyRepeatableXpToday}
           lang={lang}
+          reduceMotion={reduceMotion}
         />
 
         {nextRank && (
-          <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 10 }}>
-            🎯 {strings.profile.rankProgress}: Rank {nextRank.id} – {nextRank.name} (Lv.
-            {nextRank.min_level} / {nextRank.min_total_xp.toLocaleString()} XP)
-          </Text>
+          <View style={[styles.inlineIconRow, { marginTop: 10 }]}>
+            <AppIcon name="quest" size={14} color={theme.primary} />
+            <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
+              {strings.profile.rankProgress}: Rank {nextRank.id} – {nextRank.name} (Lv.
+              {nextRank.min_level} / {nextRank.min_total_xp.toLocaleString()} XP)
+            </Text>
+          </View>
         )}
 
         {/* Monarch Special Unlock Trials (Section 7.5) */}
@@ -88,9 +116,12 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             { backgroundColor: theme.bgSecondary, borderColor: theme.border, marginTop: 12 },
           ]}
         >
-          <Text style={{ color: theme.warning, fontWeight: '800', fontSize: 12 }}>
-            👑 {strings.profile.monarchTrials}:
-          </Text>
+          <View style={styles.inlineIconRow}>
+            <AppIcon name="crown" size={14} color={theme.warning} />
+            <Text style={{ color: theme.warning, fontWeight: '800', fontSize: 12 }}>
+              {strings.profile.monarchTrials}:
+            </Text>
+          </View>
           <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 4 }}>
             • Level 221+: {levelState.level}/221 {monarchEligibility.levelMet ? '✓' : ''}
           </Text>
@@ -104,13 +135,20 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             {monarchEligibility.badgeCategoriesMet ? '✓' : ''}
           </Text>
         </View>
-      </View>
+      </AnimatedCard>
 
       {/* 2. Personal Quest Manager (Section 8.4) */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <Text style={[styles.cardTitle, { color: theme.text }]}>
-          🎯 {strings.profile.personalQuests} (Max 50 XP/วัน)
-        </Text>
+      <AnimatedCard
+        index={1}
+        reduceMotion={reduceMotion}
+        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+      >
+        <View style={styles.inlineIconRow}>
+          <AppIcon name="quest" size={18} color={theme.primary} />
+          <Text style={[styles.cardTitle, { color: theme.text }]}>
+            {strings.profile.personalQuests} (Max 50 XP/{isTh ? 'วัน' : 'day'})
+          </Text>
+        </View>
         <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 4, marginBottom: 10 }}>
           {isTh
             ? 'สร้างภารกิจที่เข้ากับชีวิตของคุณเอง เช่น อ่านหนังสือ 20 นาที หรือฝึกภาษา'
@@ -139,8 +177,9 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
           {([10, 25, 50] as const).map((xp) => {
             const active = newQuestReward === xp;
             return (
-              <Pressable
+              <AnimatedPressable
                 key={xp}
+                reduceMotion={reduceMotion}
                 style={[
                   styles.chip,
                   {
@@ -159,10 +198,11 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                 >
                   +{xp} XP
                 </Text>
-              </Pressable>
+              </AnimatedPressable>
             );
           })}
-          <Pressable
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
             style={[styles.primaryBtn, { backgroundColor: theme.primary, flex: 1 }]}
             onPress={() => {
               addPersonalQuest(newQuestTitle, newQuestReward);
@@ -172,7 +212,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             <Text style={styles.primaryBtnText}>
               + {isTh ? 'เพิ่มเควสต์' : 'Add Quest'}
             </Text>
-          </Pressable>
+          </AnimatedPressable>
         </View>
 
         {db.personalQuestTemplates.map((pq) => {
@@ -194,30 +234,37 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                 </Text>
               </View>
               {!done ? (
-                <Pressable
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
                   style={[styles.primaryBtn, { backgroundColor: theme.success }]}
                   onPress={() => completePersonalQuest(pq.id)}
                 >
                   <Text style={styles.primaryBtnText}>
-                    ✓ {isTh ? 'ทำสำเร็จ' : 'Complete'}
+                    {isTh ? 'ทำสำเร็จ' : 'Complete'}
                   </Text>
-                </Pressable>
+                </AnimatedPressable>
               ) : (
-                <Text style={{ color: theme.success, fontWeight: '800', fontSize: 12 }}>
-                  ✓ {isTh ? 'สำเร็จวันนี้แล้ว' : 'Done Today'}
-                </Text>
+                <View style={styles.inlineIconRow}>
+                  <AppIcon name="check" size={14} color={theme.success} />
+                  <Text style={{ color: theme.success, fontWeight: '800', fontSize: 12 }}>
+                    {isTh ? 'สำเร็จวันนี้แล้ว' : 'Done Today'}
+                  </Text>
+                </View>
               )}
               <Pressable onPress={() => deletePersonalQuest(pq.id)} style={{ padding: 6 }}>
-                <Text style={{ color: theme.textMuted, fontSize: 12 }}>✕</Text>
+                <AppIcon name="trash" size={14} color={theme.textMuted} />
               </Pressable>
             </View>
           );
         })}
 
         {/* Weekly & Milestone Quests Summary */}
-        <Text style={[styles.cardTitle, { color: theme.text, marginTop: 14, marginBottom: 8 }]}>
-          📅 Weekly & Milestone Quests
-        </Text>
+        <View style={[styles.inlineIconRow, { marginTop: 14, marginBottom: 8 }]}>
+          <AppIcon name="calendar" size={16} color={theme.primary} />
+          <Text style={[styles.cardTitle, { color: theme.text }]}>
+            Weekly & Milestone Quests
+          </Text>
+        </View>
         {[...thisWeekQuests, ...db.milestoneQuests].map((mq) => (
           <View
             key={`${mq.templateId}_${mq.periodKey}`}
@@ -242,18 +289,25 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                 fontSize: 12,
               }}
             >
-              {mq.status === 'completed' ? '✓ DONE' : 'IN PROGRESS'}
+              {mq.status === 'completed' ? 'DONE' : 'IN PROGRESS'}
             </Text>
           </View>
         ))}
-      </View>
+      </AnimatedCard>
 
       {/* 3. Achievements & Badges */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <Text style={[styles.cardTitle, { color: theme.text, marginBottom: 10 }]}>
-          🏆 {strings.profile.achievements} ({db.achievementsUnlocked.length}/
-          {allAchievements.length})
-        </Text>
+      <AnimatedCard
+        index={2}
+        reduceMotion={reduceMotion}
+        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+      >
+        <View style={[styles.inlineIconRow, { marginBottom: 10 }]}>
+          <AppIcon name="trophy" size={18} color={theme.warning} />
+          <Text style={[styles.cardTitle, { color: theme.text }]}>
+            {strings.profile.achievements} ({db.achievementsUnlocked.length}/
+            {allAchievements.length})
+          </Text>
+        </View>
         <View style={styles.badgeGrid}>
           {allAchievements.map((ach) => {
             const unlocked = unlockedSet.has(ach.id);
@@ -265,12 +319,25 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                   {
                     backgroundColor: unlocked ? `${theme.success}16` : theme.bgSecondary,
                     borderColor: unlocked ? theme.success : theme.border,
-                    opacity: unlocked ? 1 : 0.6,
+                    opacity: unlocked ? 1 : 0.65,
                   },
                 ]}
               >
-                <Text style={{ fontSize: 22 }}>{unlocked ? '🏅' : '🔒'}</Text>
-                <Text style={{ color: theme.text, fontWeight: '800', fontSize: 12, marginTop: 4 }}>
+                <View
+                  style={[
+                    styles.badgeIconCircle,
+                    {
+                      backgroundColor: unlocked ? `${theme.success}25` : theme.card,
+                    },
+                  ]}
+                >
+                  <AppIcon
+                    name={unlocked ? 'trophy' : 'lock'}
+                    size={18}
+                    color={unlocked ? theme.success : theme.textMuted}
+                  />
+                </View>
+                <Text style={{ color: theme.text, fontWeight: '800', fontSize: 12, marginTop: 6 }}>
                   {isTh ? ach.title_th : ach.title_en}
                 </Text>
                 <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>
@@ -280,13 +347,20 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             );
           })}
         </View>
-      </View>
+      </AnimatedCard>
 
       {/* 4. All 8 Ranks Reference Table */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <Text style={[styles.cardTitle, { color: theme.text, marginBottom: 8 }]}>
-          ⚔️ {isTh ? 'ทำเนียบ Rank ทั้ง 8 ระดับ' : 'All 8 Awakened Ranks'}
-        </Text>
+      <AnimatedCard
+        index={3}
+        reduceMotion={reduceMotion}
+        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+      >
+        <View style={[styles.inlineIconRow, { marginBottom: 8 }]}>
+          <AppIcon name="shield" size={18} color={theme.primary} />
+          <Text style={[styles.cardTitle, { color: theme.text }]}>
+            {isTh ? 'ทำเนียบ Rank ทั้ง 8 ระดับ' : 'All 8 Awakened Ranks'}
+          </Text>
+        </View>
         {allRanks.map((r) => (
           <View
             key={r.id}
@@ -298,21 +372,35 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
               },
             ]}
           >
-            <Text style={{ color: r.color, fontWeight: '900', fontSize: 13 }}>
-              {r.id} – {r.name} ({isTh ? r.title_th : r.title_en})
-            </Text>
+            <View style={styles.inlineIconRow}>
+              <AppIcon
+                name={r.id === 'Monarch' || r.id === 'SS' || r.id === 'S' ? 'crown' : 'shield'}
+                size={14}
+                color={r.color}
+              />
+              <Text style={{ color: r.color, fontWeight: '900', fontSize: 13 }}>
+                {r.id} – {r.name} ({isTh ? r.title_th : r.title_en})
+              </Text>
+            </View>
             <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
               Lv.{r.min_level}+ · {r.min_total_xp.toLocaleString()} XP
             </Text>
           </View>
         ))}
-      </View>
+      </AnimatedCard>
 
       {/* 5. Settings, Preferences & Privacy (Section 14 & 15) */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <Text style={[styles.cardTitle, { color: theme.text, marginBottom: 12 }]}>
-          ⚙️ {strings.profile.settings}
-        </Text>
+      <AnimatedCard
+        index={4}
+        reduceMotion={reduceMotion}
+        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+      >
+        <View style={[styles.inlineIconRow, { marginBottom: 12 }]}>
+          <AppIcon name="settings" size={18} color={theme.primary} />
+          <Text style={[styles.cardTitle, { color: theme.text }]}>
+            {strings.profile.settings}
+          </Text>
+        </View>
 
         {/* Display Name */}
         <View style={[styles.inlineRow, { marginBottom: 10 }]}>
@@ -329,57 +417,86 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
               },
             ]}
           />
-          <Pressable
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
             style={[styles.primaryBtn, { backgroundColor: theme.primary }]}
             onPress={() => updateProfile({ displayName: nameInput.trim() || 'Hunter' })}
           >
             <Text style={styles.primaryBtnText}>{isTh ? 'เปลี่ยนชื่อ' : 'Save Name'}</Text>
-          </Pressable>
+          </AnimatedPressable>
         </View>
 
         {/* Toggles: Language, Theme, Sound, Reduce Motion */}
         <View style={styles.chipRow}>
-          <Pressable
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
             style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.primary }]}
             onPress={() =>
               updateProfile({ language: db.profile.language === 'th' ? 'en' : 'th' })
             }
           >
             <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 12 }}>
-              🌐 {isTh ? 'ภาษา: ไทย (แตะเปลี่ยนเป็น EN)' : 'Language: EN (Tap for TH)'}
+              {isTh ? 'ภาษา: ไทย (แตะเปลี่ยนเป็น EN)' : 'Language: EN (Tap for TH)'}
             </Text>
-          </Pressable>
+          </AnimatedPressable>
 
-          <Pressable
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
             style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.primary }]}
             onPress={() =>
               updateProfile({ theme: db.profile.theme === 'dark' ? 'light' : 'dark' })
             }
           >
-            <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 12 }}>
-              🎨 {db.profile.theme === 'dark' ? 'Dark RPG Mode' : 'Light Mode'}
-            </Text>
-          </Pressable>
+            <View style={styles.inlineIconRow}>
+              <AppIcon
+                name={db.profile.theme === 'dark' ? 'moon' : 'sun'}
+                size={13}
+                color={theme.primary}
+              />
+              <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 12 }}>
+                {db.profile.theme === 'dark' ? 'Dark RPG Mode' : 'Light Mode'}
+              </Text>
+            </View>
+          </AnimatedPressable>
 
-          <Pressable
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
             style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.border }]}
             onPress={() => updateProfile({ soundEnabled: !db.profile.soundEnabled })}
           >
             <Text style={{ color: theme.text, fontWeight: '700', fontSize: 12 }}>
-              {db.profile.soundEnabled ? '🔊 เสียงเอฟเฟกต์: เปิด' : '🔇 เสียงเอฟเฟกต์: ปิด'}
+              {db.profile.soundEnabled
+                ? isTh
+                  ? 'เสียงเอฟเฟกต์: เปิด'
+                  : 'Sound Effects: ON'
+                : isTh
+                ? 'เสียงเอฟเฟกต์: ปิด'
+                : 'Sound Effects: OFF'}
             </Text>
-          </Pressable>
+          </AnimatedPressable>
 
-          <Pressable
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
             style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.border }]}
             onPress={() => updateProfile({ reduceEffects: !db.profile.reduceEffects })}
           >
-            <Text style={{ color: theme.text, fontWeight: '700', fontSize: 12 }}>
-              {db.profile.reduceEffects
-                ? '🧘 ลดแอนิเมชัน (Reduce Motion): เปิด'
-                : '✨ แอนิเมชันฉลอง: เปิด'}
-            </Text>
-          </Pressable>
+            <View style={styles.inlineIconRow}>
+              <AppIcon
+                name="bolt"
+                size={13}
+                color={db.profile.reduceEffects ? theme.textMuted : theme.success}
+              />
+              <Text style={{ color: theme.text, fontWeight: '700', fontSize: 12 }}>
+                {db.profile.reduceEffects
+                  ? isTh
+                    ? 'ลดแอนิเมชัน (Reduce Motion): เปิด'
+                    : 'Reduce Motion: ON'
+                  : isTh
+                  ? 'แอนิเมชันเต็มรูปแบบ: เปิด'
+                  : 'Full Animations: ON'}
+              </Text>
+            </View>
+          </AnimatedPressable>
         </View>
 
         {/* Available Daily Time & Weekly Goal */}
@@ -390,8 +507,9 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
           {[10, 15, 30, 60].map((mins) => {
             const active = db.profile.availableMinutesPerDay === mins;
             return (
-              <Pressable
+              <AnimatedPressable
                 key={mins}
+                reduceMotion={reduceMotion}
                 style={[
                   styles.chip,
                   {
@@ -404,33 +522,41 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                 <Text style={{ color: active ? theme.primary : theme.textSecondary, fontSize: 12 }}>
                   {mins} {isTh ? 'นาที/วัน' : 'min/day'}
                 </Text>
-              </Pressable>
+              </AnimatedPressable>
             );
           })}
         </View>
 
         {/* Export / Import Backup JSON */}
-        <Text style={[styles.cardTitle, { color: theme.text, marginTop: 16, marginBottom: 8 }]}>
-          🔐 {isTh ? 'จัดการข้อมูลส่วนตัว (Offline-First 100%)' : 'Offline Data & Backup'}
-        </Text>
+        <View style={[styles.inlineIconRow, { marginTop: 16, marginBottom: 8 }]}>
+          <AppIcon name="shield" size={16} color={theme.primary} />
+          <Text style={[styles.cardTitle, { color: theme.text }]}>
+            {isTh ? 'จัดการข้อมูลส่วนตัว (Offline-First 100%)' : 'Offline Data & Backup'}
+          </Text>
+        </View>
 
         <View style={styles.inlineRow}>
-          <Pressable
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
             style={[styles.primaryBtn, { backgroundColor: theme.primary, flex: 1 }]}
             onPress={() => {
               const json = exportBackupJson();
               setBackupJsonBox(json);
               setBackupStatusMsg(
                 isTh
-                  ? '✓ สร้างข้อมูลสำรอง JSON สำเร็จ (คัดลอกข้อความด้านล่างเก็บไว้ได้เลย)'
-                  : '✓ Exported JSON backup below.'
+                  ? 'สร้างข้อมูลสำรอง JSON สำเร็จ (คัดลอกข้อความด้านล่างเก็บไว้ได้เลย)'
+                  : 'Exported JSON backup below.'
               );
             }}
           >
-            <Text style={styles.primaryBtnText}>📤 {strings.profile.exportData}</Text>
-          </Pressable>
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="export" size={14} color="#0E1220" />
+              <Text style={styles.primaryBtnText}>{strings.profile.exportData}</Text>
+            </View>
+          </AnimatedPressable>
 
-          <Pressable
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
             style={[styles.primaryBtn, { backgroundColor: theme.success, flex: 1 }]}
             onPress={() => {
               if (!backupJsonBox.trim()) return;
@@ -438,8 +564,11 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
               setBackupStatusMsg(res.message);
             }}
           >
-            <Text style={styles.primaryBtnText}>📥 {strings.profile.importData}</Text>
-          </Pressable>
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="import" size={14} color="#0E1220" />
+              <Text style={styles.primaryBtnText}>{strings.profile.importData}</Text>
+            </View>
+          </AnimatedPressable>
         </View>
 
         {backupStatusMsg && (
@@ -473,25 +602,34 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
 
         {/* Delete by category & 2-Step Reset All */}
         <View style={[styles.chipRow, { marginTop: 12 }]}>
-          <Pressable
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
             style={[styles.chip, { borderColor: theme.warning, backgroundColor: theme.bgSecondary }]}
             onPress={() => deleteCategoryData('meals')}
           >
-            <Text style={{ color: theme.warning, fontSize: 11, fontWeight: '700' }}>
-              🗑️ {isTh ? 'ลบเฉพาะประวัติอาหาร' : 'Clear Meals Only'}
-            </Text>
-          </Pressable>
-          <Pressable
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="trash" size={12} color={theme.warning} />
+              <Text style={{ color: theme.warning, fontSize: 11, fontWeight: '700' }}>
+                {isTh ? 'ลบเฉพาะประวัติอาหาร' : 'Clear Meals Only'}
+              </Text>
+            </View>
+          </AnimatedPressable>
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
             style={[styles.chip, { borderColor: theme.warning, backgroundColor: theme.bgSecondary }]}
             onPress={() => deleteCategoryData('journals')}
           >
-            <Text style={{ color: theme.warning, fontSize: 11, fontWeight: '700' }}>
-              🗑️ {isTh ? 'ลบเฉพาะไดอารี่' : 'Clear Journals Only'}
-            </Text>
-          </Pressable>
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="trash" size={12} color={theme.warning} />
+              <Text style={{ color: theme.warning, fontSize: 11, fontWeight: '700' }}>
+                {isTh ? 'ลบเฉพาะไดอารี่' : 'Clear Journals Only'}
+              </Text>
+            </View>
+          </AnimatedPressable>
         </View>
 
-        <Pressable
+        <AnimatedPressable
+          reduceMotion={reduceMotion}
           style={[
             styles.primaryBtn,
             {
@@ -510,34 +648,48 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             }
           }}
         >
-          <Text
-            style={{
-              color: resetConfirmStep === 1 ? '#FFFFFF' : theme.danger,
-              fontWeight: '900',
-              fontSize: 13,
-            }}
-          >
-            {resetConfirmStep === 0
-              ? `⚠️ ${strings.profile.resetAllData}`
-              : isTh
-              ? '❗ ยืนยันขั้นที่ 2: แตะอีกครั้งเพื่อลบข้อมูลทั้งหมดถาวร'
-              : '❗ Step 2 Confirm: Tap again to permanently wipe all data'}
-          </Text>
-        </Pressable>
-      </View>
+          <View style={styles.inlineIconRow}>
+            <AppIcon
+              name="trash"
+              size={14}
+              color={resetConfirmStep === 1 ? '#FFFFFF' : theme.danger}
+            />
+            <Text
+              style={{
+                color: resetConfirmStep === 1 ? '#FFFFFF' : theme.danger,
+                fontWeight: '900',
+                fontSize: 13,
+              }}
+            >
+              {resetConfirmStep === 0
+                ? strings.profile.resetAllData
+                : isTh
+                ? 'ยืนยันขั้นที่ 2: แตะอีกครั้งเพื่อลบข้อมูลทั้งหมดถาวร'
+                : 'Step 2 Confirm: Tap again to permanently wipe all data'}
+            </Text>
+          </View>
+        </AnimatedPressable>
+      </AnimatedCard>
 
       {/* 6. Health Disclaimer & Open-Source Credits (Section 14.3 & 19) */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <Text style={[styles.cardTitle, { color: theme.text }]}>
-          ⚕️ {strings.profile.disclaimerTitle}
-        </Text>
+      <AnimatedCard
+        index={5}
+        reduceMotion={reduceMotion}
+        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+      >
+        <View style={styles.inlineIconRow}>
+          <AppIcon name="shield" size={18} color={theme.primary} />
+          <Text style={[styles.cardTitle, { color: theme.text }]}>
+            {strings.profile.disclaimerTitle}
+          </Text>
+        </View>
         <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 6, lineHeight: 18 }}>
           {strings.profile.disclaimerBody}
         </Text>
         <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 10 }}>
-          Open-Source Licenses: React Native & Expo (MIT), AsyncStorage & SQLite (MIT), Thai Food Nutrition Reference (Public Domain / DOH Estimation). Original RPG Rank & Quest System designed per Awakened.md v0.1.
+          Open-Source Licenses: React Native & Expo (MIT), AsyncStorage & SQLite (MIT), React Native SVG (MIT), Vector Icons sourced from FreeIcons.io (Iconly Essential & Free Vector Sets), Thai Food Nutrition Reference (Public Domain / DOH Estimation).
         </Text>
-      </View>
+      </AnimatedCard>
     </ScrollView>
   );
 };
@@ -549,15 +701,33 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
     gap: 14,
   },
+  inlineIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  profileHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  avatarCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   card: {
     borderRadius: 16,
     borderWidth: 1,
     padding: 15,
   },
   playerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
-    marginTop: 8,
+    marginTop: 6,
   },
   cardTitle: {
     fontSize: 16,
@@ -623,6 +793,13 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
+  },
+  badgeIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rankRow: {
     flexDirection: 'row',
