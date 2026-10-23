@@ -1,6 +1,6 @@
 {
-  "name": "awakened-life-rpg",
-  "version": "1.0.0",
+  "name": "awakened",
+  "version": "0.9.4b",
   "private": true,
   "main": "index.ts",
   "scripts": {

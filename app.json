@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Awakened — Life RPG",
-    "slug": "awakened-life-rpg",
-    "version": "1.0.0",
+    "name": "Awakened",
+    "slug": "awakened",
+    "version": "0.9.4b",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
