@@ -132,10 +132,9 @@ class AwakenedWidgetProvider : AppWidgetProvider() {
 
       val questsDone = if (fresh) data.optInt("questsDone", 0) else 0
       val questsTotal = data.optInt("questsTotal", 0)
-      val waterMl = if (fresh) data.optInt("waterMl", 0) else 0
-      val waterGoal = data.optInt("waterGoal", 0)
       val kcal = if (fresh) data.optInt("kcal", 0) else 0
-      val streak = data.optInt("streak", 0)
+      val trophies = data.optInt("trophiesDone", 0)
+      val alarmTime = data.optString("alarmTime", "")
 
       views.setTextViewText(R.id.widget_name, name)
       val rankLabel = if (rankId.isBlank()) "" else "Rank $rankId · "
@@ -157,13 +156,17 @@ class AwakenedWidgetProvider : AppWidgetProvider() {
         views.setImageViewResource(R.id.widget_avatar, R.mipmap.ic_launcher_round)
       }
 
-      // Labels
+      // Labels: เควสประจำวัน | นาฬิกา | สรุปแคลอรี่ | ถ้วยรางวัล
       views.setTextViewText(R.id.widget_quests_label, if (th) "ภารกิจ" else "Quests")
-      views.setTextViewText(R.id.widget_water_label, if (th) "น้ำ" else "Water")
+      views.setTextViewText(
+        R.id.widget_clock_label,
+        if (alarmTime.isNotBlank()) (if (th) "ปลุก $alarmTime" else "Alarm $alarmTime")
+        else (if (th) "นาฬิกา" else "Clock")
+      )
       views.setTextViewText(R.id.widget_kcal_label, if (th) "แคลอรี่" else "Calories")
-      views.setTextViewText(R.id.widget_streak_label, if (th) "สตรีค" else "Streak")
+      views.setTextViewText(R.id.widget_trophy_label, if (th) "ถ้วยรางวัล" else "Trophies")
 
-      // Quests
+      // 1. เควสประจำวัน (Daily Quests)
       if (restDay) {
         views.setTextViewText(R.id.widget_quests_value, if (th) "พัก" else "Rest")
         views.setTextColor(R.id.widget_quests_value, Color.parseColor(COLOR_MUTED))
@@ -176,24 +179,17 @@ class AwakenedWidgetProvider : AppWidgetProvider() {
         )
       }
 
-      // Water (compact liters; ml/goal)
-      views.setTextViewText(
-        R.id.widget_water_value,
-        "${formatLiters(waterMl)}/${formatLiters(waterGoal)}L"
-      )
-      val waterDone = waterGoal > 0 && waterMl >= waterGoal
-      views.setTextColor(
-        R.id.widget_water_value,
-        Color.parseColor(if (waterDone) COLOR_SUCCESS else COLOR_PRIMARY)
-      )
+      // 2. นาฬิกา (Clock / Alarm)
+      // TextClock updates automatically in layout, but we also ensure text color
+      views.setTextColor(R.id.widget_clock_value, Color.parseColor(COLOR_PRIMARY))
 
-      // Calories
+      // 3. สรุปแคลอรี่ (Calories)
       views.setTextViewText(R.id.widget_kcal_value, kcal.toString())
       views.setTextColor(R.id.widget_kcal_value, Color.parseColor(COLOR_WARNING))
 
-      // Streak
-      views.setTextViewText(R.id.widget_streak_value, streak.toString())
-      views.setTextColor(R.id.widget_streak_value, Color.parseColor(COLOR_WARNING))
+      // 4. ถ้วยรางวัล (Trophies)
+      views.setTextViewText(R.id.widget_trophy_value, "$trophies 🏆")
+      views.setTextColor(R.id.widget_trophy_value, Color.parseColor(COLOR_SUCCESS))
 
       return views
     }

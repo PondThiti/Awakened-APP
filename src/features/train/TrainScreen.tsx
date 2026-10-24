@@ -410,7 +410,7 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                     <View style={styles.inlineIconRow}>
                       <AppIcon name="trophy" size={16} color="#0E1220" />
                       <Text style={styles.primaryBtnText}>
-                        {strings.train.completeWorkout} (+30 XP พื้นฐาน + โบนัส)
+                        {strings.train.completeWorkout} {isTh ? '(+30 XP พื้นฐาน + โบนัส)' : '(+30 base XP + bonus)'}
                       </Text>
                     </View>
                   </AnimatedPressable>

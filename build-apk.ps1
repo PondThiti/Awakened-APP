@@ -13,7 +13,7 @@ $env:GRADLE_USER_HOME = $gradleHome
 $env:GRADLE_OPTS = "-Djava.net.preferIPv4Stack=true"
 $env:PATH = "$jdkDir\bin;$sdkDir\platform-tools;$env:PATH"
 
-$appVersion = "0.10.1"
+$appVersion = "0.10.2"
 Write-Host "Building Awakened v$appVersion Release APK (strictly isolated in project folder)..."
 Push-Location (Join-Path $projectRoot "android")
 try {
@@ -42,6 +42,13 @@ if (Test-Path $apkSource) {
   }
   $sizeMb = [Math]::Round((Get-Item $apkDest).Length / 1MB, 2)
   Write-Host "[OK] APK Built Successfully: $apkDest ($sizeMb MB)"
+
+  $phoneAppDir = "C:\Users\zeroy\Desktop\MyProject\Apps\PhoneApp"
+  if (Test-Path $phoneAppDir) {
+    $phoneAppDest = Join-Path $phoneAppDir "Awakened-$appVersion.apk"
+    Copy-Item -Path $apkSource -Destination $phoneAppDest -Force
+    Write-Host "[OK] Copied APK to PhoneApp folder: $phoneAppDest"
+  }
 } else {
   throw "APK output not found at $apkSource"
 }

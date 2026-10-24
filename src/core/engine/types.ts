@@ -155,6 +155,7 @@ export interface UserProfile {
   selectedTitleId?: string | null;
   featuredBadgeIds?: string[];
   appLockPin: string | null;
+  appLockBiometricEnabled?: boolean;
   createdAt: number;
 }
 

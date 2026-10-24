@@ -38,6 +38,7 @@ import {
   parseDayKey,
   shiftMonth,
 } from '../src/core/utils/calendarUtils';
+import { TRANSLATIONS } from '../src/l10n/translations';
 
 describe('Awakened Core Engines — Section 18.1 Unit Tests', () => {
   it('1. LevelEngine: computes exact xpToNext and totalXpForLevel matching Appendix B', () => {
@@ -701,5 +702,26 @@ describe('Awakened Core Engines — Section 18.1 Unit Tests', () => {
     const shiftedYear = shiftMonth(2026, 11, 1);
     expect(shiftedYear.year).toBe(2027);
     expect(shiftedYear.monthIndex).toBe(0); // January
+  });
+
+  it('18. L10n: 100% key and structure parity between Thai and English translations', () => {
+    function collectKeys(obj: Record<string, unknown>, prefix = ''): string[] {
+      let keys: string[] = [];
+      for (const k of Object.keys(obj)) {
+        const val = obj[k];
+        if (typeof val === 'object' && val !== null) {
+          keys = keys.concat(collectKeys(val as Record<string, unknown>, `${prefix}${k}.`));
+        } else {
+          keys.push(`${prefix}${k}`);
+          expect(typeof val).toBe('string');
+          expect((val as string).trim().length).toBeGreaterThan(0);
+        }
+      }
+      return keys;
+    }
+
+    const thKeys = collectKeys(TRANSLATIONS.th).sort();
+    const enKeys = collectKeys(TRANSLATIONS.en).sort();
+    expect(enKeys).toEqual(thKeys);
   });
 });

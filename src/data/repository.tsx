@@ -2257,6 +2257,8 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       waterGoal: db.profile.waterGoalMl,
       kcal: dailyNutrition.kcal,
       streak: streakState.currentStreak,
+      trophiesDone: db.achievementsUnlocked.length,
+      alarmTime: db.profile.alarm?.enabled ? db.profile.alarm.time : '',
     });
   }, [
     isLoaded,
@@ -2264,6 +2266,9 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     db.profile.language,
     db.profile.displayName,
     db.profile.avatarUri,
+    db.profile.alarm?.enabled,
+    db.profile.alarm?.time,
+    db.achievementsUnlocked.length,
     currentRank.id,
     levelState.level,
     levelState.progress,

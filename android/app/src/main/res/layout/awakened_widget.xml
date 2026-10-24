@@ -114,22 +114,22 @@
                 android:paddingTop="5dp"
                 android:paddingBottom="5dp">
 
-                <TextView
-                    android:id="@+id/widget_water_value"
+                <TextClock
+                    android:id="@+id/widget_clock_value"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:text="1.2/2.0L"
+                    android:format12Hour="HH:mm"
+                    android:format24Hour="HH:mm"
                     android:textColor="#5B8CFF"
                     android:textSize="13sp"
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/widget_water_label"
+                    android:id="@+id/widget_clock_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:maxLines="1"
-                    android:text="Water"
+                    android:text="Clock"
                     android:textColor="#7884A8"
                     android:textSize="10sp" />
             </LinearLayout>
@@ -177,21 +177,21 @@
                 android:paddingBottom="5dp">
 
                 <TextView
-                    android:id="@+id/widget_streak_value"
+                    android:id="@+id/widget_trophy_value"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:maxLines="1"
-                    android:text="7"
+                    android:text="0 🏆"
                     android:textColor="#FFB84D"
                     android:textSize="13sp"
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/widget_streak_label"
+                    android:id="@+id/widget_trophy_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:maxLines="1"
-                    android:text="Streak"
+                    android:text="Trophies"
                     android:textColor="#7884A8"
                     android:textSize="10sp" />
             </LinearLayout>

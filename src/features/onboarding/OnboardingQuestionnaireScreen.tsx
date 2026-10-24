@@ -1847,7 +1847,7 @@ export const OnboardingQuestionnaireScreen: React.FC<{
                   : `“I, ${draft.nickname || 'Player'}, choose to awaken today.\nNot for perfection, but to move forward one day at a time.”`}
               </Text>
               <Text style={styles.pledgeGoalSub}>
-                Vow: “{draft.vow || 'ตื่นมาแล้วรู้สึกมีแรง'}”
+                Vow: “{draft.vow || (isTh ? 'ตื่นมาแล้วรู้สึกมีแรง' : 'Wake up feeling energized and ready')}”
               </Text>
             </View>
 

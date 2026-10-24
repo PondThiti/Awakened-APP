@@ -102,14 +102,14 @@ export const HomeScreen: React.FC<{
         ]}
       >
         <View style={styles.systemTopRow}>
-          <View>
+          <View style={{ flex: 1, marginRight: 8 }}>
             <View style={styles.inlineIconRow}>
               <AppIcon name="bolt" size={14} color={theme.primary} />
-              <Text style={[styles.systemLabel, { color: theme.primary }]}>
+              <Text style={[styles.systemLabel, { color: theme.primary, flexShrink: 1 }]} numberOfLines={1}>
                 {strings.home.systemStatus}
               </Text>
             </View>
-            <Text style={[styles.playerName, { color: theme.text }]}>
+            <Text style={[styles.playerName, { color: theme.text }]} numberOfLines={1} ellipsizeMode="tail">
               {db.profile.displayName}
             </Text>
           </View>
@@ -117,7 +117,7 @@ export const HomeScreen: React.FC<{
             reduceMotion={reduceMotion}
             style={[
               styles.customizeBtn,
-              { backgroundColor: theme.cardElevated, borderColor: theme.border },
+              { backgroundColor: theme.cardElevated, borderColor: theme.border, flexShrink: 0 },
             ]}
             onPress={() => setShowCustomize(!showCustomize)}
           >
@@ -339,6 +339,137 @@ export const HomeScreen: React.FC<{
         </AnimatedCard>
       )}
 
+      {/* RPG System Quick Widget: เควสประจำวัน | นาฬิกา | สรุปแคลอรี่ | ถ้วยรางวัล */}
+      <AnimatedCard
+        index={0.5}
+        reduceMotion={reduceMotion}
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.card,
+            borderColor: `${theme.primary}55`,
+            borderWidth: 1.5,
+          },
+        ]}
+      >
+        <View style={styles.cardHeaderRow}>
+          <View style={[styles.inlineIconRow, { flex: 1, marginRight: 8 }]}>
+            <AppIcon name="bolt" size={16} color={theme.primary} />
+            <Text style={[styles.cardTitle, { color: theme.text, flexShrink: 1 }]}>
+              {isTh ? 'วิดเจ็ตสรุปสถานะระบบ (Status Widget)' : 'System Status Widget'}
+            </Text>
+          </View>
+          <View
+            style={{
+              backgroundColor: `${theme.primary}18`,
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              borderRadius: 6,
+              borderWidth: 1,
+              borderColor: `${theme.primary}55`,
+            }}
+          >
+            <Text style={{ color: theme.primary, fontSize: 10, fontWeight: '900' }}>
+              4 PILLARS
+            </Text>
+          </View>
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
+          {/* 1. เควสประจำวัน */}
+          <Pressable
+            style={{
+              flex: 1,
+              backgroundColor: `${theme.success}15`,
+              borderColor: `${theme.success}44`,
+              borderWidth: 1,
+              borderRadius: 10,
+              paddingVertical: 8,
+              paddingHorizontal: 4,
+              alignItems: 'center',
+            }}
+            onPress={() => onNavigateTab('track')}
+          >
+            <AppIcon name="quest" size={16} color={theme.success} />
+            <Text style={{ color: theme.success, fontSize: 13, fontWeight: '900', marginTop: 4 }}>
+              {todayQuests.filter((q) => q.status === 'completed').length}/{todayQuests.length}
+            </Text>
+            <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>
+              {isTh ? 'เควสวันนี้' : 'Quests'}
+            </Text>
+          </Pressable>
+
+          {/* 2. นาฬิกา */}
+          <Pressable
+            style={{
+              flex: 1,
+              backgroundColor: `${theme.primary}15`,
+              borderColor: `${theme.primary}44`,
+              borderWidth: 1,
+              borderRadius: 10,
+              paddingVertical: 8,
+              paddingHorizontal: 4,
+              alignItems: 'center',
+            }}
+            onPress={() => onNavigateTab('profile')}
+          >
+            <AppIcon name="clock" size={16} color={theme.primary} />
+            <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '900', marginTop: 4 }}>
+              {db.profile.alarm?.enabled ? db.profile.alarm.time : '07:00'}
+            </Text>
+            <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>
+              {isTh ? 'นาฬิกาปลุก' : 'Alarm'}
+            </Text>
+          </Pressable>
+
+          {/* 3. สรุปแคลอรี่ */}
+          <Pressable
+            style={{
+              flex: 1,
+              backgroundColor: `${theme.meal}15`,
+              borderColor: `${theme.meal}44`,
+              borderWidth: 1,
+              borderRadius: 10,
+              paddingVertical: 8,
+              paddingHorizontal: 4,
+              alignItems: 'center',
+            }}
+            onPress={() => onNavigateTab('track')}
+          >
+            <AppIcon name="meal" size={16} color={theme.meal} />
+            <Text style={{ color: theme.meal, fontSize: 13, fontWeight: '900', marginTop: 4 }}>
+              {dailyNutrition.kcal.toLocaleString()}
+            </Text>
+            <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>
+              {isTh ? 'แคลอรี่' : 'Calories'}
+            </Text>
+          </Pressable>
+
+          {/* 4. ถ้วยรางวัล */}
+          <Pressable
+            style={{
+              flex: 1,
+              backgroundColor: `${theme.warning}15`,
+              borderColor: `${theme.warning}44`,
+              borderWidth: 1,
+              borderRadius: 10,
+              paddingVertical: 8,
+              paddingHorizontal: 4,
+              alignItems: 'center',
+            }}
+            onPress={() => onNavigateTab('profile')}
+          >
+            <AppIcon name="trophy" size={16} color={theme.warning} />
+            <Text style={{ color: theme.warning, fontSize: 13, fontWeight: '900', marginTop: 4 }}>
+              {db.achievementsUnlocked.length}
+            </Text>
+            <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>
+              {isTh ? 'ถ้วยรางวัล' : 'Trophies'}
+            </Text>
+          </Pressable>
+        </View>
+      </AnimatedCard>
+
       {/* 1. One-Tap Water Card (<= 2 taps Principle 15.1) */}
       {!hiddenCards.has('water') && (
         <AnimatedCard
@@ -347,16 +478,16 @@ export const HomeScreen: React.FC<{
           style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
         >
           <View style={styles.cardHeaderRow}>
-            <View style={styles.inlineIconRow}>
+            <View style={[styles.inlineIconRow, { flex: 1, marginRight: 8 }]}>
               <AppIcon name="water" size={18} color={theme.water} />
-              <Text style={[styles.cardTitle, { color: theme.text }]}>
+              <Text style={[styles.cardTitle, { color: theme.text, flexShrink: 1 }]}>
                 {strings.home.waterToday}
               </Text>
             </View>
             <AnimatedNumberText
               value={todayMetrics.water_ml}
               reduceMotion={reduceMotion}
-              style={{ color: theme.water, fontWeight: '800', fontSize: 14 }}
+              style={{ color: theme.water, fontWeight: '800', fontSize: 14, flexShrink: 0 }}
             >
               {todayMetrics.water_ml.toLocaleString()} / {db.profile.waterGoalMl.toLocaleString()} ml
             </AnimatedNumberText>
@@ -810,13 +941,13 @@ export const HomeScreen: React.FC<{
             ]}
           >
             <View style={styles.cardHeaderRow}>
-              <View style={styles.inlineIconRow}>
+              <View style={[styles.inlineIconRow, { flex: 1, marginRight: 8 }]}>
                 <AppIcon name="meal" size={16} color={theme.meal} />
-                <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+                <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800', flexShrink: 1 }}>
                   {isTh ? 'สรุปแคลอรี่วันนี้ (Daily Calories)' : "Today's Calorie Summary"}
                 </Text>
               </View>
-              <Text style={{ color: theme.meal, fontSize: 14, fontWeight: '900' }}>
+              <Text style={{ color: theme.meal, fontSize: 14, fontWeight: '900', flexShrink: 0 }}>
                 {dailyNutrition.kcal.toLocaleString()} kcal
               </Text>
             </View>

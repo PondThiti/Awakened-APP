@@ -1,5 +1,9 @@
 # Credits & Open-Source Licenses — Awakened (Life RPG)
 
+## 0. Project Creator & Lead Developer
+* **นาย ฐิติวุฒน์ วงศ์ละคร (Thitiwut Wonglakhon)** — ผู้สร้างและพัฒนาหลักโปรเจกต์ Awakened (Life RPG)
+* การสนับสนุนผู้พัฒนา (Donation): ธนาคารกสิกรไทย (KBANK) `1638680528` นาย ฐิติวุฒน์ วงศ์ละคร
+
 ตามข้อกำหนดใน `Awakened.md` (หัวข้อที่ 19 ไลเซนส์และเครดิต) โปรเจกต์นี้ใช้เฉพาะเครื่องมือและไลบรารีแบบฟรีและโอเพนซอร์สทั้งหมด:
 
 ## 1. Core Open-Source Libraries

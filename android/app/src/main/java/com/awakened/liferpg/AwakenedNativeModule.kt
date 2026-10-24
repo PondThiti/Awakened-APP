@@ -10,10 +10,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
+import android.hardware.biometrics.BiometricManager
+import android.hardware.biometrics.BiometricPrompt
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.net.Uri
 import android.os.Build
+import android.os.CancellationSignal
 import android.os.Handler
 import android.os.Looper
 import android.provider.OpenableColumns
@@ -397,6 +400,84 @@ class AwakenedNativeModule(private val reactContext: ReactApplicationContext) :
       promise.resolve(country.uppercase(Locale.US))
     } catch (_: Throwable) {
       promise.resolve("")
+    }
+  }
+
+  @ReactMethod
+  fun canAuthenticateBiometric(promise: Promise) {
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val bm = reactContext.getSystemService(BiometricManager::class.java)
+        if (bm != null) {
+          val res = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+          } else {
+            @Suppress("DEPRECATION")
+            bm.canAuthenticate()
+          }
+          promise.resolve(res == BiometricManager.BIOMETRIC_SUCCESS)
+          return
+        }
+      }
+      val km = reactContext.getSystemService(Context.KEYGUARD_SERVICE) as? android.app.KeyguardManager
+      promise.resolve(km?.isDeviceSecure == true)
+    } catch (_: Throwable) {
+      promise.resolve(false)
+    }
+  }
+
+  @ReactMethod
+  fun authenticateBiometric(title: String, subtitle: String, promise: Promise) {
+    val activity = currentActivity
+    if (activity == null) {
+      promise.resolve(false)
+      return
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      activity.runOnUiThread {
+        try {
+          val cancellationSignal = CancellationSignal()
+          val builder = BiometricPrompt.Builder(activity)
+            .setTitle(if (title.isBlank()) "Awakened System Lock" else title)
+            .setSubtitle(if (subtitle.isBlank()) "Verify identity" else subtitle)
+
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            builder.setAllowedAuthenticators(
+              BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            )
+          } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            @Suppress("DEPRECATION")
+            builder.setDeviceCredentialAllowed(true)
+          } else {
+            builder.setNegativeButton(
+              if (subtitle.contains("ยกเลิก") || title.contains("ล็อก")) "ยกเลิก" else "Cancel",
+              activity.mainExecutor
+            ) { _, _ ->
+              promise.resolve(false)
+            }
+          }
+
+          val prompt = builder.build()
+          prompt.authenticate(
+            cancellationSignal,
+            activity.mainExecutor,
+            object : BiometricPrompt.AuthenticationCallback() {
+              override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult?) {
+                super.onAuthenticationSucceeded(result)
+                promise.resolve(true)
+              }
+              override fun onAuthenticationError(errorCode: Int, errString: CharSequence?) {
+                super.onAuthenticationError(errorCode, errString)
+                promise.resolve(false)
+              }
+            }
+          )
+        } catch (_: Throwable) {
+          promise.resolve(false)
+        }
+      }
+    } else {
+      promise.resolve(false)
     }
   }
 }

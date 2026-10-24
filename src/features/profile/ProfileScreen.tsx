@@ -91,6 +91,38 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
   const [widgetFeedback, setWidgetFeedback] = useState<string | null>(null);
   const [notifGranted, setNotifGranted] = useState(false);
 
+  // Custom Alarm Time Modal
+  const [customAlarmModalOpen, setCustomAlarmModalOpen] = useState(false);
+  const [customAlarmHours, setCustomAlarmHours] = useState('07');
+  const [customAlarmMinutes, setCustomAlarmMinutes] = useState('00');
+
+  // App Lock Modal
+  const [appLockModalOpen, setAppLockModalOpen] = useState(false);
+  const [appLockInputPin, setAppLockInputPin] = useState('');
+  const [appLockConfirmPin, setAppLockConfirmPin] = useState('');
+  const [appLockBiometricOpt, setAppLockBiometricOpt] = useState(true);
+  const [appLockStep, setAppLockStep] = useState<'enter_pin' | 'confirm_pin' | 'manage'>('enter_pin');
+  const [appLockError, setAppLockError] = useState<string | null>(null);
+  const [appLockSuccessMsg, setAppLockSuccessMsg] = useState<string | null>(null);
+  const [verifyCurrentPin, setVerifyCurrentPin] = useState('');
+  const [pinVerified, setPinVerified] = useState(false);
+
+  const adjustAlarmTime = (deltaHours: number, deltaMinutes: number) => {
+    const current = db.profile.alarm?.time ?? '07:00';
+    const [h, m] = current.split(':').map(Number);
+    const totalMin = (((h * 60 + m + deltaHours * 60 + deltaMinutes) % (24 * 60)) + 24 * 60) % (24 * 60);
+    const newH = String(Math.floor(totalMin / 60)).padStart(2, '0');
+    const newM = String(totalMin % 60).padStart(2, '0');
+    const newTimeStr = `${newH}:${newM}`;
+    updateProfile({
+      alarm: {
+        ...(db.profile.alarm ?? { days: [] }),
+        enabled: true,
+        time: newTimeStr,
+      },
+    });
+  };
+
   useEffect(() => {
     getNotificationPermissionStatus().then((status) => {
       setNotifGranted(status === 'granted');
@@ -250,7 +282,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                 borderColor: theme.card,
               }}
             >
-              <Text style={{ fontSize: 10 }}>📷</Text>
+              <AppIcon name="edit" size={11} color="#0E1220" />
             </View>
           </Pressable>
           <View style={{ flex: 1 }}>
@@ -280,7 +312,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             onPress={() => setAvatarModalOpen(true)}
           >
             <View style={styles.inlineIconRow}>
-              <AppIcon name="scan" size={13} color={theme.primary} />
+              <AppIcon name="edit" size={13} color={theme.primary} />
               <Text style={{ color: theme.primary, fontSize: 11, fontWeight: '800' }}>
                 {isTh ? 'เปลี่ยนรูปโปรไฟล์' : 'Change Avatar'}
               </Text>
@@ -1367,13 +1399,13 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
           }}
         >
           <View style={styles.headerRowBetween}>
-            <View style={styles.inlineIconRow}>
+            <View style={[styles.inlineIconRow, { flex: 1, marginRight: 8 }]}>
               <Text style={{ fontSize: 16 }}>⏰</Text>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
                   {isTh ? 'นาฬิกาปลุกภารกิจประจำวัน' : 'Daily Mission Alarm Clock'}
                 </Text>
-                <Text style={{ color: theme.textMuted, fontSize: 11 }}>
+                <Text style={{ color: theme.textMuted, fontSize: 11, flexShrink: 1 }}>
                   {isTh
                     ? 'แจ้งเตือนระดับสูงให้มาพิชิตภารกิจ (พร้อมปุ่มเลื่อน 10 นาที)'
                     : 'High-priority wake alarm to complete missions (with snooze)'}
@@ -1408,23 +1440,115 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             </AnimatedPressable>
           </View>
 
-          {/* Alarm Time Selector */}
+          {/* Alarm Time Selector & Steppers */}
           <View
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
               marginTop: 10,
               paddingTop: 8,
               borderTopWidth: 1,
               borderTopColor: `${theme.border}44`,
             }}
           >
-            <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
-              {isTh ? 'เวลาปลุก:' : 'Alarm Time:'}
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 6 }}>
-              {['06:00', '07:00', '08:00', '09:00'].map((timeStr) => {
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                {isTh ? 'เวลาปลุกปัจจุบัน:' : 'Current Alarm Time:'}
+              </Text>
+              <Pressable
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 5,
+                  backgroundColor: `${theme.primary}20`,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: theme.primary,
+                }}
+                onPress={() => {
+                  const [h, m] = (db.profile.alarm?.time ?? '07:00').split(':');
+                  setCustomAlarmHours(h || '07');
+                  setCustomAlarmMinutes(m || '00');
+                  setCustomAlarmModalOpen(true);
+                }}
+              >
+                <AppIcon name="clock" size={13} color={theme.primary} />
+                <Text style={{ color: theme.primary, fontSize: 14, fontWeight: '900' }}>
+                  {db.profile.alarm?.time ?? '07:00'}
+                </Text>
+                <AppIcon name="edit" size={11} color={theme.primary} />
+              </Pressable>
+            </View>
+
+            {/* Stepper Buttons for Quick Adjustment */}
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
+              <Pressable
+                style={[
+                  styles.timeChip,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.border,
+                    flex: 1,
+                    alignItems: 'center',
+                  },
+                ]}
+                onPress={() => adjustAlarmTime(-1, 0)}
+              >
+                <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>-1 ชม.</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.timeChip,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.border,
+                    flex: 1,
+                    alignItems: 'center',
+                  },
+                ]}
+                onPress={() => adjustAlarmTime(0, -5)}
+              >
+                <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>-5 นาที</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.timeChip,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.border,
+                    flex: 1,
+                    alignItems: 'center',
+                  },
+                ]}
+                onPress={() => adjustAlarmTime(0, 5)}
+              >
+                <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>+5 นาที</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.timeChip,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.border,
+                    flex: 1,
+                    alignItems: 'center',
+                  },
+                ]}
+                onPress={() => adjustAlarmTime(1, 0)}
+              >
+                <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>+1 ชม.</Text>
+              </Pressable>
+            </View>
+
+            {/* Presets Chips */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+              {['05:30', '06:00', '06:30', '07:00', '07:30', '08:00', '08:30'].map((timeStr) => {
                 const active = (db.profile.alarm?.time ?? '07:00') === timeStr;
                 return (
                   <Pressable
@@ -1445,6 +1569,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                       updateProfile({
                         alarm: {
                           ...current,
+                          enabled: true,
                           time: timeStr,
                         },
                       });
@@ -1475,11 +1600,11 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             marginTop: 12,
           }}
         >
-          <View>
+          <View style={{ flex: 1, marginRight: 8 }}>
             <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
               {isTh ? 'เตือนทำภารกิจตอนเช้า (08:00)' : 'Morning Mission Reminder (08:00)'}
             </Text>
-            <Text style={{ color: theme.textMuted, fontSize: 10 }}>
+            <Text style={{ color: theme.textMuted, fontSize: 10, flexShrink: 1 }}>
               {isTh ? 'เตือนภารกิจรายวันบนแถบแจ้งเตือน' : 'Notification tray reminder'}
             </Text>
           </View>
@@ -1526,11 +1651,11 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             marginTop: 10,
           }}
         >
-          <View>
+          <View style={{ flex: 1, marginRight: 8 }}>
             <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
               {isTh ? 'เตือนสรุปภารกิจตอนค่ำ (20:00)' : 'Evening Check-in (20:00)'}
             </Text>
-            <Text style={{ color: theme.textMuted, fontSize: 10 }}>
+            <Text style={{ color: theme.textMuted, fontSize: 10, flexShrink: 1 }}>
               {isTh ? 'เตือนก่อนหมดวันเพื่อรักษา Streak' : 'Streak protection check-in'}
             </Text>
           </View>
@@ -1636,6 +1761,16 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             1638680528
           </Text>
 
+          <View style={[styles.inlineIconRow, { marginTop: 6 }]}>
+            <AppIcon name="user" size={13} color={theme.textSecondary} />
+            <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
+              {isTh ? 'ชื่อบัญชี:' : 'Account Name:'}
+            </Text>
+            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '900' }}>
+              นาย ฐิติวุฒน์ วงศ์ละคร
+            </Text>
+          </View>
+
           <AnimatedPressable
             reduceMotion={reduceMotion}
             style={[
@@ -1660,8 +1795,8 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                     ? '✓ คัดลอกเลขบัญชี 1638680528 แล้ว'
                     : '✓ Copied KBANK 1638680528'
                   : isTh
-                  ? 'คัดลอกเลขบัญชีกสิกร (1638680528)'
-                  : 'Copy KBANK Account (1638680528)'}
+                  ? 'คัดลอกเลขบัญชี (นาย ฐิติวุฒน์ วงศ์ละคร)'
+                  : 'Copy Account (Thitiwut Wonglakhon)'}
               </Text>
             </View>
           </AnimatedPressable>
@@ -1804,23 +1939,36 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
 
           <AnimatedPressable
             reduceMotion={reduceMotion}
-            style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.border }]}
-            onPress={() => recordAppEvent('event:applock_set', 1)}
+            style={[
+              styles.chip,
+              {
+                backgroundColor: Boolean(db.profile.appLockPin)
+                  ? `${theme.success}18`
+                  : theme.bgSecondary,
+                borderColor: Boolean(db.profile.appLockPin) ? theme.success : theme.border,
+              },
+            ]}
+            onPress={() => {
+              setAppLockInputPin('');
+              setAppLockConfirmPin('');
+              setVerifyCurrentPin('');
+              setPinVerified(false);
+              setAppLockError(null);
+              setAppLockSuccessMsg(null);
+              setAppLockStep(db.profile.appLockPin ? 'manage' : 'enter_pin');
+              setAppLockModalOpen(true);
+            }}
           >
             <View style={styles.inlineIconRow}>
               <AppIcon
                 name="lock"
                 size={13}
-                color={
-                  Number(achievementMetrics['event:applock_set'] ?? 0) >= 1
-                    ? theme.success
-                    : theme.textSecondary
-                }
+                color={Boolean(db.profile.appLockPin) ? theme.success : theme.textSecondary}
               />
               <Text style={{ color: theme.text, fontWeight: '700', fontSize: 12 }}>
-                {Number(achievementMetrics['event:applock_set'] ?? 0) >= 1
+                {Boolean(db.profile.appLockPin)
                   ? isTh
-                    ? 'ล็อกแอปด้วย PIN/Biometric: เปิดแล้ว ✓'
+                    ? 'ล็อกแอปด้วย PIN: เปิดแล้ว ✓'
                     : 'App Lock: Enabled ✓'
                   : isTh
                   ? 'เปิดใช้งานล็อกแอป (App Lock)'
@@ -2111,7 +2259,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
           {strings.profile.disclaimerBody}
         </Text>
         <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 10 }}>
-          Awakened v0.10.1 · Open-Source Licenses: React Native & Expo (MIT), AsyncStorage & SQLite (MIT), React Native SVG (MIT), Vector Icons sourced from FreeIcons.io (Iconly Essential & Free Vector Sets), Thai Food Nutrition Reference (Public Domain / DOH Estimation).
+          Awakened v0.10.2 · Open-Source Licenses: React Native & Expo (MIT), AsyncStorage & SQLite (MIT), React Native SVG (MIT), Vector Icons sourced from FreeIcons.io (Iconly Essential & Free Vector Sets), Thai Food Nutrition Reference (Public Domain / DOH Estimation).
         </Text>
       </AnimatedCard>
 
@@ -2154,7 +2302,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
               }}
             >
               <View style={styles.inlineIconRow}>
-                <AppIcon name="scan" size={15} color="#0E1220" />
+                <AppIcon name="edit" size={15} color="#0E1220" />
                 <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 13 }}>
                   {isTh ? 'เลือกรูปจากเครื่อง / แกลเลอรี' : 'Choose from Device / Gallery'}
                 </Text>
@@ -2194,6 +2342,556 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                 {isTh ? 'ยกเลิก' : 'Cancel'}
               </Text>
             </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Custom Alarm Time Picker Modal */}
+      <Modal
+        visible={customAlarmModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCustomAlarmModalOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[
+              styles.modalCard,
+              { backgroundColor: theme.card, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.headerRowBetween}>
+              <View style={styles.inlineIconRow}>
+                <Text style={{ fontSize: 18 }}>⏰</Text>
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  {isTh ? 'ตั้งเวลาปลุกด้วยตัวเอง' : 'Set Custom Alarm Time'}
+                </Text>
+              </View>
+              <Pressable onPress={() => setCustomAlarmModalOpen(false)}>
+                <Text style={{ color: theme.textMuted, fontSize: 16 }}>✕</Text>
+              </Pressable>
+            </View>
+
+            {/* Time Preview Display */}
+            <View
+              style={{
+                alignItems: 'center',
+                marginVertical: 14,
+                padding: 12,
+                backgroundColor: `${theme.primary}15`,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: `${theme.primary}44`,
+              }}
+            >
+              <Text style={{ color: theme.primary, fontSize: 36, fontWeight: '900', letterSpacing: 2 }}>
+                {customAlarmHours.padStart(2, '0')}:{customAlarmMinutes.padStart(2, '0')}
+              </Text>
+              <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 4 }}>
+                {isTh ? 'เวลาปลุกภารกิจรายวัน' : 'Daily Mission Alarm Time'}
+              </Text>
+            </View>
+
+            {/* Hour Selector */}
+            <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 6 }}>
+              {isTh ? 'ชั่วโมง (00 - 23):' : 'Hour (00 - 23):'}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Pressable
+                style={[styles.timeChip, { backgroundColor: theme.bgSecondary, borderColor: theme.border, paddingHorizontal: 16 }]}
+                onPress={() => {
+                  const h = (Number(customAlarmHours) - 1 + 24) % 24;
+                  setCustomAlarmHours(String(h).padStart(2, '0'));
+                }}
+              >
+                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>-</Text>
+              </Pressable>
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900' }}>
+                  {customAlarmHours.padStart(2, '0')} {isTh ? 'น.' : ''}
+                </Text>
+              </View>
+              <Pressable
+                style={[styles.timeChip, { backgroundColor: theme.bgSecondary, borderColor: theme.border, paddingHorizontal: 16 }]}
+                onPress={() => {
+                  const h = (Number(customAlarmHours) + 1) % 24;
+                  setCustomAlarmHours(String(h).padStart(2, '0'));
+                }}
+              >
+                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>+</Text>
+              </Pressable>
+            </View>
+
+            {/* Quick Hour Chips */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+              {['05', '06', '07', '08', '09', '10', '20', '21', '22'].map((hh) => (
+                <Pressable
+                  key={hh}
+                  style={[
+                    styles.timeChip,
+                    {
+                      backgroundColor: customAlarmHours === hh ? theme.primary : theme.bgSecondary,
+                      borderColor: customAlarmHours === hh ? theme.primary : theme.border,
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                    },
+                  ]}
+                  onPress={() => setCustomAlarmHours(hh)}
+                >
+                  <Text
+                    style={{
+                      color: customAlarmHours === hh ? '#0E1220' : theme.text,
+                      fontSize: 11,
+                      fontWeight: '800',
+                    }}
+                  >
+                    {hh}:00
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Minute Selector */}
+            <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 6 }}>
+              {isTh ? 'นาที (00 - 59):' : 'Minute (00 - 59):'}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Pressable
+                style={[styles.timeChip, { backgroundColor: theme.bgSecondary, borderColor: theme.border, paddingHorizontal: 16 }]}
+                onPress={() => {
+                  const m = (Number(customAlarmMinutes) - 5 + 60) % 60;
+                  setCustomAlarmMinutes(String(m).padStart(2, '0'));
+                }}
+              >
+                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>-5</Text>
+              </Pressable>
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900' }}>
+                  {customAlarmMinutes.padStart(2, '0')} {isTh ? 'นาที' : 'min'}
+                </Text>
+              </View>
+              <Pressable
+                style={[styles.timeChip, { backgroundColor: theme.bgSecondary, borderColor: theme.border, paddingHorizontal: 16 }]}
+                onPress={() => {
+                  const m = (Number(customAlarmMinutes) + 5) % 60;
+                  setCustomAlarmMinutes(String(m).padStart(2, '0'));
+                }}
+              >
+                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>+5</Text>
+              </Pressable>
+            </View>
+
+            {/* Quick Minute Chips */}
+            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 14 }}>
+              {['00', '15', '30', '45'].map((mm) => (
+                <Pressable
+                  key={mm}
+                  style={[
+                    styles.timeChip,
+                    {
+                      backgroundColor: customAlarmMinutes === mm ? theme.primary : theme.bgSecondary,
+                      borderColor: customAlarmMinutes === mm ? theme.primary : theme.border,
+                      flex: 1,
+                      alignItems: 'center',
+                    },
+                  ]}
+                  onPress={() => setCustomAlarmMinutes(mm)}
+                >
+                  <Text
+                    style={{
+                      color: customAlarmMinutes === mm ? '#0E1220' : theme.text,
+                      fontSize: 12,
+                      fontWeight: '800',
+                    }}
+                  >
+                    :{mm}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Save Button */}
+            <AnimatedPressable
+              reduceMotion={reduceMotion}
+              style={[
+                styles.primaryBtn,
+                { backgroundColor: theme.primary, alignItems: 'center' },
+              ]}
+              onPress={() => {
+                const finalTime = `${customAlarmHours.padStart(2, '0')}:${customAlarmMinutes.padStart(2, '0')}`;
+                updateProfile({
+                  alarm: {
+                    ...(db.profile.alarm ?? { days: [] }),
+                    enabled: true,
+                    time: finalTime,
+                  },
+                });
+                setCustomAlarmModalOpen(false);
+              }}
+            >
+              <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 13 }}>
+                {isTh
+                  ? `✓ บันทึกเวลาปลุก (${customAlarmHours.padStart(2, '0')}:${customAlarmMinutes.padStart(2, '0')})`
+                  : `✓ Save Alarm (${customAlarmHours.padStart(2, '0')}:${customAlarmMinutes.padStart(2, '0')})`}
+              </Text>
+            </AnimatedPressable>
+
+            <Pressable
+              style={{ marginTop: 10, alignItems: 'center', padding: 6 }}
+              onPress={() => setCustomAlarmModalOpen(false)}
+            >
+              <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
+                {isTh ? 'ยกเลิก' : 'Cancel'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* App Lock Manager Modal */}
+      <Modal
+        visible={appLockModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAppLockModalOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[
+              styles.modalCard,
+              { backgroundColor: theme.card, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.headerRowBetween}>
+              <View style={styles.inlineIconRow}>
+                <AppIcon name="lock" size={18} color={theme.primary} />
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  {isTh ? 'ระบบล็อกแอป (App Lock)' : 'App Lock Manager'}
+                </Text>
+              </View>
+              <Pressable onPress={() => setAppLockModalOpen(false)}>
+                <Text style={{ color: theme.textMuted, fontSize: 16 }}>✕</Text>
+              </Pressable>
+            </View>
+
+            {/* Mode 1: Already Set -> Manage / Turn Off / Change PIN */}
+            {db.profile.appLockPin && appLockStep === 'manage' ? (
+              <View style={{ marginTop: 12 }}>
+                <View
+                  style={{
+                    backgroundColor: `${theme.success}18`,
+                    borderColor: theme.success,
+                    borderWidth: 1,
+                    borderRadius: 10,
+                    padding: 10,
+                    marginBottom: 12,
+                  }}
+                >
+                  <Text style={{ color: theme.success, fontSize: 12, fontWeight: '800' }}>
+                    {isTh
+                      ? '✓ กำลังเปิดใช้งานการล็อกแอปด้วยรหัส PIN'
+                      : '✓ App Lock is currently ENABLED'}
+                  </Text>
+                  <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>
+                    {isTh
+                      ? 'ระบบจะถามรหัส PIN ทุกครั้งที่เปิดแอปเพื่อความปลอดภัย'
+                      : 'App requires PIN upon cold launch to secure your data.'}
+                  </Text>
+                </View>
+
+                {!pinVerified ? (
+                  <View>
+                    <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 8 }}>
+                      {isTh
+                        ? 'กรุณากรอกรหัส PIN ปัจจุบัน 4 หลักเพื่อดำเนินการ:'
+                        : 'Enter your current 4-digit PIN to manage:'}
+                    </Text>
+
+                    {/* PIN Dots */}
+                    <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'center', marginVertical: 10 }}>
+                      {[0, 1, 2, 3].map((idx) => (
+                        <View
+                          key={idx}
+                          style={{
+                            width: 14,
+                            height: 14,
+                            borderRadius: 7,
+                            backgroundColor: verifyCurrentPin.length > idx ? theme.primary : 'transparent',
+                            borderWidth: 1.5,
+                            borderColor: verifyCurrentPin.length > idx ? theme.primary : theme.border,
+                          }}
+                        />
+                      ))}
+                    </View>
+
+                    {appLockError && (
+                      <Text style={{ color: theme.danger, fontSize: 11, fontWeight: '700', textAlign: 'center', marginBottom: 6 }}>
+                        {appLockError}
+                      </Text>
+                    )}
+
+                    {/* Compact keypad */}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginVertical: 8 }}>
+                      {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map((k) => (
+                        <Pressable
+                          key={k}
+                          style={{
+                            width: 58,
+                            height: 44,
+                            borderRadius: 8,
+                            backgroundColor: theme.bgSecondary,
+                            borderWidth: 1,
+                            borderColor: theme.border,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                          onPress={() => {
+                            setAppLockError(null);
+                            if (k === 'C') {
+                              setVerifyCurrentPin('');
+                            } else if (k === '⌫') {
+                              setVerifyCurrentPin((p) => p.slice(0, -1));
+                            } else {
+                              const next = verifyCurrentPin + k;
+                              if (next.length <= 4) {
+                                setVerifyCurrentPin(next);
+                                if (next.length === 4) {
+                                  if (next === db.profile.appLockPin) {
+                                    setPinVerified(true);
+                                    setVerifyCurrentPin('');
+                                  } else {
+                                    setAppLockError(isTh ? 'รหัส PIN ไม่ถูกต้อง' : 'Incorrect PIN');
+                                    setTimeout(() => setVerifyCurrentPin(''), 500);
+                                  }
+                                }
+                              }
+                            }
+                          }}
+                        >
+                          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>{k}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                ) : (
+                  <View style={{ gap: 10 }}>
+                    {/* Disable App Lock Button */}
+                    <AnimatedPressable
+                      reduceMotion={reduceMotion}
+                      style={[
+                        styles.primaryBtn,
+                        {
+                          backgroundColor: `${theme.danger}20`,
+                          borderColor: theme.danger,
+                          borderWidth: 1,
+                          alignItems: 'center',
+                        },
+                      ]}
+                      onPress={() => {
+                        updateProfile({ appLockPin: null, appLockBiometricEnabled: false });
+                        setAppLockSuccessMsg(isTh ? '✓ ปิดใช้งานการล็อกแอปแล้ว' : '✓ App lock disabled');
+                        setTimeout(() => {
+                          setAppLockModalOpen(false);
+                          setPinVerified(false);
+                        }, 800);
+                      }}
+                    >
+                      <Text style={{ color: theme.danger, fontWeight: '900', fontSize: 13 }}>
+                        {isTh ? '🔓 ปิดการใช้งานการล็อกแอป (Disable Lock)' : '🔓 Disable App Lock'}
+                      </Text>
+                    </AnimatedPressable>
+
+                    {/* Change PIN Button */}
+                    <AnimatedPressable
+                      reduceMotion={reduceMotion}
+                      style={[
+                        styles.primaryBtn,
+                        { backgroundColor: theme.primary, alignItems: 'center' },
+                      ]}
+                      onPress={() => {
+                        setAppLockStep('enter_pin');
+                        setAppLockInputPin('');
+                        setAppLockConfirmPin('');
+                        setAppLockError(null);
+                      }}
+                    >
+                      <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 13 }}>
+                        {isTh ? '🔑 เปลี่ยนรหัส PIN ใหม่' : '🔑 Change PIN'}
+                      </Text>
+                    </AnimatedPressable>
+
+                    {/* Toggle Biometric Unlock */}
+                    <Pressable
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: 10,
+                        backgroundColor: theme.bgSecondary,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: theme.border,
+                      }}
+                      onPress={() => {
+                        updateProfile({
+                          appLockBiometricEnabled: !db.profile.appLockBiometricEnabled,
+                        });
+                      }}
+                    >
+                      <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
+                        {isTh ? 'สแกนลายนิ้วมือ / Biometric' : 'Fingerprint / Biometric'}
+                      </Text>
+                      <Text
+                        style={{
+                          color: db.profile.appLockBiometricEnabled ? theme.success : theme.textMuted,
+                          fontWeight: '800',
+                          fontSize: 12,
+                        }}
+                      >
+                        {db.profile.appLockBiometricEnabled ? (isTh ? 'เปิด' : 'ON') : (isTh ? 'ปิด' : 'OFF')}
+                      </Text>
+                    </Pressable>
+
+                    {appLockSuccessMsg && (
+                      <Text style={{ color: theme.success, fontSize: 12, fontWeight: '800', textAlign: 'center' }}>
+                        {appLockSuccessMsg}
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </View>
+            ) : (
+              /* Mode 2: Setup New PIN */
+              <View style={{ marginTop: 12 }}>
+                <Text style={{ color: theme.textSecondary, fontSize: 12, textAlign: 'center' }}>
+                  {appLockStep === 'enter_pin'
+                    ? isTh
+                      ? 'กำหนดรหัส PIN 4 หลักใหม่:'
+                      : 'Enter new 4-digit PIN:'
+                    : isTh
+                    ? 'ยืนยันรหัส PIN 4 หลักอีกครั้ง:'
+                    : 'Confirm new 4-digit PIN:'}
+                </Text>
+
+                {/* PIN Dots */}
+                <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'center', marginVertical: 14 }}>
+                  {[0, 1, 2, 3].map((idx) => {
+                    const currentPinStr = appLockStep === 'enter_pin' ? appLockInputPin : appLockConfirmPin;
+                    return (
+                      <View
+                        key={idx}
+                        style={{
+                          width: 16,
+                          height: 16,
+                          borderRadius: 8,
+                          backgroundColor: currentPinStr.length > idx ? theme.primary : 'transparent',
+                          borderWidth: 2,
+                          borderColor: currentPinStr.length > idx ? theme.primary : theme.border,
+                        }}
+                      />
+                    );
+                  })}
+                </View>
+
+                {appLockError && (
+                  <Text style={{ color: theme.danger, fontSize: 11, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>
+                    {appLockError}
+                  </Text>
+                )}
+
+                {appLockSuccessMsg && (
+                  <Text style={{ color: theme.success, fontSize: 12, fontWeight: '800', textAlign: 'center', marginBottom: 8 }}>
+                    {appLockSuccessMsg}
+                  </Text>
+                )}
+
+                {/* Keypad */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginVertical: 8 }}>
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map((k) => (
+                    <Pressable
+                      key={k}
+                      style={{
+                        width: 58,
+                        height: 46,
+                        borderRadius: 8,
+                        backgroundColor: theme.bgSecondary,
+                        borderWidth: 1,
+                        borderColor: theme.border,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      onPress={() => {
+                        setAppLockError(null);
+                        if (appLockStep === 'enter_pin') {
+                          if (k === 'C') {
+                            setAppLockInputPin('');
+                          } else if (k === '⌫') {
+                            setAppLockInputPin((p) => p.slice(0, -1));
+                          } else {
+                            const next = appLockInputPin + k;
+                            if (next.length <= 4) {
+                              setAppLockInputPin(next);
+                              if (next.length === 4) {
+                                setTimeout(() => setAppLockStep('confirm_pin'), 150);
+                              }
+                            }
+                          }
+                        } else {
+                          // confirm_pin
+                          if (k === 'C') {
+                            setAppLockConfirmPin('');
+                          } else if (k === '⌫') {
+                            setAppLockConfirmPin((p) => p.slice(0, -1));
+                          } else {
+                            const next = appLockConfirmPin + k;
+                            if (next.length <= 4) {
+                              setAppLockConfirmPin(next);
+                              if (next.length === 4) {
+                                if (next === appLockInputPin) {
+                                  updateProfile({
+                                    appLockPin: appLockInputPin,
+                                    appLockBiometricEnabled: appLockBiometricOpt,
+                                  });
+                                  recordAppEvent('event:applock_set', 1);
+                                  setAppLockSuccessMsg(isTh ? '✓ เปิดใช้งานการล็อกแอปสำเร็จ' : '✓ App lock enabled successfully');
+                                  setTimeout(() => {
+                                    setAppLockModalOpen(false);
+                                    setAppLockInputPin('');
+                                    setAppLockConfirmPin('');
+                                  }, 700);
+                                } else {
+                                  setAppLockError(isTh ? 'รหัส PIN ไม่ตรงกัน กรุณากรอกใหม่' : 'PINs do not match, try again');
+                                  setTimeout(() => setAppLockConfirmPin(''), 500);
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }}
+                    >
+                      <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>{k}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {/* Back / Cancel button */}
+                <Pressable
+                  style={{ marginTop: 8, alignItems: 'center', padding: 8 }}
+                  onPress={() => {
+                    if (appLockStep === 'confirm_pin') {
+                      setAppLockStep('enter_pin');
+                      setAppLockConfirmPin('');
+                    } else {
+                      setAppLockModalOpen(false);
+                    }
+                  }}
+                >
+                  <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
+                    {appLockStep === 'confirm_pin' ? (isTh ? '← ย้อนกลับ' : '← Back') : (isTh ? 'ยกเลิก' : 'Cancel')}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         </View>
       </Modal>

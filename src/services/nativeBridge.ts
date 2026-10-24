@@ -34,6 +34,8 @@ interface AwakenedNativeApi {
   requestPinShortcut(label: string, avatarPath: string | null): Promise<boolean>;
   copyToClipboard(text: string): void;
   getDeviceRegion(): Promise<string>;
+  canAuthenticateBiometric(): Promise<boolean>;
+  authenticateBiometric(title: string, subtitle: string): Promise<boolean>;
 }
 
 function getNative(): Partial<AwakenedNativeApi> | null {
@@ -158,4 +160,18 @@ export function copyToClipboard(text: string): void {
 export async function getDeviceRegion(): Promise<string> {
   const n = getNative();
   return safe(n?.getDeviceRegion?.bind(n), '');
+}
+
+export async function canAuthenticateBiometric(): Promise<boolean> {
+  const n = getNative();
+  return safe(n?.canAuthenticateBiometric?.bind(n), false);
+}
+
+export async function authenticateBiometric(
+  title: string,
+  subtitle: string
+): Promise<boolean> {
+  const n = getNative();
+  if (!n?.authenticateBiometric) return false;
+  return safe(() => n.authenticateBiometric!(title, subtitle), false);
 }

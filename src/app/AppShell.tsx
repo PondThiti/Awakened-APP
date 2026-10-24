@@ -22,6 +22,7 @@ import {
   CelebrationOverlay,
   QuickAddFabModal,
 } from '../features/components/SystemSharedComponents';
+import { AppLockScreen } from '../features/components/AppLockScreen';
 import {
   AppIcon,
   AppIconName,
@@ -54,6 +55,15 @@ export const AppShell: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
+
+  useEffect(() => {
+    if (!db.profile.appLockPin) {
+      setIsUnlocked(true);
+    }
+  }, [db.profile.appLockPin]);
+
+  const isAppLocked = isLoaded && Boolean(db.profile.appLockPin) && !isUnlocked;
 
   const handleSelectTab = (tab: NavTab) => {
     setActiveTab(tab);
@@ -323,6 +333,22 @@ export const AppShell: React.FC = () => {
         lang={lang}
         reduceMotion={reduceMotion}
       />
+
+      {/* Full-screen RPG System Security Lock */}
+      {isAppLocked && db.profile.appLockPin && (
+        <AppLockScreen
+          correctPin={db.profile.appLockPin}
+          biometricEnabled={db.profile.appLockBiometricEnabled ?? true}
+          onUnlock={() => setIsUnlocked(true)}
+          theme={theme}
+          lang={lang}
+          displayName={db.profile.displayName}
+          rankName={`Lv.${levelState.level} · ${currentRank.id}-${currentRank.name}`}
+          avatarUri={db.profile.avatarUri}
+          reduceMotion={reduceMotion}
+          soundEnabled={db.profile.soundEnabled}
+        />
+      )}
     </SafeAreaView>
   );
 };
