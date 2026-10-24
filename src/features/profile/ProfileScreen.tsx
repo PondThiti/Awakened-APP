@@ -2111,7 +2111,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
           {strings.profile.disclaimerBody}
         </Text>
         <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 10 }}>
-          Awakened v0.9.5 · Open-Source Licenses: React Native & Expo (MIT), AsyncStorage & SQLite (MIT), React Native SVG (MIT), Vector Icons sourced from FreeIcons.io (Iconly Essential & Free Vector Sets), Thai Food Nutrition Reference (Public Domain / DOH Estimation).
+          Awakened v0.10.1 · Open-Source Licenses: React Native & Expo (MIT), AsyncStorage & SQLite (MIT), React Native SVG (MIT), Vector Icons sourced from FreeIcons.io (Iconly Essential & Free Vector Sets), Thai Food Nutrition Reference (Public Domain / DOH Estimation).
         </Text>
       </AnimatedCard>
 
