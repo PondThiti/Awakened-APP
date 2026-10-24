@@ -44,6 +44,7 @@ export const TrackScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
     db,
     todayKey,
     todayMetrics,
+    dailyNutrition,
     logWater,
     logMeal,
     addCustomFoodTemplate,
@@ -377,6 +378,101 @@ export const TrackScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                 <Text style={{ color: theme.success, fontSize: 12, marginTop: 4 }}>
                   {strings.track.noCaloriePenaltyNote}
                 </Text>
+
+                {/* Daily Calorie & Macro Summary Card */}
+                <View
+                  style={{
+                    backgroundColor: theme.bgSecondary,
+                    borderColor: `${theme.meal}44`,
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    padding: 12,
+                    marginTop: 10,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={styles.inlineIconRow}>
+                      <AppIcon name="meal" size={15} color={theme.meal} />
+                      <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+                        {isTh ? 'รวมแคลอรี่วันนี้ (สรุป)' : "Today's Calorie Summary"}
+                      </Text>
+                    </View>
+                    <Text style={{ color: theme.meal, fontSize: 15, fontWeight: '900' }}>
+                      {dailyNutrition.kcal.toLocaleString()} kcal
+                    </Text>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
+                    <View
+                      style={{
+                        flex: 1,
+                        backgroundColor: `${theme.primary}15`,
+                        padding: 6,
+                        borderRadius: 8,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ color: theme.textMuted, fontSize: 10 }}>
+                        {isTh ? 'โปรตีน' : 'Protein'}
+                      </Text>
+                      <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '800', marginTop: 2 }}>
+                        {dailyNutrition.proteinG}g
+                      </Text>
+                    </View>
+                    <View
+                      style={{
+                        flex: 1,
+                        backgroundColor: `${theme.warning}15`,
+                        padding: 6,
+                        borderRadius: 8,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ color: theme.textMuted, fontSize: 10 }}>
+                        {isTh ? 'คาร์โบไฮเดรต' : 'Carbs'}
+                      </Text>
+                      <Text style={{ color: theme.warning, fontSize: 12, fontWeight: '800', marginTop: 2 }}>
+                        {dailyNutrition.carbsG}g
+                      </Text>
+                    </View>
+                    <View
+                      style={{
+                        flex: 1,
+                        backgroundColor: `${theme.danger}15`,
+                        padding: 6,
+                        borderRadius: 8,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ color: theme.textMuted, fontSize: 10 }}>
+                        {isTh ? 'ไขมัน' : 'Fat'}
+                      </Text>
+                      <Text style={{ color: theme.danger, fontSize: 12, fontWeight: '800', marginTop: 2 }}>
+                        {dailyNutrition.fatG}g
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      marginTop: 8,
+                      paddingTop: 6,
+                      borderTopWidth: 1,
+                      borderTopColor: `${theme.border}44`,
+                    }}
+                  >
+                    <Text style={{ color: theme.textMuted, fontSize: 11 }}>
+                      {isTh
+                        ? `เช้า ${dailyNutrition.bySlot.breakfast} · กลางวัน ${dailyNutrition.bySlot.lunch} · เย็น ${dailyNutrition.bySlot.dinner} · ของว่าง ${dailyNutrition.bySlot.snack} kcal`
+                        : `B: ${dailyNutrition.bySlot.breakfast} · L: ${dailyNutrition.bySlot.lunch} · D: ${dailyNutrition.bySlot.dinner} · S: ${dailyNutrition.bySlot.snack} kcal`}
+                    </Text>
+                    <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '700' }}>
+                      {dailyNutrition.mealCount} {isTh ? 'มื้อ' : 'meals'}
+                    </Text>
+                  </View>
+                </View>
 
                 {/* Meal Slot Selector */}
                 <View style={[styles.chipRow, { marginTop: 10 }]}>

@@ -16,7 +16,7 @@ const defaultRanks: RankDef[] = xpConfigJson.ranks as RankDef[];
 
 /**
  * Determines the user's Rank based on current Level and Monarch special unlock requirements
- * (Section 7.5: Monarch requires Lv 221+ AND 365 active days AND badges from >= 4 categories).
+ * (Section 7.5: Monarch requires Lv 221+ AND 365 active days AND badges from >= 5 categories).
  */
 export function getRankForLevel(
   level: number,
@@ -36,7 +36,7 @@ export function getRankForLevel(
 
   const monarchRank = ranks.find((r) => r.id === 'M')!;
   const reqDays = monarchRank?.requires_special?.min_active_days ?? 365;
-  const reqCats = monarchRank?.requires_special?.min_badge_categories ?? 4;
+  const reqCats = monarchRank?.requires_special?.min_badge_categories ?? 5;
 
   const levelMet = level >= (monarchRank?.min_level ?? 221);
   const activeDaysMet = totalActiveDays >= reqDays;

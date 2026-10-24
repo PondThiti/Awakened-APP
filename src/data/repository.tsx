@@ -66,6 +66,15 @@ import {
   getWeekdayOneBased,
   getWeekStartDayKey,
 } from '../core/utils/dateUtils';
+import { evaluateWorkoutPenalty, WorkoutPenaltyResult } from '../core/engine/penaltyEngine';
+import { getDailyNutritionSummary, DailyNutritionSummary } from '../core/engine/nutritionSummary';
+import {
+  cancelAlarm,
+  cancelReminder,
+  scheduleAlarm,
+  scheduleReminder,
+  updateWidgetData,
+} from '../services/nativeBridge';
 import { playSystemFeedback } from '../services/soundService';
 import { ThaiFoodItem } from '../services/foodScannerService';
 
@@ -120,6 +129,20 @@ const DEFAULT_TRAINING_PLAN: TrainingPlanDay[] = [
 const DEFAULT_PROFILE: UserProfile = {
   id: 1,
   displayName: 'Hunter',
+  avatarUri: null,
+  notifications: {
+    enabled: false,
+    permissionAsked: false,
+    morningReminderEnabled: true,
+    morningReminderTime: '08:00',
+    eveningReminderEnabled: true,
+    eveningReminderTime: '20:00',
+  },
+  alarm: {
+    enabled: false,
+    time: '07:00',
+    days: [],
+  },
   totalXp: 0,
   waterGoalMl: 2000,
   weeklyGoalDays: 4,
@@ -238,6 +261,8 @@ export interface AwakenedContextValue {
   achievementMetrics: Record<string, number | string>;
   todayQuests: QuestInstance[];
   thisWeekQuests: QuestInstance[];
+  dailyNutrition: DailyNutritionSummary;
+  workoutPenalty: WorkoutPenaltyResult;
   adaptiveRecommendations: AdaptivePlanRecommendation[];
   dailyRepeatableXpToday: number;
   celebrationQueue: CelebrationEvent[];
@@ -369,12 +394,24 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           prev.trainingPlan.find((d) => d.weekday === weekday)?.dayType === 'rest' ||
           prev.profile.restModeToday === todayKey;
 
+        const penalty = evaluateWorkoutPenalty({
+          todayKey,
+          rankId: getRankForLevel(computeLevelState(prev.profile.totalXp).level).currentRank.id,
+          trainingPlan: prev.trainingPlan,
+          activities: prev.activities,
+          dailyQuestsByDay: prev.dailyQuestsByDay,
+          streakLogs: prev.streakLogs ?? {},
+          createdAt: prev.profile.createdAt,
+          onboarding: prev.onboarding,
+        });
+
         const quests = generateDailyQuestsForDay({
           dayKey: todayKey,
           isRestDay: planRest,
           availableMinutesPerDay: prev.profile.availableMinutesPerDay,
           waterGoalMl: prev.profile.waterGoalMl,
           onboarding: prev.onboarding,
+          penaltyMultiplier: penalty.active ? penalty.multiplier : 1,
         });
         next.dailyQuestsByDay = { ...prev.dailyQuestsByDay, [todayKey]: quests };
         changed = true;
@@ -1698,12 +1735,25 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setDb((prev) => {
       const turningOn = prev.profile.restModeToday !== todayKey;
       const newRestMode = turningOn ? todayKey : null;
+      const penalty = turningOn
+        ? { active: false, multiplier: 1 }
+        : evaluateWorkoutPenalty({
+            todayKey,
+            rankId: getRankForLevel(computeLevelState(prev.profile.totalXp).level).currentRank.id,
+            trainingPlan: prev.trainingPlan,
+            activities: prev.activities,
+            dailyQuestsByDay: prev.dailyQuestsByDay,
+            streakLogs: prev.streakLogs ?? {},
+            createdAt: prev.profile.createdAt,
+            onboarding: prev.onboarding,
+          });
       const regenerated = generateDailyQuestsForDay({
         dayKey: todayKey,
         isRestDay: turningOn,
         availableMinutesPerDay: prev.profile.availableMinutesPerDay,
         waterGoalMl: prev.profile.waterGoalMl,
         onboarding: prev.onboarding,
+        penaltyMultiplier: penalty.active ? penalty.multiplier : 1,
       });
 
       return {
@@ -2156,6 +2206,141 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [db, streakState, todayMetrics.total_active_days]
   );
 
+  const dailyNutrition = useMemo(
+    () => getDailyNutritionSummary(db.activities, todayKey),
+    [db.activities, todayKey]
+  );
+
+  const workoutPenalty = useMemo(
+    () =>
+      evaluateWorkoutPenalty({
+        todayKey,
+        rankId: currentRank.id,
+        trainingPlan: db.trainingPlan,
+        activities: db.activities,
+        dailyQuestsByDay: db.dailyQuestsByDay,
+        streakLogs: db.streakLogs ?? {},
+        createdAt: db.profile.createdAt,
+        onboarding: db.onboarding,
+      }),
+    [
+      todayKey,
+      currentRank.id,
+      db.trainingPlan,
+      db.activities,
+      db.dailyQuestsByDay,
+      db.streakLogs,
+      db.profile.createdAt,
+      db.onboarding,
+    ]
+  );
+
+  // Sync Android home screen widget whenever state changes
+  useEffect(() => {
+    if (!isLoaded) return;
+    const isRest =
+      db.profile.restModeToday === todayKey ||
+      db.trainingPlan.find((d) => d.weekday === getWeekdayOneBased(todayKey))?.dayType === 'rest';
+    const doneQuests = todayQuests.filter((q) => q.status === 'completed').length;
+    updateWidgetData({
+      dayKey: todayKey,
+      lang: db.profile.language,
+      name: db.profile.displayName || 'Hunter',
+      avatarPath: db.profile.avatarUri ?? '',
+      rankId: currentRank.id,
+      level: levelState.level,
+      xpPct: Math.round(levelState.progress * 100),
+      restDay: Boolean(isRest),
+      questsDone: doneQuests,
+      questsTotal: todayQuests.length,
+      waterMl: todayMetrics.water_ml,
+      waterGoal: db.profile.waterGoalMl,
+      kcal: dailyNutrition.kcal,
+      streak: streakState.currentStreak,
+    });
+  }, [
+    isLoaded,
+    todayKey,
+    db.profile.language,
+    db.profile.displayName,
+    db.profile.avatarUri,
+    currentRank.id,
+    levelState.level,
+    levelState.progress,
+    todayQuests,
+    todayMetrics.water_ml,
+    db.profile.waterGoalMl,
+    dailyNutrition.kcal,
+    streakState.currentStreak,
+  ]);
+
+  // Sync notification reminders
+  useEffect(() => {
+    if (!isLoaded) return;
+    const notifs = db.profile.notifications;
+    if (notifs?.enabled) {
+      if (notifs.morningReminderEnabled) {
+        const [h, m] = (notifs.morningReminderTime || '08:00').split(':').map(Number);
+        scheduleReminder(
+          1,
+          h || 8,
+          m || 0,
+          db.profile.language === 'th' ? 'ภารกิจประจำวันรอคุณอยู่' : 'Daily Missions Await',
+          db.profile.language === 'th'
+            ? `สวัสดี ${db.profile.displayName} แวะมาเช็กภารกิจวันนี้เพื่อรักษา Streak กันเถอะ`
+            : `Hey ${db.profile.displayName}, check today's missions and keep your streak alive!`,
+          false
+        );
+      } else {
+        cancelReminder(1);
+      }
+      if (notifs.eveningReminderEnabled) {
+        const [h, m] = (notifs.eveningReminderTime || '20:00').split(':').map(Number);
+        scheduleReminder(
+          2,
+          h || 20,
+          m || 0,
+          db.profile.language === 'th' ? 'สรุปภารกิจก่อนหมดวัน' : 'Evening Quest Check-in',
+          db.profile.language === 'th'
+            ? 'อย่าลืมบันทึกน้ำ อาหาร หรือการออกกำลังกายก่อนหมดวันนะ'
+            : "Don't forget to log your water, food or workout before the day ends!",
+          false
+        );
+      } else {
+        cancelReminder(2);
+      }
+    } else {
+      cancelReminder(1);
+      cancelReminder(2);
+    }
+  }, [
+    isLoaded,
+    db.profile.notifications,
+    db.profile.language,
+    db.profile.displayName,
+  ]);
+
+  // Sync mission alarm
+  useEffect(() => {
+    if (!isLoaded) return;
+    const alarm = db.profile.alarm;
+    if (alarm?.enabled) {
+      const [h, m] = (alarm.time || '07:00').split(':').map(Number);
+      scheduleAlarm(
+        h || 7,
+        m || 0,
+        alarm.days || [],
+        db.profile.language === 'th' ? '⏰ ได้เวลาภารกิจประจำวัน!' : '⏰ Time for Daily Missions!',
+        db.profile.language === 'th'
+          ? `ตื่นรู้และพิชิตภารกิจประจำวันเพื่อเลเวลอัป (${db.profile.displayName})`
+          : `Rise and conquer today's missions to level up (${db.profile.displayName})`,
+        db.profile.language === 'th' ? 'เลื่อน 10 นาที' : 'Snooze 10 min'
+      );
+    } else {
+      cancelAlarm();
+    }
+  }, [isLoaded, db.profile.alarm, db.profile.language, db.profile.displayName]);
+
   const value: AwakenedContextValue = {
     db,
     isLoaded,
@@ -2169,6 +2354,8 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     achievementMetrics,
     todayQuests,
     thisWeekQuests,
+    dailyNutrition,
+    workoutPenalty,
     adaptiveRecommendations,
     dailyRepeatableXpToday,
     celebrationQueue,

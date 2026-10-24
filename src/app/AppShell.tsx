@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Image,
   Pressable,
   SafeAreaView,
   StatusBar,
@@ -128,7 +129,12 @@ export const AppShell: React.FC = () => {
           { backgroundColor: theme.card, borderBottomColor: theme.border },
         ]}
       >
-        <View style={styles.brandRow}>
+        <Pressable
+          style={styles.brandRow}
+          onPress={() => setActiveTab('profile')}
+          accessibilityRole="button"
+          accessibilityLabel="Profile"
+        >
           <AnimatedPulseView
             active
             reduceMotion={reduceMotion}
@@ -136,12 +142,25 @@ export const AppShell: React.FC = () => {
             maxScale={1.05}
             duration={2000}
           >
-            <AwakenedBrandIcon size={36} />
+            {db.profile.avatarUri ? (
+              <Image
+                source={{ uri: db.profile.avatarUri }}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  borderWidth: 1.5,
+                  borderColor: currentRank.color,
+                }}
+              />
+            ) : (
+              <AwakenedBrandIcon size={36} />
+            )}
           </AnimatedPulseView>
           <View>
             <View style={styles.brandNameRow}>
-              <Text style={[styles.brandTitle, { color: theme.text }]}>
-                AWAKENED
+              <Text style={[styles.brandTitle, { color: theme.text }]} numberOfLines={1}>
+                {db.profile.displayName?.toUpperCase() || 'HUNTER'}
               </Text>
               <View style={[styles.rankDot, { backgroundColor: currentRank.color }]} />
             </View>
@@ -149,7 +168,7 @@ export const AppShell: React.FC = () => {
               Lv.{levelState.level} · {currentRank.id}-{currentRank.name}
             </Text>
           </View>
-        </View>
+        </Pressable>
 
         <View style={styles.topActions}>
           <AnimatedPressable

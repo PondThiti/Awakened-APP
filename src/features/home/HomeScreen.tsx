@@ -37,6 +37,8 @@ export const HomeScreen: React.FC<{
     streakState,
     todayMetrics,
     todayQuests,
+    dailyNutrition,
+    workoutPenalty,
     adaptiveRecommendations,
     dailyRepeatableXpToday,
     logWater,
@@ -428,6 +430,31 @@ export const HomeScreen: React.FC<{
             </View>
           </View>
 
+          {/* Active Workout Penalty Warning Banner */}
+          {workoutPenalty.active && (
+            <View
+              style={{
+                backgroundColor: `${theme.danger}20`,
+                borderColor: theme.danger,
+                borderWidth: 1,
+                borderRadius: 10,
+                padding: 10,
+                marginTop: 8,
+                marginBottom: 6,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <Text style={{ fontSize: 16 }}>⚠️</Text>
+              <Text style={{ color: theme.danger, fontSize: 11, fontWeight: '800', flex: 1 }}>
+                {isTh
+                  ? '⚠️ ระบบเปิดใช้งานบทลงโทษ: ภารกิจฝึกร่างกายวันนี้เข้มงวดยิ่งขึ้นเนื่องจากมีบทลงโทษที่ยังไม่เสร็จสิ้น (ไม่ทำจะได้รับบทลงโทษต่อเนื่อง)'
+                  : '⚠️ Workout Penalty Active: Today’s workout training requirement is intensified.'}
+              </Text>
+            </View>
+          )}
+
           {todayQuests.map((q) => {
             const done = q.status === 'completed';
             const pct = Math.min(100, Math.round((q.progress / Math.max(1, q.target)) * 100));
@@ -548,6 +575,15 @@ export const HomeScreen: React.FC<{
               {isTh
                 ? 'ทำครบทุกข้อรับโบนัสพิเศษ +30 XP (ไม่คิดรวมใน Soft Cap)'
                 : 'Complete all Daily Quests for +30 Bonus XP (bypasses Soft Cap)'}
+            </Text>
+          </View>
+
+          <View style={[styles.inlineIconRow, { marginTop: 4 }]}>
+            <AppIcon name="shield" size={12} color={theme.textMuted} />
+            <Text style={{ color: theme.textMuted, fontSize: 11 }}>
+              {isTh
+                ? 'คำเตือน: ไม่ทำจะได้รับบทลงโทษในวันถัดไป'
+                : 'Warning: Incomplete daily missions will trigger penalties on the next active day.'}
             </Text>
           </View>
         </AnimatedCard>
@@ -755,9 +791,128 @@ export const HomeScreen: React.FC<{
               {todayMetrics.meal_count} {isTh ? 'มื้อ' : 'meals'}
             </AnimatedNumberText>
             <Text style={{ color: theme.textMuted, fontSize: 11 }}>
-              ~{totalEstKcal.toLocaleString()} kcal ({strings.track.estimateBadge})
+              {dailyNutrition.kcal.toLocaleString()} kcal ({dailyNutrition.mealCount} {isTh ? 'มื้อ' : 'meals'})
             </Text>
           </Pressable>
+
+          {/* Daily Calorie & Nutrition Summary Breakdown */}
+          <View
+            style={[
+              styles.adaptiveItem,
+              {
+                backgroundColor: theme.bgSecondary,
+                borderColor: `${theme.meal}55`,
+                borderWidth: 1,
+                marginTop: 10,
+                borderRadius: 12,
+                padding: 12,
+              },
+            ]}
+          >
+            <View style={styles.cardHeaderRow}>
+              <View style={styles.inlineIconRow}>
+                <AppIcon name="meal" size={16} color={theme.meal} />
+                <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+                  {isTh ? 'สรุปแคลอรี่วันนี้ (Daily Calories)' : "Today's Calorie Summary"}
+                </Text>
+              </View>
+              <Text style={{ color: theme.meal, fontSize: 14, fontWeight: '900' }}>
+                {dailyNutrition.kcal.toLocaleString()} kcal
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: `${theme.primary}15`,
+                  padding: 8,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: `${theme.primary}33`,
+                }}
+              >
+                <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700' }}>
+                  {isTh ? 'โปรตีน' : 'Protein'}
+                </Text>
+                <Text
+                  style={{
+                    color: theme.primary,
+                    fontSize: 13,
+                    fontWeight: '900',
+                    marginTop: 2,
+                  }}
+                >
+                  {dailyNutrition.proteinG} g
+                </Text>
+              </View>
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: `${theme.warning}15`,
+                  padding: 8,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: `${theme.warning}33`,
+                }}
+              >
+                <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700' }}>
+                  {isTh ? 'คาร์บ' : 'Carbs'}
+                </Text>
+                <Text
+                  style={{
+                    color: theme.warning,
+                    fontSize: 13,
+                    fontWeight: '900',
+                    marginTop: 2,
+                  }}
+                >
+                  {dailyNutrition.carbsG} g
+                </Text>
+              </View>
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: `${theme.danger}15`,
+                  padding: 8,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: `${theme.danger}33`,
+                }}
+              >
+                <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700' }}>
+                  {isTh ? 'ไขมัน' : 'Fat'}
+                </Text>
+                <Text
+                  style={{
+                    color: theme.danger,
+                    fontSize: 13,
+                    fontWeight: '900',
+                    marginTop: 2,
+                  }}
+                >
+                  {dailyNutrition.fatG} g
+                </Text>
+              </View>
+            </View>
+
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginTop: 8,
+                paddingTop: 6,
+                borderTopWidth: 1,
+                borderTopColor: `${theme.border}44`,
+              }}
+            >
+              <Text style={{ color: theme.textMuted, fontSize: 11 }}>
+                {isTh
+                  ? `เช้า ${dailyNutrition.bySlot.breakfast} · เที่ยง ${dailyNutrition.bySlot.lunch} · เย็น ${dailyNutrition.bySlot.dinner} · ว่าง ${dailyNutrition.bySlot.snack} kcal`
+                  : `B: ${dailyNutrition.bySlot.breakfast} · L: ${dailyNutrition.bySlot.lunch} · D: ${dailyNutrition.bySlot.dinner} · S: ${dailyNutrition.bySlot.snack} kcal`}
+              </Text>
+            </View>
+          </View>
         </AnimatedCard>
       )}
 

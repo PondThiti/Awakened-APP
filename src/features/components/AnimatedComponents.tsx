@@ -50,16 +50,68 @@ export const AnimatedPressable: React.FC<
   };
 
   const flat = (StyleSheet.flatten(style) || {}) as ViewStyle;
-  const { flex, flexGrow, flexShrink, ...innerStyle } = flat;
+  const {
+    flex,
+    flexGrow,
+    flexShrink,
+    flexBasis,
+    width,
+    minWidth,
+    maxWidth,
+    height,
+    minHeight,
+    maxHeight,
+    margin,
+    marginHorizontal,
+    marginVertical,
+    marginTop,
+    marginBottom,
+    marginLeft,
+    marginRight,
+    alignSelf,
+    position,
+    top,
+    bottom,
+    left,
+    right,
+    zIndex,
+    ...innerStyle
+  } = flat;
+
   const outerLayoutStyle: ViewStyle = {};
   if (flex !== undefined) outerLayoutStyle.flex = flex;
   if (flexGrow !== undefined) outerLayoutStyle.flexGrow = flexGrow;
   if (flexShrink !== undefined) outerLayoutStyle.flexShrink = flexShrink;
-  if (flat.alignSelf !== undefined) outerLayoutStyle.alignSelf = flat.alignSelf;
+  if (flexBasis !== undefined) outerLayoutStyle.flexBasis = flexBasis;
+  if (width !== undefined) outerLayoutStyle.width = width;
+  if (minWidth !== undefined) outerLayoutStyle.minWidth = minWidth;
+  if (maxWidth !== undefined) outerLayoutStyle.maxWidth = maxWidth;
+  if (height !== undefined) outerLayoutStyle.height = height;
+  if (minHeight !== undefined) outerLayoutStyle.minHeight = minHeight;
+  if (maxHeight !== undefined) outerLayoutStyle.maxHeight = maxHeight;
+  if (margin !== undefined) outerLayoutStyle.margin = margin;
+  if (marginHorizontal !== undefined) outerLayoutStyle.marginHorizontal = marginHorizontal;
+  if (marginVertical !== undefined) outerLayoutStyle.marginVertical = marginVertical;
+  if (marginTop !== undefined) outerLayoutStyle.marginTop = marginTop;
+  if (marginBottom !== undefined) outerLayoutStyle.marginBottom = marginBottom;
+  if (marginLeft !== undefined) outerLayoutStyle.marginLeft = marginLeft;
+  if (marginRight !== undefined) outerLayoutStyle.marginRight = marginRight;
+  if (alignSelf !== undefined) outerLayoutStyle.alignSelf = alignSelf;
+  if (position !== undefined) outerLayoutStyle.position = position;
+  if (top !== undefined) outerLayoutStyle.top = top;
+  if (bottom !== undefined) outerLayoutStyle.bottom = bottom;
+  if (left !== undefined) outerLayoutStyle.left = left;
+  if (right !== undefined) outerLayoutStyle.right = right;
+  if (zIndex !== undefined) outerLayoutStyle.zIndex = zIndex;
+
+  const fullInner: ViewStyle = {
+    width: width !== undefined ? '100%' : undefined,
+    height: height !== undefined ? '100%' : undefined,
+  };
 
   return (
     <Pressable style={outerLayoutStyle} onPressIn={handlePressIn} onPressOut={handlePressOut} {...rest}>
-      <Animated.View style={[innerStyle, { transform: [{ scale }] }]}>
+      <Animated.View style={[fullInner, innerStyle, { transform: [{ scale }] }]}>
         {children}
       </Animated.View>
     </Pressable>

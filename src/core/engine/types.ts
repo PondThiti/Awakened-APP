@@ -109,9 +109,32 @@ export interface OnboardingProfile {
   updatedAt: number;
 }
 
+/** Local notification preferences (reminders shown in the phone's notification shade). */
+export interface NotificationSettings {
+  /** Master switch – only true after the user explicitly allowed notifications. */
+  enabled: boolean;
+  /** True once the app has asked the user for permission (so we never nag). */
+  permissionAsked: boolean;
+  morningReminderEnabled: boolean;
+  morningReminderTime: string; // 'HH:MM'
+  eveningReminderEnabled: boolean;
+  eveningReminderTime: string; // 'HH:MM'
+}
+
+/** Daily-mission alarm clock settings. */
+export interface AlarmSettings {
+  enabled: boolean;
+  time: string; // 'HH:MM'
+  days: number[]; // ISO weekdays 1 (Mon) .. 7 (Sun); empty = every day
+}
+
 export interface UserProfile {
   id: 1;
   displayName: string;
+  /** file:// URI of the user's profile picture (square JPEG saved inside app storage). */
+  avatarUri?: string | null;
+  notifications?: NotificationSettings;
+  alarm?: AlarmSettings;
   totalXp: number;
   waterGoalMl: number;
   weeklyGoalDays: number;
@@ -251,6 +274,10 @@ export interface QuestInstance {
   target: number;
   status: QuestStatus;
   completedAt?: number | null;
+  /** Hidden workout-penalty multiplier (> 1 when the previous workout day was skipped). */
+  penaltyMultiplier?: number;
+  /** Hidden minimum workout minutes required to finish a penalized count-based body quest. */
+  minWorkoutMin?: number;
 }
 
 export interface TrainingPlanDay {

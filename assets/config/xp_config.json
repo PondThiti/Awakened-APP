@@ -116,7 +116,7 @@
       "color": "#FFFFFF",
       "requires_special": {
         "min_active_days": 365,
-        "min_badge_categories": 4
+        "min_badge_categories": 5
       }
     }
   ]

@@ -23,6 +23,21 @@ import {
   getSecretHint,
   isAchievementVisibleForUser,
 } from '../src/core/engine/achievementEngine';
+import {
+  evaluateWorkoutPenalty,
+  getWorkoutPenaltyMultiplier,
+  isWorkoutPenaltyExempt,
+  WORKOUT_PENALTY_MULTIPLIER_BY_RANK,
+} from '../src/core/engine/penaltyEngine';
+import { getDailyNutritionSummary } from '../src/core/engine/nutritionSummary';
+import {
+  buildMonthGrid,
+  formatCalendarYear,
+  getMonthName,
+  getWeekdayHeaders,
+  parseDayKey,
+  shiftMonth,
+} from '../src/core/utils/calendarUtils';
 
 describe('Awakened Core Engines — Section 18.1 Unit Tests', () => {
   it('1. LevelEngine: computes exact xpToNext and totalXpForLevel matching Appendix B', () => {
@@ -139,7 +154,7 @@ describe('Awakened Core Engines — Section 18.1 Unit Tests', () => {
     expect(getRankForLevel(11).currentRank.id).toBe('D');
     expect(getRankForLevel(26).currentRank.id).toBe('C');
 
-    // Level 221 without 365 days & 4 badge categories stays at SS
+    // Level 221 without 365 days & 5 badge categories stays at SS
     const preMonarch = getRankForLevel(221, {
       totalActiveDays: 120,
       unlockedBadgeCategoriesCount: 2,
@@ -147,10 +162,19 @@ describe('Awakened Core Engines — Section 18.1 Unit Tests', () => {
     expect(preMonarch.currentRank.id).toBe('SS');
     expect(preMonarch.monarchEligibility.eligible).toBe(false);
 
-    // Level 221 with 365 days & 4 badge categories unlocks Monarch!
-    const monarch = getRankForLevel(221, {
+    // 4 badge categories is no longer enough (requirement is 5)
+    const fourCats = getRankForLevel(221, {
       totalActiveDays: 365,
       unlockedBadgeCategoriesCount: 4,
+    });
+    expect(fourCats.currentRank.id).toBe('SS');
+    expect(fourCats.monarchEligibility.requiredBadgeCategories).toBe(5);
+    expect(fourCats.monarchEligibility.badgeCategoriesMet).toBe(false);
+
+    // Level 221 with 365 days & 5 badge categories unlocks Monarch!
+    const monarch = getRankForLevel(221, {
+      totalActiveDays: 365,
+      unlockedBadgeCategoriesCount: 5,
     });
     expect(monarch.currentRank.id).toBe('M');
     expect(monarch.monarchEligibility.eligible).toBe(true);
@@ -531,5 +555,151 @@ describe('Awakened Core Engines — Section 18.1 Unit Tests', () => {
     expect(mergedCelebration).not.toBeNull();
     expect(mergedCelebration!.extraUnlockedCount).toBeGreaterThan(0);
     expect(mergedCelebration!.summaryText).toContain('ปลดล็อกอีก');
+  });
+
+  it('14. PenaltyEngine: enforces exact multipliers (E x1.4, D/C x1.8, B/A x2.2, S+ x2.5) only for exercise', () => {
+    expect(getWorkoutPenaltyMultiplier('E')).toBe(1.4);
+    expect(getWorkoutPenaltyMultiplier('D')).toBe(1.8);
+    expect(getWorkoutPenaltyMultiplier('C')).toBe(1.8);
+    expect(getWorkoutPenaltyMultiplier('B')).toBe(2.2);
+    expect(getWorkoutPenaltyMultiplier('A')).toBe(2.2);
+    expect(getWorkoutPenaltyMultiplier('S')).toBe(2.5);
+    expect(getWorkoutPenaltyMultiplier('SS')).toBe(2.5);
+    expect(getWorkoutPenaltyMultiplier('M')).toBe(2.5);
+
+    // Minors (<18) and injured/medical users are exempt
+    const minorOnboarding = {
+      ...createDefaultOnboardingProfile(),
+      ageBand: '16-17' as const,
+    };
+    expect(isWorkoutPenaltyExempt(minorOnboarding)).toBe(true);
+
+    const injuredOnboarding = {
+      ...createDefaultOnboardingProfile(),
+      safetyFlags: ['injured_now' as const],
+    };
+    expect(isWorkoutPenaltyExempt(injuredOnboarding)).toBe(true);
+
+    // Standard user is not exempt
+    const normalOnboarding = createDefaultOnboardingProfile();
+    expect(isWorkoutPenaltyExempt(normalOnboarding)).toBe(false);
+
+    // Generate penalized quests for Rank E (x1.4)
+    const quests = generateDailyQuestsForDay({
+      dayKey: '2026-10-24',
+      isRestDay: false,
+      availableMinutesPerDay: 30,
+      waterGoalMl: 2000,
+      penaltyMultiplier: 1.4,
+    });
+    // Exercise quests should have multiplier applied and target rounded up
+    const exerciseQuest = quests.find(
+      (q) => q.template.slot === 'body' && q.template.condition.metric === 'workout_min'
+    );
+    if (exerciseQuest) {
+      expect(exerciseQuest.penaltyMultiplier).toBe(1.4);
+      expect(exerciseQuest.target).toBeGreaterThan(exerciseQuest.template.condition.target as number);
+    }
+  });
+
+  it('15. QuestEngine: exercise-focus path completely excludes journaling and mood check-in quests', () => {
+    const strengthOnboarding = {
+      ...createDefaultOnboardingProfile(),
+      path: 'strength' as const,
+    };
+    const quests = generateDailyQuestsForDay({
+      dayKey: '2026-10-24',
+      isRestDay: false,
+      availableMinutesPerDay: 45,
+      waterGoalMl: 2500,
+      onboarding: strengthOnboarding,
+    });
+
+    const hasJournal = quests.some((q) => q.templateId === 'daily_journal_write');
+    const hasMood = quests.some((q) => q.templateId === 'daily_mood_check');
+    expect(hasJournal).toBe(false);
+    expect(hasMood).toBe(false);
+  });
+
+  it('16. NutritionSummary: accurately sums daily kcal, macros and by-slot totals', () => {
+    const activities = [
+      {
+        id: 1,
+        type: 'meal' as const,
+        title: 'ข้าวกะเพราไก่ไข่ดาว',
+        value: 630,
+        unit: 'kcal',
+        occurredAt: new Date('2026-10-24T12:30:00Z').getTime(),
+        tzOffsetMin: 0,
+        createdAt: Date.now(),
+        deletedAt: null,
+        isBackfilled: false,
+        xpAwarded: 8,
+        mealDetail: {
+          mealSlot: 'lunch' as const,
+          caloriesEst: 630,
+          proteinG: 28,
+          carbsG: 65,
+          fatG: 22,
+          isEstimate: true,
+          source: 'manual' as const,
+        },
+      },
+      {
+        id: 2,
+        type: 'meal' as const,
+        title: 'เวย์โปรตีน + กล้วย',
+        value: 280,
+        unit: 'kcal',
+        occurredAt: new Date('2026-10-24T17:00:00Z').getTime(),
+        tzOffsetMin: 0,
+        createdAt: Date.now(),
+        deletedAt: null,
+        isBackfilled: false,
+        xpAwarded: 8,
+        mealDetail: {
+          mealSlot: 'snack' as const,
+          caloriesEst: 280,
+          proteinG: 26,
+          carbsG: 32,
+          fatG: 3,
+          isEstimate: false,
+          source: 'manual' as const,
+        },
+      },
+    ];
+
+    const summary = getDailyNutritionSummary(activities, '2026-10-24');
+    expect(summary.mealCount).toBe(2);
+    expect(summary.kcal).toBe(910);
+    expect(summary.proteinG).toBe(54);
+    expect(summary.carbsG).toBe(97);
+    expect(summary.fatG).toBe(25);
+    expect(summary.bySlot.lunch).toBe(630);
+    expect(summary.bySlot.snack).toBe(280);
+    expect(summary.bySlot.breakfast).toBe(0);
+  });
+
+  it('17. CalendarUtils: standard month grid, year formatting, and month shifting', () => {
+    // October 2026 (31 days)
+    const grid = buildMonthGrid(2026, 9, 1); // 9 = October
+    expect(grid.length).toBeGreaterThanOrEqual(4);
+    const flattened = grid.flat().filter(Boolean);
+    expect(flattened.length).toBe(31);
+    expect(flattened[0]).toBe('2026-10-01');
+    expect(flattened[30]).toBe('2026-10-31');
+
+    // Thai year (พ.ศ. 2569)
+    expect(formatCalendarYear(2026, true)).toBe('2569');
+    expect(formatCalendarYear(2026, false)).toBe('2026');
+
+    // Month shifting
+    const shifted = shiftMonth(2026, 9, 1);
+    expect(shifted.year).toBe(2026);
+    expect(shifted.monthIndex).toBe(10); // November
+
+    const shiftedYear = shiftMonth(2026, 11, 1);
+    expect(shiftedYear.year).toBe(2027);
+    expect(shiftedYear.monthIndex).toBe(0); // January
   });
 });

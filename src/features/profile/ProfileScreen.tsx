@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -7,6 +9,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import {
+  copyToClipboard,
+  getDeviceRegion,
+  getNotificationPermissionStatus,
+  pickProfileImage,
+  requestNotificationPermission,
+  requestPinShortcut,
+  requestPinWidget,
+} from '../../services/nativeBridge';
 import xpConfigJson from '../../../assets/config/xp_config.json';
 import { AppTheme } from '../../app/theme';
 import { useAwakened } from '../../data/repository';
@@ -71,6 +82,20 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
   const [backupJsonBox, setBackupJsonBox] = useState('');
   const [backupStatusMsg, setBackupStatusMsg] = useState<string | null>(null);
   const [resetConfirmStep, setResetConfirmStep] = useState<0 | 1>(0);
+
+  // Trophy Room collapsed state
+  const [isTrophyRoomExpanded, setIsTrophyRoomExpanded] = useState(false);
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [copiedDonation, setCopiedDonation] = useState(false);
+  const [shortcutFeedback, setShortcutFeedback] = useState<string | null>(null);
+  const [widgetFeedback, setWidgetFeedback] = useState<string | null>(null);
+  const [notifGranted, setNotifGranted] = useState(false);
+
+  useEffect(() => {
+    getNotificationPermissionStatus().then((status) => {
+      setNotifGranted(status === 'granted');
+    });
+  }, []);
 
   // Trophy Room filters
   const [selectedCategory, setSelectedCategory] = useState<'all' | AchievementCategory>('all');
@@ -189,17 +214,45 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
         ]}
       >
         <View style={styles.profileHeaderRow}>
-          <View
+          <Pressable
             style={[
               styles.avatarCircle,
               {
                 backgroundColor: `${currentRank.color}20`,
                 borderColor: currentRank.color,
+                position: 'relative',
               },
             ]}
+            onPress={() => setAvatarModalOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Change Profile Avatar"
           >
-            <AppIcon name="user" size={28} color={currentRank.color} />
-          </View>
+            {db.profile.avatarUri ? (
+              <Image
+                source={{ uri: db.profile.avatarUri }}
+                style={{ width: 56, height: 56, borderRadius: 28 }}
+              />
+            ) : (
+              <AppIcon name="user" size={28} color={currentRank.color} />
+            )}
+            <View
+              style={{
+                position: 'absolute',
+                bottom: -2,
+                right: -2,
+                backgroundColor: theme.primary,
+                borderRadius: 10,
+                width: 20,
+                height: 20,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1.5,
+                borderColor: theme.card,
+              }}
+            >
+              <Text style={{ fontSize: 10 }}>📷</Text>
+            </View>
+          </Pressable>
           <View style={{ flex: 1 }}>
             <RankBadge rank={currentRank} lang={lang} size="md" reduceMotion={reduceMotion} />
             <Text style={[styles.playerTitle, { color: theme.text }]}>
@@ -215,6 +268,62 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             )}
           </View>
         </View>
+
+        {/* Profile Avatar Actions */}
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
+            style={[
+              styles.avatarActionBtn,
+              { backgroundColor: theme.bgSecondary, borderColor: theme.border },
+            ]}
+            onPress={() => setAvatarModalOpen(true)}
+          >
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="scan" size={13} color={theme.primary} />
+              <Text style={{ color: theme.primary, fontSize: 11, fontWeight: '800' }}>
+                {isTh ? 'เปลี่ยนรูปโปรไฟล์' : 'Change Avatar'}
+              </Text>
+            </View>
+          </AnimatedPressable>
+
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
+            style={[
+              styles.avatarActionBtn,
+              { backgroundColor: theme.bgSecondary, borderColor: theme.border },
+            ]}
+            onPress={async () => {
+              const success = await requestPinShortcut(
+                db.profile.displayName,
+                db.profile.avatarUri ?? null
+              );
+              setShortcutFeedback(
+                success
+                  ? isTh
+                    ? '✓ สร้างไอคอนแอปโปรไฟล์บนหน้าจอหลักแล้ว'
+                    : '✓ Pinned profile icon to home screen'
+                  : isTh
+                  ? 'อุปกรณ์นี้ไม่รองรับการปักหมุดไอคอนอัตโนมัติ'
+                  : 'Pinning shortcut not supported on this launcher'
+              );
+              setTimeout(() => setShortcutFeedback(null), 3500);
+            }}
+          >
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="bolt" size={13} color={theme.warning} />
+              <Text style={{ color: theme.warning, fontSize: 11, fontWeight: '800' }}>
+                {isTh ? 'ตั้งเป็นไอคอนแอปหน้าจอ' : 'Pin App Icon'}
+              </Text>
+            </View>
+          </AnimatedPressable>
+        </View>
+
+        {shortcutFeedback && (
+          <Text style={{ color: theme.success, fontSize: 11, fontWeight: '700', marginTop: 6 }}>
+            {shortcutFeedback}
+          </Text>
+        )}
 
         {/* Featured Badges Showcase (up to 3 pinned badges) */}
         {featuredBadges.length > 0 && (
@@ -330,7 +439,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             {monarchEligibility.requiredActiveDays} {monarchEligibility.activeDaysMet ? '✓' : ''}
           </Text>
           <Text style={{ color: theme.textSecondary, fontSize: 11 }}>
-            • Badge Categories 4+: {monarchEligibility.currentBadgeCategories}/
+            • Badge Categories 5+: {monarchEligibility.currentBadgeCategories}/
             {monarchEligibility.requiredBadgeCategories}{' '}
             {monarchEligibility.badgeCategoriesMet ? '✓' : ''}
           </Text>
@@ -554,8 +663,45 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
           })}
         </View>
 
-        {/* Category Completion Titles Drawer Toggle (Section 5) */}
-        <AnimatedPressable
+        {/* Toggle Expand / Collapse Trophy Room */}
+        {!isTrophyRoomExpanded ? (
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
+            style={[
+              styles.trophyToggleBtn,
+              { backgroundColor: `${theme.warning}18`, borderColor: theme.warning, marginTop: 12 },
+            ]}
+            onPress={() => setIsTrophyRoomExpanded(true)}
+          >
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="trophy" size={16} color={theme.warning} />
+              <Text style={{ color: theme.warning, fontSize: 13, fontWeight: '900' }}>
+                {isTh
+                  ? '🏆 เปิดดูห้องถ้วยรางวัลทั้งหมด 199 รายการ (แตะเพื่อขยาย)'
+                  : '🏆 Expand Trophy Room (199 Achievements)'}
+              </Text>
+              <Text style={{ color: theme.warning, fontSize: 12 }}>▼</Text>
+            </View>
+          </AnimatedPressable>
+        ) : (
+          <>
+            <AnimatedPressable
+              reduceMotion={reduceMotion}
+              style={[
+                styles.trophyToggleBtn,
+                { backgroundColor: theme.bgSecondary, borderColor: theme.border, marginTop: 12 },
+              ]}
+              onPress={() => setIsTrophyRoomExpanded(false)}
+            >
+              <View style={styles.inlineIconRow}>
+                <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '800' }}>
+                  {isTh ? '▲ ย่อห้องถ้วยรางวัล' : '▲ Collapse Trophy Room'}
+                </Text>
+              </View>
+            </AnimatedPressable>
+
+            {/* Category Completion Titles Drawer Toggle (Section 5) */}
+            <AnimatedPressable
           reduceMotion={reduceMotion}
           style={[
             styles.subBox,
@@ -966,6 +1112,23 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             );
           })}
         </View>
+
+            <AnimatedPressable
+              reduceMotion={reduceMotion}
+              style={[
+                styles.trophyToggleBtn,
+                { backgroundColor: theme.bgSecondary, borderColor: theme.border, marginTop: 14 },
+              ]}
+              onPress={() => setIsTrophyRoomExpanded(false)}
+            >
+              <View style={styles.inlineIconRow}>
+                <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '800' }}>
+                  {isTh ? '▲ ย่อห้องถ้วยรางวัล' : '▲ Collapse Trophy Room'}
+                </Text>
+              </View>
+            </AnimatedPressable>
+          </>
+        )}
       </AnimatedCard>
 
       {/* 4. All 8 Ranks Reference Table */}
@@ -1006,6 +1169,503 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             </Text>
           </View>
         ))}
+      </AnimatedCard>
+
+      {/* 4A. Home Screen Widget & App Icon */}
+      <AnimatedCard
+        index={4}
+        reduceMotion={reduceMotion}
+        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+      >
+        <View style={styles.headerRowBetween}>
+          <View style={styles.inlineIconRow}>
+            <AppIcon name="bolt" size={18} color={theme.warning} />
+            <Text style={[styles.cardTitle, { color: theme.text }]}>
+              {isTh ? 'วิดเจ็ตหน้าจอหลัก & ไอคอนแอป' : 'Home Screen Widget & Icon'}
+            </Text>
+          </View>
+        </View>
+        <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 4, lineHeight: 18 }}>
+          {isTh
+            ? 'ติดตามภารกิจประจำวัน ปริมาณน้ำ แคลอรี่ และสตรีคของคุณได้ทันทีบนหน้าจอมือถือโดยไม่ต้องเปิดแอป'
+            : 'Track your daily missions, water, calories and streak directly on your Android home screen.'}
+        </Text>
+
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
+            style={[
+              styles.primaryBtn,
+              { flex: 1, backgroundColor: theme.primary, alignItems: 'center' },
+            ]}
+            onPress={async () => {
+              const res = await requestPinWidget();
+              setWidgetFeedback(
+                res
+                  ? isTh
+                    ? '✓ ส่งคำขอเพิ่มวิดเจ็ตลงหน้าจอหลักแล้ว'
+                    : '✓ Widget pinned to home screen'
+                  : isTh
+                  ? 'คุณสามารถกดค้างที่หน้าจอหลักของโทรศัพท์เพื่อเพิ่มวิดเจ็ต Awakened ได้เอง'
+                  : 'Long-press your phone home screen to place Awakened widget'
+              );
+              setTimeout(() => setWidgetFeedback(null), 4000);
+            }}
+          >
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="plus" size={13} color="#0E1220" />
+              <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 12 }}>
+                {isTh ? 'เพิ่มวิดเจ็ตลงหน้าจอ' : 'Add Widget'}
+              </Text>
+            </View>
+          </AnimatedPressable>
+
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
+            style={[
+              styles.primaryBtn,
+              {
+                flex: 1,
+                backgroundColor: `${theme.warning}25`,
+                borderColor: theme.warning,
+                borderWidth: 1,
+                alignItems: 'center',
+              },
+            ]}
+            onPress={async () => {
+              const res = await requestPinShortcut(
+                db.profile.displayName,
+                db.profile.avatarUri ?? null
+              );
+              setShortcutFeedback(
+                res
+                  ? isTh
+                    ? '✓ สร้างไอคอนโปรไฟล์บนหน้าจอหลักแล้ว'
+                    : '✓ Profile icon pinned'
+                  : isTh
+                  ? 'อุปกรณ์นี้ไม่รองรับการปักหมุดไอคอนอัตโนมัติ'
+                  : 'Not supported on launcher'
+              );
+              setTimeout(() => setShortcutFeedback(null), 4000);
+            }}
+          >
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="user" size={13} color={theme.warning} />
+              <Text style={{ color: theme.warning, fontWeight: '900', fontSize: 12 }}>
+                {isTh ? 'ปักหมุดไอคอนโปรไฟล์' : 'Pin Profile Icon'}
+              </Text>
+            </View>
+          </AnimatedPressable>
+        </View>
+
+        {(widgetFeedback || shortcutFeedback) && (
+          <Text style={{ color: theme.success, fontSize: 11, fontWeight: '700', marginTop: 8 }}>
+            {widgetFeedback || shortcutFeedback}
+          </Text>
+        )}
+      </AnimatedCard>
+
+      {/* 4B. Notifications & Daily Mission Alarm Clock */}
+      <AnimatedCard
+        index={5}
+        reduceMotion={reduceMotion}
+        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+      >
+        <View style={styles.headerRowBetween}>
+          <View style={styles.inlineIconRow}>
+            <AppIcon name="clock" size={18} color={theme.primary} />
+            <Text style={[styles.cardTitle, { color: theme.text }]}>
+              {isTh ? 'การแจ้งเตือน & นาฬิกาปลุกภารกิจ' : 'Notifications & Mission Alarm'}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.notifBadge,
+              {
+                backgroundColor: notifGranted ? `${theme.success}25` : `${theme.warning}25`,
+                borderColor: notifGranted ? theme.success : theme.warning,
+              },
+            ]}
+          >
+            <Text
+              style={{
+                color: notifGranted ? theme.success : theme.warning,
+                fontSize: 10,
+                fontWeight: '900',
+              }}
+            >
+              {notifGranted
+                ? isTh
+                  ? '✓ อนุญาตแล้ว'
+                  : '✓ Allowed'
+                : isTh
+                ? 'รอการอนุญาต'
+                : 'Permission Needed'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Permission Request Prompt if not granted */}
+        {!notifGranted && (
+          <View
+            style={{
+              backgroundColor: `${theme.primary}15`,
+              borderColor: `${theme.primary}44`,
+              borderWidth: 1,
+              borderRadius: 10,
+              padding: 10,
+              marginTop: 10,
+            }}
+          >
+            <Text style={{ color: theme.text, fontSize: 12, lineHeight: 18 }}>
+              {isTh
+                ? 'เพื่อให้แอปสามารถแจ้งเตือนภารกิจรายวันและส่งเสียงปลุกบนแถบแจ้งเตือนมือถือได้ กรุณากดอนุญาตการแจ้งเตือน'
+                : 'Allow notifications so Awakened can remind you of daily missions on your device.'}
+            </Text>
+            <AnimatedPressable
+              reduceMotion={reduceMotion}
+              style={[
+                styles.primaryBtn,
+                { backgroundColor: theme.primary, marginTop: 8, alignItems: 'center' },
+              ]}
+              onPress={async () => {
+                const granted = await requestNotificationPermission();
+                setNotifGranted(granted);
+                if (granted) {
+                  updateProfile({
+                    notifications: {
+                      ...(db.profile.notifications ?? {
+                        permissionAsked: true,
+                        morningReminderEnabled: true,
+                        morningReminderTime: '08:00',
+                        eveningReminderEnabled: true,
+                        eveningReminderTime: '20:00',
+                      }),
+                      enabled: true,
+                      permissionAsked: true,
+                    },
+                  });
+                }
+              }}
+            >
+              <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 12 }}>
+                {isTh ? '🔔 อนุญาตการแจ้งเตือนบนมือถือ' : '🔔 Allow Notifications'}
+              </Text>
+            </AnimatedPressable>
+          </View>
+        )}
+
+        {/* Daily Mission Alarm Clock Section */}
+        <View
+          style={{
+            backgroundColor: theme.bgSecondary,
+            borderColor: theme.border,
+            borderWidth: 1,
+            borderRadius: 12,
+            padding: 12,
+            marginTop: 12,
+          }}
+        >
+          <View style={styles.headerRowBetween}>
+            <View style={styles.inlineIconRow}>
+              <Text style={{ fontSize: 16 }}>⏰</Text>
+              <View>
+                <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+                  {isTh ? 'นาฬิกาปลุกภารกิจประจำวัน' : 'Daily Mission Alarm Clock'}
+                </Text>
+                <Text style={{ color: theme.textMuted, fontSize: 11 }}>
+                  {isTh
+                    ? 'แจ้งเตือนระดับสูงให้มาพิชิตภารกิจ (พร้อมปุ่มเลื่อน 10 นาที)'
+                    : 'High-priority wake alarm to complete missions (with snooze)'}
+                </Text>
+              </View>
+            </View>
+            <AnimatedPressable
+              reduceMotion={reduceMotion}
+              style={[
+                styles.togglePill,
+                {
+                  backgroundColor: db.profile.alarm?.enabled ? theme.success : theme.border,
+                },
+              ]}
+              onPress={() => {
+                const current = db.profile.alarm ?? {
+                  enabled: false,
+                  time: '07:00',
+                  days: [],
+                };
+                updateProfile({
+                  alarm: {
+                    ...current,
+                    enabled: !current.enabled,
+                  },
+                });
+              }}
+            >
+              <Text style={{ color: '#0E1220', fontSize: 11, fontWeight: '900' }}>
+                {db.profile.alarm?.enabled ? (isTh ? 'เปิด' : 'ON') : (isTh ? 'ปิด' : 'OFF')}
+              </Text>
+            </AnimatedPressable>
+          </View>
+
+          {/* Alarm Time Selector */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginTop: 10,
+              paddingTop: 8,
+              borderTopWidth: 1,
+              borderTopColor: `${theme.border}44`,
+            }}
+          >
+            <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
+              {isTh ? 'เวลาปลุก:' : 'Alarm Time:'}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              {['06:00', '07:00', '08:00', '09:00'].map((timeStr) => {
+                const active = (db.profile.alarm?.time ?? '07:00') === timeStr;
+                return (
+                  <Pressable
+                    key={timeStr}
+                    style={[
+                      styles.timeChip,
+                      {
+                        backgroundColor: active ? theme.primary : theme.card,
+                        borderColor: active ? theme.primary : theme.border,
+                      },
+                    ]}
+                    onPress={() => {
+                      const current = db.profile.alarm ?? {
+                        enabled: true,
+                        time: timeStr,
+                        days: [],
+                      };
+                      updateProfile({
+                        alarm: {
+                          ...current,
+                          time: timeStr,
+                        },
+                      });
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: active ? '#0E1220' : theme.text,
+                        fontSize: 11,
+                        fontWeight: '800',
+                      }}
+                    >
+                      {timeStr}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+
+        {/* Notification Reminders Toggle */}
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: 12,
+          }}
+        >
+          <View>
+            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
+              {isTh ? 'เตือนทำภารกิจตอนเช้า (08:00)' : 'Morning Mission Reminder (08:00)'}
+            </Text>
+            <Text style={{ color: theme.textMuted, fontSize: 10 }}>
+              {isTh ? 'เตือนภารกิจรายวันบนแถบแจ้งเตือน' : 'Notification tray reminder'}
+            </Text>
+          </View>
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
+            style={[
+              styles.togglePill,
+              {
+                backgroundColor:
+                  db.profile.notifications?.enabled &&
+                  db.profile.notifications?.morningReminderEnabled
+                    ? theme.primary
+                    : theme.border,
+              },
+            ]}
+            onPress={() => {
+              const current = db.profile.notifications ?? {
+                enabled: true,
+                permissionAsked: true,
+                morningReminderEnabled: true,
+                morningReminderTime: '08:00',
+                eveningReminderEnabled: true,
+                eveningReminderTime: '20:00',
+              };
+              updateProfile({
+                notifications: {
+                  ...current,
+                  morningReminderEnabled: !current.morningReminderEnabled,
+                },
+              });
+            }}
+          >
+            <Text style={{ color: '#0E1220', fontSize: 11, fontWeight: '900' }}>
+              {db.profile.notifications?.morningReminderEnabled ? 'ON' : 'OFF'}
+            </Text>
+          </AnimatedPressable>
+        </View>
+
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: 10,
+          }}
+        >
+          <View>
+            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
+              {isTh ? 'เตือนสรุปภารกิจตอนค่ำ (20:00)' : 'Evening Check-in (20:00)'}
+            </Text>
+            <Text style={{ color: theme.textMuted, fontSize: 10 }}>
+              {isTh ? 'เตือนก่อนหมดวันเพื่อรักษา Streak' : 'Streak protection check-in'}
+            </Text>
+          </View>
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
+            style={[
+              styles.togglePill,
+              {
+                backgroundColor:
+                  db.profile.notifications?.enabled &&
+                  db.profile.notifications?.eveningReminderEnabled
+                    ? theme.primary
+                    : theme.border,
+              },
+            ]}
+            onPress={() => {
+              const current = db.profile.notifications ?? {
+                enabled: true,
+                permissionAsked: true,
+                morningReminderEnabled: true,
+                morningReminderTime: '08:00',
+                eveningReminderEnabled: true,
+                eveningReminderTime: '20:00',
+              };
+              updateProfile({
+                notifications: {
+                  ...current,
+                  eveningReminderEnabled: !current.eveningReminderEnabled,
+                },
+              });
+            }}
+          >
+            <Text style={{ color: '#0E1220', fontSize: 11, fontWeight: '900' }}>
+              {db.profile.notifications?.eveningReminderEnabled ? 'ON' : 'OFF'}
+            </Text>
+          </AnimatedPressable>
+        </View>
+      </AnimatedCard>
+
+      {/* 4C. Developer Support & Donation (Thailand Only) */}
+      <AnimatedCard
+        index={6}
+        reduceMotion={reduceMotion}
+        style={[
+          styles.card,
+          { backgroundColor: theme.card, borderColor: '#138F46', borderWidth: 1.5 },
+        ]}
+      >
+        <View style={styles.headerRowBetween}>
+          <View style={styles.inlineIconRow}>
+            <Text style={{ fontSize: 18 }}>💚</Text>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>
+              {isTh ? 'สนับสนุนผู้พัฒนา (Donation)' : 'Support Developer (Donation)'}
+            </Text>
+          </View>
+          <View
+            style={{
+              backgroundColor: '#138F4625',
+              borderColor: '#138F46',
+              borderWidth: 1,
+              borderRadius: 6,
+              paddingHorizontal: 7,
+              paddingVertical: 2,
+            }}
+          >
+            <Text style={{ color: '#138F46', fontSize: 10, fontWeight: '900' }}>
+              {isTh ? 'ประเทศไทยเท่านั้น' : 'Thailand Only'}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 6, lineHeight: 18 }}>
+          {isTh
+            ? 'ทุกการสนับสนุนช่วยให้โปรเจกต์ Awakened Life RPG พัฒนาต่อเนื่องและไม่มีโฆษณาคั่น ขอบคุณมากครับ!'
+            : 'Your support helps keep Awakened Life RPG ad-free and continuously updated. Thank you!'}
+        </Text>
+
+        <View
+          style={{
+            backgroundColor: theme.bgSecondary,
+            borderColor: '#138F4666',
+            borderWidth: 1,
+            borderRadius: 12,
+            padding: 12,
+            marginTop: 10,
+          }}
+        >
+          <View style={styles.inlineIconRow}>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#138F46' }} />
+            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+              {isTh ? 'ธนาคารกสิกรไทย (KBANK)' : 'Kasikorn Bank (KBANK)'}
+            </Text>
+          </View>
+          <Text
+            style={{
+              color: '#3DDC97',
+              fontSize: 20,
+              fontWeight: '900',
+              letterSpacing: 1.5,
+              marginTop: 4,
+            }}
+          >
+            1638680528
+          </Text>
+
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
+            style={[
+              styles.primaryBtn,
+              {
+                backgroundColor: copiedDonation ? theme.success : '#138F46',
+                marginTop: 10,
+                alignItems: 'center',
+              },
+            ]}
+            onPress={() => {
+              copyToClipboard('1638680528');
+              setCopiedDonation(true);
+              setTimeout(() => setCopiedDonation(false), 3000);
+            }}
+          >
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="edit" size={14} color="#0E1220" />
+              <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 12 }}>
+                {copiedDonation
+                  ? isTh
+                    ? '✓ คัดลอกเลขบัญชี 1638680528 แล้ว'
+                    : '✓ Copied KBANK 1638680528'
+                  : isTh
+                  ? 'คัดลอกเลขบัญชีกสิกร (1638680528)'
+                  : 'Copy KBANK Account (1638680528)'}
+              </Text>
+            </View>
+          </AnimatedPressable>
+        </View>
       </AnimatedCard>
 
       {/* 5. Settings, Preferences & Privacy (Section 14 & 15) */}
@@ -1454,6 +2114,89 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
           Awakened v0.9.5 · Open-Source Licenses: React Native & Expo (MIT), AsyncStorage & SQLite (MIT), React Native SVG (MIT), Vector Icons sourced from FreeIcons.io (Iconly Essential & Free Vector Sets), Thai Food Nutrition Reference (Public Domain / DOH Estimation).
         </Text>
       </AnimatedCard>
+
+      {/* Profile Avatar Selection Modal */}
+      <Modal
+        visible={avatarModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAvatarModalOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[
+              styles.modalCard,
+              { backgroundColor: theme.card, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.headerRowBetween}>
+              <Text style={[styles.cardTitle, { color: theme.text }]}>
+                {isTh ? 'เลือกรูปโปรไฟล์' : 'Choose Profile Picture'}
+              </Text>
+              <Pressable onPress={() => setAvatarModalOpen(false)}>
+                <Text style={{ color: theme.textMuted, fontSize: 16 }}>✕</Text>
+              </Pressable>
+            </View>
+
+            {/* Custom Photo Option from Gallery */}
+            <AnimatedPressable
+              reduceMotion={reduceMotion}
+              style={[
+                styles.primaryBtn,
+                { backgroundColor: theme.primary, marginTop: 14, alignItems: 'center' },
+              ]}
+              onPress={async () => {
+                const uri = await pickProfileImage();
+                if (uri) {
+                  updateProfile({ avatarUri: uri });
+                  setAvatarModalOpen(false);
+                }
+              }}
+            >
+              <View style={styles.inlineIconRow}>
+                <AppIcon name="scan" size={15} color="#0E1220" />
+                <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 13 }}>
+                  {isTh ? 'เลือกรูปจากเครื่อง / แกลเลอรี' : 'Choose from Device / Gallery'}
+                </Text>
+              </View>
+            </AnimatedPressable>
+
+            {/* Remove Avatar Button */}
+            {Boolean(db.profile.avatarUri) && (
+              <AnimatedPressable
+                reduceMotion={reduceMotion}
+                style={[
+                  styles.primaryBtn,
+                  {
+                    backgroundColor: `${theme.danger}20`,
+                    borderColor: theme.danger,
+                    borderWidth: 1,
+                    marginTop: 10,
+                    alignItems: 'center',
+                  },
+                ]}
+                onPress={() => {
+                  updateProfile({ avatarUri: null });
+                  setAvatarModalOpen(false);
+                }}
+              >
+                <Text style={{ color: theme.danger, fontWeight: '800', fontSize: 12 }}>
+                  {isTh ? 'ลบรูปโปรไฟล์ (ใช้อวตารเริ่มต้น)' : 'Remove Custom Avatar'}
+                </Text>
+              </AnimatedPressable>
+            )}
+
+            <Pressable
+              style={{ marginTop: 14, alignItems: 'center', padding: 8 }}
+              onPress={() => setAvatarModalOpen(false)}
+            >
+              <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
+                {isTh ? 'ยกเลิก' : 'Cancel'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -1625,5 +2368,53 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     marginBottom: 6,
+  },
+  avatarActionBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trophyToggleBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notifBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  togglePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  timeChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: '#00000088',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 380,
+    padding: 18,
+    borderRadius: 16,
+    borderWidth: 1,
   },
 });

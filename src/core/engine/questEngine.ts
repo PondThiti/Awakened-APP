@@ -7,6 +7,26 @@ import {
   QuestTemplate,
 } from './types';
 import { isMinorAgeBand } from './onboardingEngine';
+import { applyPenaltyToQuestInstance } from './penaltyEngine';
+
+/**
+ * Daily quests that are NOT offered to users who chose the exercise-focused path
+ * ("Strength & Physique"): no journaling / mood check-in quests in their daily list.
+ */
+export const EXERCISE_FOCUS_EXCLUDED_QUEST_IDS: ReadonlySet<string> = new Set([
+  'daily_journal_write',
+  'daily_mood_check',
+]);
+
+export function isQuestAllowedForPath(
+  templateId: string,
+  onboarding: OnboardingProfile | undefined
+): boolean {
+  if (onboarding?.path === 'strength') {
+    return !EXERCISE_FOCUS_EXCLUDED_QUEST_IDS.has(templateId);
+  }
+  return true;
+}
 
 export interface DailyMetricsSnapshot {
   water_ml: number;
@@ -165,10 +185,12 @@ export function generateDailyQuestsForDay(options: {
   onboarding?: OnboardingProfile;
   missedDaysInRow?: number;
   nowMs?: number;
+  /** Hidden multiplier (> 1) applied to exercise quests after a skipped workout day. */
+  penaltyMultiplier?: number;
 }): QuestInstance[] {
   const nowMs = options.nowMs ?? Date.now();
   const templates = (options.templates ?? defaultTemplates).filter(
-    (t) => t.type === 'daily'
+    (t) => t.type === 'daily' && isQuestAllowedForPath(t.id, options.onboarding)
   );
   const yesterdaySet = new Set(options.yesterdayTemplateIds ?? []);
   const onboarding = options.onboarding;
@@ -318,6 +340,8 @@ export function generateDailyQuestsForDay(options: {
     }
   }
 
+  const penaltyMultiplier = options.isRestDay ? 1 : options.penaltyMultiplier ?? 1;
+
   return selected.slice(0, count).map((tpl, idx) => {
     const targetVal =
       tpl.condition.target === 'user_goal'
@@ -326,7 +350,7 @@ export function generateDailyQuestsForDay(options: {
         ? tpl.condition.target
         : 1;
 
-    return {
+    const instance: QuestInstance = {
       id: idx + 1,
       templateId: tpl.id,
       template: tpl,
@@ -336,6 +360,9 @@ export function generateDailyQuestsForDay(options: {
       status: 'available',
       completedAt: null,
     };
+    return penaltyMultiplier > 1
+      ? applyPenaltyToQuestInstance(instance, penaltyMultiplier)
+      : instance;
   });
 }
 
@@ -382,7 +409,11 @@ export function evaluateQuestProgress(
       : Number(quest.target);
 
   const clampedProgress = Math.min(target, Math.max(0, rawProgress));
-  const isDone = rawProgress >= target;
+
+  // Hidden workout penalty: count-based exercise quests also need a minimum workout duration.
+  const penaltyBlocked =
+    quest.minWorkoutMin !== undefined && metrics.workout_min < quest.minWorkoutMin;
+  const isDone = rawProgress >= target && !penaltyBlocked;
 
   if (isDone) {
     return {
@@ -397,12 +428,15 @@ export function evaluateQuestProgress(
     };
   }
 
+  const visibleProgress =
+    penaltyBlocked && clampedProgress >= target ? Math.max(0, target - 1) : clampedProgress;
+
   return {
     updated: {
       ...quest,
       target,
-      progress: clampedProgress,
-      status: clampedProgress > 0 ? 'in_progress' : 'available',
+      progress: visibleProgress,
+      status: visibleProgress > 0 ? 'in_progress' : 'available',
     },
     newlyCompleted: false,
   };
