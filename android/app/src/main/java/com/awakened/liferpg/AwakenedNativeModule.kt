@@ -330,11 +330,30 @@ class AwakenedNativeModule(private val reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  fun requestPinWidget(promise: Promise) {
+  fun testAlarmSound(play: Boolean) {
+    try {
+      if (play) {
+        AwakenedAlarmPlayer.play(reactContext, 15_000L)
+      } else {
+        AwakenedAlarmPlayer.stop()
+      }
+    } catch (_: Throwable) {
+    }
+  }
+
+  @ReactMethod
+  fun requestPinWidget(type: String?, promise: Promise) {
     try {
       if (Build.VERSION.SDK_INT >= 26) {
         val appWidgetManager = reactContext.getSystemService(AppWidgetManager::class.java)
-        val myProvider = ComponentName(reactContext, AwakenedWidgetProvider::class.java)
+        val providerClass = when (type) {
+          "quests" -> AwakenedQuestsWidgetProvider::class.java
+          "clock" -> AwakenedClockWidgetProvider::class.java
+          "calorie" -> AwakenedCalorieWidgetProvider::class.java
+          "trophy" -> AwakenedTrophyWidgetProvider::class.java
+          else -> AwakenedWidgetProvider::class.java
+        }
+        val myProvider = ComponentName(reactContext, providerClass)
         if (appWidgetManager != null && appWidgetManager.isRequestPinAppWidgetSupported) {
           val success = appWidgetManager.requestPinAppWidget(myProvider, null, null)
           promise.resolve(success)

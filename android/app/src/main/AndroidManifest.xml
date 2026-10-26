@@ -43,7 +43,7 @@
       </intent-filter>
     </activity>
 
-    <!-- Home screen widget provider -->
+    <!-- Home screen widget providers -->
     <receiver
       android:name=".AwakenedWidgetProvider"
       android:exported="true">
@@ -53,6 +53,50 @@
       <meta-data
         android:name="android.appwidget.provider"
         android:resource="@xml/awakened_widget_info"/>
+    </receiver>
+
+    <receiver
+      android:name=".AwakenedQuestsWidgetProvider"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+      </intent-filter>
+      <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/awakened_widget_quests_info"/>
+    </receiver>
+
+    <receiver
+      android:name=".AwakenedClockWidgetProvider"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+      </intent-filter>
+      <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/awakened_widget_clock_info"/>
+    </receiver>
+
+    <receiver
+      android:name=".AwakenedCalorieWidgetProvider"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+      </intent-filter>
+      <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/awakened_widget_calorie_info"/>
+    </receiver>
+
+    <receiver
+      android:name=".AwakenedTrophyWidgetProvider"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+      </intent-filter>
+      <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/awakened_widget_trophy_info"/>
     </receiver>
 
     <!-- Reminder / Mission Alarm receiver -->

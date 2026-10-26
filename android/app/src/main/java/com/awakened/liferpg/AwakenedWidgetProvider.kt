@@ -51,29 +51,65 @@ class AwakenedWidgetProvider : AppWidgetProvider() {
     private const val COLOR_TEXT = "#F3F6FF"
     private const val COLOR_MUTED = "#7884A8"
 
-    /** Refreshes every placed instance of the widget. Never throws. */
+    /** Refreshes every placed instance of all Awakened widgets. Never throws. */
     @JvmStatic
     fun updateAll(context: Context) {
       try {
         val app = context.applicationContext
         val manager = AppWidgetManager.getInstance(app)
-        val ids = manager.getAppWidgetIds(ComponentName(app, AwakenedWidgetProvider::class.java))
-        if (ids == null || ids.isEmpty()) return
-        val views = buildViews(app)
-        for (id in ids) {
-          try {
-            manager.updateAppWidget(id, views)
-          } catch (_: Throwable) {
+
+        // 1. All-in-One Dashboard Widget
+        try {
+          val ids = manager.getAppWidgetIds(ComponentName(app, AwakenedWidgetProvider::class.java))
+          if (ids != null && ids.isNotEmpty()) {
+            val views = buildViews(app)
+            for (id in ids) manager.updateAppWidget(id, views)
           }
-        }
+        } catch (_: Throwable) {}
+
+        // 2. Quests Widget
+        try {
+          val ids = manager.getAppWidgetIds(ComponentName(app, AwakenedQuestsWidgetProvider::class.java))
+          if (ids != null && ids.isNotEmpty()) {
+            val views = AwakenedQuestsWidgetProvider.buildViews(app)
+            for (id in ids) manager.updateAppWidget(id, views)
+          }
+        } catch (_: Throwable) {}
+
+        // 3. Clock & Alarm Widget
+        try {
+          val ids = manager.getAppWidgetIds(ComponentName(app, AwakenedClockWidgetProvider::class.java))
+          if (ids != null && ids.isNotEmpty()) {
+            val views = AwakenedClockWidgetProvider.buildViews(app)
+            for (id in ids) manager.updateAppWidget(id, views)
+          }
+        } catch (_: Throwable) {}
+
+        // 4. Calorie Summary Widget
+        try {
+          val ids = manager.getAppWidgetIds(ComponentName(app, AwakenedCalorieWidgetProvider::class.java))
+          if (ids != null && ids.isNotEmpty()) {
+            val views = AwakenedCalorieWidgetProvider.buildViews(app)
+            for (id in ids) manager.updateAppWidget(id, views)
+          }
+        } catch (_: Throwable) {}
+
+        // 5. Trophy Room Widget
+        try {
+          val ids = manager.getAppWidgetIds(ComponentName(app, AwakenedTrophyWidgetProvider::class.java))
+          if (ids != null && ids.isNotEmpty()) {
+            val views = AwakenedTrophyWidgetProvider.buildViews(app)
+            for (id in ids) manager.updateAppWidget(id, views)
+          }
+        } catch (_: Throwable) {}
       } catch (_: Throwable) {
       }
     }
 
-    private fun todayKey(): String =
+    fun todayKey(): String =
       SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
-    private fun clickIntent(context: Context): PendingIntent {
+    fun clickIntent(context: Context): PendingIntent {
       val launch = Intent(context, MainActivity::class.java).apply {
         action = Intent.ACTION_MAIN
         addCategory(Intent.CATEGORY_LAUNCHER)
@@ -87,7 +123,7 @@ class AwakenedWidgetProvider : AppWidgetProvider() {
       )
     }
 
-    private fun readData(context: Context): JSONObject? {
+    fun readData(context: Context): JSONObject? {
       return try {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
           .getString(KEY_DATA, null)

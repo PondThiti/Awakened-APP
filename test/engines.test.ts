@@ -179,6 +179,43 @@ describe('Awakened Core Engines — Section 18.1 Unit Tests', () => {
     });
     expect(monarch.currentRank.id).toBe('M');
     expect(monarch.monarchEligibility.eligible).toBe(true);
+
+    // Monarch Trophy Requirements: all bronze (68), all silver (49), half gold (29), 10 diamond (10)
+    const missingBronze = getRankForLevel(221, {
+      totalActiveDays: 365,
+      unlockedBadgeCategoriesCount: 5,
+      trophiesByTier: { bronze: 67, silver: 49, gold: 29, legend: 10 },
+    });
+    expect(missingBronze.currentRank.id).toBe('SS');
+    expect(missingBronze.monarchEligibility.bronzeMet).toBe(false);
+
+    const missingGoldHalf = getRankForLevel(221, {
+      totalActiveDays: 365,
+      unlockedBadgeCategoriesCount: 5,
+      trophiesByTier: { bronze: 68, silver: 49, gold: 28, legend: 10 },
+    });
+    expect(missingGoldHalf.currentRank.id).toBe('SS');
+    expect(missingGoldHalf.monarchEligibility.goldMet).toBe(false);
+
+    const missingDiamond = getRankForLevel(221, {
+      totalActiveDays: 365,
+      unlockedBadgeCategoriesCount: 5,
+      trophiesByTier: { bronze: 68, silver: 49, gold: 29, legend: 9 },
+    });
+    expect(missingDiamond.currentRank.id).toBe('SS');
+    expect(missingDiamond.monarchEligibility.diamondMet).toBe(false);
+
+    const fullTrophiesMonarch = getRankForLevel(221, {
+      totalActiveDays: 365,
+      unlockedBadgeCategoriesCount: 5,
+      trophiesByTier: { bronze: 68, silver: 49, gold: 29, legend: 10 },
+    });
+    expect(fullTrophiesMonarch.currentRank.id).toBe('M');
+    expect(fullTrophiesMonarch.monarchEligibility.eligible).toBe(true);
+    expect(fullTrophiesMonarch.monarchEligibility.bronzeMet).toBe(true);
+    expect(fullTrophiesMonarch.monarchEligibility.silverMet).toBe(true);
+    expect(fullTrophiesMonarch.monarchEligibility.goldMet).toBe(true);
+    expect(fullTrophiesMonarch.monarchEligibility.diamondMet).toBe(true);
   });
 
   it('9. StreakEngine: preserves streak with Freeze Token when 1 day is missed, resets to 0 without Freeze, and counts Rest Day', () => {

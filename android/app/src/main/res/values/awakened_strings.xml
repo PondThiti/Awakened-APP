@@ -1,3 +1,7 @@
 <resources>
-  <string name="awakened_widget_description">Awakened – quests, water, calories and streak at a glance</string>
+  <string name="awakened_widget_description">Awakened – แดชบอร์ดสรุปทั้งหมด</string>
+  <string name="awakened_widget_quests_desc">Awakened – เควสประจำวัน</string>
+  <string name="awakened_widget_clock_desc">Awakened – นาฬิกา &amp; เวลาปลุกแจ้งเตือน</string>
+  <string name="awakened_widget_calorie_desc">Awakened – สรุปแคลอรี่วันนี้</string>
+  <string name="awakened_widget_trophy_desc">Awakened – ห้องถ้วยรางวัล &amp; แรงค์</string>
 </resources>

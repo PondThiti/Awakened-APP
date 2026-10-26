@@ -17,6 +17,7 @@ import {
   requestNotificationPermission,
   requestPinShortcut,
   requestPinWidget,
+  testAlarmSound,
 } from '../../services/nativeBridge';
 import xpConfigJson from '../../../assets/config/xp_config.json';
 import { AppTheme } from '../../app/theme';
@@ -91,10 +92,26 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
   const [widgetFeedback, setWidgetFeedback] = useState<string | null>(null);
   const [notifGranted, setNotifGranted] = useState(false);
 
-  // Custom Alarm Time Modal
+  // Navigation Horizontal Tabs below Profile
+  type ProfileMainTab =
+    | 'personal_quests'
+    | 'trophies'
+    | 'all_ranks'
+    | 'support'
+    | 'settings'
+    | 'footer';
+  const [profileTab, setProfileTab] = useState<ProfileMainTab>('personal_quests');
+
+  type SettingsSubTab = 'privacy' | 'personal_data' | 'notifications' | 'widgets';
+  const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>('notifications');
+
+  // Custom Alarm Time Modal (Mobile Phone Style)
   const [customAlarmModalOpen, setCustomAlarmModalOpen] = useState(false);
   const [customAlarmHours, setCustomAlarmHours] = useState('07');
   const [customAlarmMinutes, setCustomAlarmMinutes] = useState('00');
+  const [alarmTimeTab, setAlarmTimeTab] = useState<'hour' | 'minute'>('hour');
+  const [alarmRepeatDays, setAlarmRepeatDays] = useState<number[]>(db.profile.alarm?.days ?? [1, 2, 3, 4, 5, 6, 7]);
+  const [isAlarmTesting, setIsAlarmTesting] = useState(false);
 
   // App Lock Modal
   const [appLockModalOpen, setAppLockModalOpen] = useState(false);
@@ -451,34 +468,100 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
         )}
 
         {/* Monarch Special Unlock Trials (Section 7.5) */}
-        <View
-          style={[
-            styles.subBox,
-            { backgroundColor: theme.bgSecondary, borderColor: theme.border, marginTop: 12 },
-          ]}
-        >
-          <View style={styles.inlineIconRow}>
-            <AppIcon name="crown" size={14} color={theme.warning} />
-            <Text style={{ color: theme.warning, fontWeight: '800', fontSize: 12 }}>
-              {strings.profile.monarchTrials}:
+        {/* Only show when currentRank is SS or Monarch (M) as requested: "เงื่อนไขปลดล็อกแรงค์สูงสุด ให้ซ่อนไว้ก่อน ค่อยแสดงตอนอยู่แรงค์ SS" */}
+        {(currentRank.id === 'SS' || currentRank.id === 'M') && (
+          <View
+            style={[
+              styles.subBox,
+              { backgroundColor: theme.bgSecondary, borderColor: theme.border, marginTop: 12 },
+            ]}
+          >
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="crown" size={14} color={theme.warning} />
+              <Text style={{ color: theme.warning, fontWeight: '800', fontSize: 12 }}>
+                {strings.profile.monarchTrials}:
+              </Text>
+            </View>
+            <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 4 }}>
+              • Level 221+: {levelState.level}/221 {monarchEligibility.levelMet ? '✓' : ''}
+            </Text>
+            <Text style={{ color: theme.textSecondary, fontSize: 11 }}>
+              • Active Days 365+: {monarchEligibility.currentActiveDays}/
+              {monarchEligibility.requiredActiveDays} {monarchEligibility.activeDaysMet ? '✓' : ''}
+            </Text>
+            <Text style={{ color: theme.textSecondary, fontSize: 11 }}>
+              • Badge Categories 5+: {monarchEligibility.currentBadgeCategories}/
+              {monarchEligibility.requiredBadgeCategories}{' '}
+              {monarchEligibility.badgeCategoriesMet ? '✓' : ''}
+            </Text>
+            <Text style={{ color: theme.textSecondary, fontSize: 11 }}>
+              • {isTh ? 'ถ้วยทองแดงทั้งหมด' : 'All Bronze Trophies'}: {monarchEligibility.bronzeCount}/
+              {monarchEligibility.totalBronze} {monarchEligibility.bronzeMet ? '✓' : ''}
+            </Text>
+            <Text style={{ color: theme.textSecondary, fontSize: 11 }}>
+              • {isTh ? 'ถ้วยเงินทั้งหมด' : 'All Silver Trophies'}: {monarchEligibility.silverCount}/
+              {monarchEligibility.totalSilver} {monarchEligibility.silverMet ? '✓' : ''}
+            </Text>
+            <Text style={{ color: theme.textSecondary, fontSize: 11 }}>
+              • {isTh ? 'ถ้วยทองครึ่งหนึ่งจากทั้งหมด (50%)' : 'Half of Gold Trophies (50%)'}: {monarchEligibility.goldCount}/
+              {monarchEligibility.requiredGold} {monarchEligibility.goldMet ? '✓' : ''}
+            </Text>
+            <Text style={{ color: theme.textSecondary, fontSize: 11 }}>
+              • {isTh ? 'ถ้วยเพชร 10 อัน' : '10 Diamond Trophies'}: {monarchEligibility.diamondCount}/
+              {monarchEligibility.requiredDiamond} {monarchEligibility.diamondMet ? '✓' : ''}
             </Text>
           </View>
-          <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 4 }}>
-            • Level 221+: {levelState.level}/221 {monarchEligibility.levelMet ? '✓' : ''}
-          </Text>
-          <Text style={{ color: theme.textSecondary, fontSize: 11 }}>
-            • Active Days 365+: {monarchEligibility.currentActiveDays}/
-            {monarchEligibility.requiredActiveDays} {monarchEligibility.activeDaysMet ? '✓' : ''}
-          </Text>
-          <Text style={{ color: theme.textSecondary, fontSize: 11 }}>
-            • Badge Categories 5+: {monarchEligibility.currentBadgeCategories}/
-            {monarchEligibility.requiredBadgeCategories}{' '}
-            {monarchEligibility.badgeCategoriesMet ? '✓' : ''}
-          </Text>
-        </View>
+        )}
       </AnimatedCard>
 
+      {/* Horizontal Navigation Tab Bar underneath Player Profile */}
+      <View style={{ marginVertical: 8 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingHorizontal: 2, paddingVertical: 4 }}
+        >
+          {[
+            { id: 'personal_quests', label: isTh ? 'ภารกิจส่วนตัว' : 'Personal Quests', icon: 'quest' as const },
+            { id: 'trophies', label: isTh ? 'ห้องถ้วยรางวัล' : 'Trophy Room', icon: 'trophy' as const },
+            { id: 'all_ranks', label: 'All Rank', icon: 'shield' as const },
+            { id: 'support', label: isTh ? 'สนับสนุนผู้พัฒนา' : 'Support Developer', icon: 'heart' as const },
+            { id: 'settings', label: isTh ? 'การตั้งค่า' : 'Settings', icon: 'gear' as const },
+            { id: 'footer', label: isTh ? 'ส่วนท้ายของโปรไฟล์' : 'Profile Footer', icon: 'info' as const },
+          ].map((tab) => {
+            const active = profileTab === tab.id;
+            return (
+              <AnimatedPressable
+                key={tab.id}
+                reduceMotion={reduceMotion}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: active ? `${theme.primary}25` : theme.card,
+                    borderColor: active ? theme.primary : theme.border,
+                    paddingVertical: 7,
+                    paddingHorizontal: 14,
+                  },
+                ]}
+                onPress={() => setProfileTab(tab.id as ProfileMainTab)}
+              >
+                <Text
+                  style={{
+                    color: active ? theme.primary : theme.textSecondary,
+                    fontWeight: '800',
+                    fontSize: 12,
+                  }}
+                >
+                  {tab.label}
+                </Text>
+              </AnimatedPressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       {/* 2. Personal Quest Manager (Section 8.4) */}
+      {profileTab === 'personal_quests' && (
       <AnimatedCard
         index={1}
         reduceMotion={reduceMotion}
@@ -635,8 +718,10 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
           </View>
         ))}
       </AnimatedCard>
+      )}
 
       {/* 3. Trophy Room — ห้องถ้วยรางวัล (199 Achievements, Section 5 & 7) */}
+      {profileTab === 'trophies' && (
       <AnimatedCard
         index={2}
         reduceMotion={reduceMotion}
@@ -1162,8 +1247,10 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
           </>
         )}
       </AnimatedCard>
+      )}
 
       {/* 4. All 8 Ranks Reference Table */}
+      {profileTab === 'all_ranks' && (
       <AnimatedCard
         index={3}
         reduceMotion={reduceMotion}
@@ -1202,1066 +1289,1395 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
           </View>
         ))}
       </AnimatedCard>
+      )}
 
-      {/* 4A. Home Screen Widget & App Icon */}
-      <AnimatedCard
-        index={4}
-        reduceMotion={reduceMotion}
-        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
-      >
-        <View style={styles.headerRowBetween}>
-          <View style={styles.inlineIconRow}>
-            <AppIcon name="bolt" size={18} color={theme.warning} />
-            <Text style={[styles.cardTitle, { color: theme.text }]}>
-              {isTh ? 'วิดเจ็ตหน้าจอหลัก & ไอคอนแอป' : 'Home Screen Widget & Icon'}
-            </Text>
-          </View>
-        </View>
-        <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 4, lineHeight: 18 }}>
-          {isTh
-            ? 'ติดตามภารกิจประจำวัน ปริมาณน้ำ แคลอรี่ และสตรีคของคุณได้ทันทีบนหน้าจอมือถือโดยไม่ต้องเปิดแอป'
-            : 'Track your daily missions, water, calories and streak directly on your Android home screen.'}
-        </Text>
-
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[
-              styles.primaryBtn,
-              { flex: 1, backgroundColor: theme.primary, alignItems: 'center' },
-            ]}
-            onPress={async () => {
-              const res = await requestPinWidget();
-              setWidgetFeedback(
-                res
-                  ? isTh
-                    ? '✓ ส่งคำขอเพิ่มวิดเจ็ตลงหน้าจอหลักแล้ว'
-                    : '✓ Widget pinned to home screen'
-                  : isTh
-                  ? 'คุณสามารถกดค้างที่หน้าจอหลักของโทรศัพท์เพื่อเพิ่มวิดเจ็ต Awakened ได้เอง'
-                  : 'Long-press your phone home screen to place Awakened widget'
-              );
-              setTimeout(() => setWidgetFeedback(null), 4000);
-            }}
-          >
+      {/* 4C. Developer Support & Donation (Thailand Only) */}
+      {profileTab === 'support' && (
+        <AnimatedCard
+          index={4}
+          reduceMotion={reduceMotion}
+          style={[
+            styles.card,
+            { backgroundColor: theme.card, borderColor: '#138F46', borderWidth: 1.5 },
+          ]}
+        >
+          <View style={styles.headerRowBetween}>
             <View style={styles.inlineIconRow}>
-              <AppIcon name="plus" size={13} color="#0E1220" />
-              <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 12 }}>
-                {isTh ? 'เพิ่มวิดเจ็ตลงหน้าจอ' : 'Add Widget'}
+              <Text style={{ fontSize: 18 }}>💚</Text>
+              <Text style={[styles.cardTitle, { color: theme.text }]}>
+                {isTh ? 'สนับสนุนผู้พัฒนา (Donation)' : 'Support Developer (Donation)'}
               </Text>
             </View>
-          </AnimatedPressable>
-
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[
-              styles.primaryBtn,
-              {
-                flex: 1,
-                backgroundColor: `${theme.warning}25`,
-                borderColor: theme.warning,
-                borderWidth: 1,
-                alignItems: 'center',
-              },
-            ]}
-            onPress={async () => {
-              const res = await requestPinShortcut(
-                db.profile.displayName,
-                db.profile.avatarUri ?? null
-              );
-              setShortcutFeedback(
-                res
-                  ? isTh
-                    ? '✓ สร้างไอคอนโปรไฟล์บนหน้าจอหลักแล้ว'
-                    : '✓ Profile icon pinned'
-                  : isTh
-                  ? 'อุปกรณ์นี้ไม่รองรับการปักหมุดไอคอนอัตโนมัติ'
-                  : 'Not supported on launcher'
-              );
-              setTimeout(() => setShortcutFeedback(null), 4000);
-            }}
-          >
-            <View style={styles.inlineIconRow}>
-              <AppIcon name="user" size={13} color={theme.warning} />
-              <Text style={{ color: theme.warning, fontWeight: '900', fontSize: 12 }}>
-                {isTh ? 'ปักหมุดไอคอนโปรไฟล์' : 'Pin Profile Icon'}
-              </Text>
-            </View>
-          </AnimatedPressable>
-        </View>
-
-        {(widgetFeedback || shortcutFeedback) && (
-          <Text style={{ color: theme.success, fontSize: 11, fontWeight: '700', marginTop: 8 }}>
-            {widgetFeedback || shortcutFeedback}
-          </Text>
-        )}
-      </AnimatedCard>
-
-      {/* 4B. Notifications & Daily Mission Alarm Clock */}
-      <AnimatedCard
-        index={5}
-        reduceMotion={reduceMotion}
-        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
-      >
-        <View style={styles.headerRowBetween}>
-          <View style={styles.inlineIconRow}>
-            <AppIcon name="clock" size={18} color={theme.primary} />
-            <Text style={[styles.cardTitle, { color: theme.text }]}>
-              {isTh ? 'การแจ้งเตือน & นาฬิกาปลุกภารกิจ' : 'Notifications & Mission Alarm'}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.notifBadge,
-              {
-                backgroundColor: notifGranted ? `${theme.success}25` : `${theme.warning}25`,
-                borderColor: notifGranted ? theme.success : theme.warning,
-              },
-            ]}
-          >
-            <Text
+            <View
               style={{
-                color: notifGranted ? theme.success : theme.warning,
-                fontSize: 10,
-                fontWeight: '900',
+                backgroundColor: '#138F4625',
+                borderColor: '#138F46',
+                borderWidth: 1,
+                borderRadius: 6,
+                paddingHorizontal: 7,
+                paddingVertical: 2,
               }}
             >
-              {notifGranted
-                ? isTh
-                  ? '✓ อนุญาตแล้ว'
-                  : '✓ Allowed'
-                : isTh
-                ? 'รอการอนุญาต'
-                : 'Permission Needed'}
-            </Text>
+              <Text style={{ color: '#138F46', fontSize: 10, fontWeight: '900' }}>
+                {isTh ? 'ประเทศไทยเท่านั้น' : 'Thailand Only'}
+              </Text>
+            </View>
           </View>
-        </View>
 
-        {/* Permission Request Prompt if not granted */}
-        {!notifGranted && (
+          <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 6, lineHeight: 18 }}>
+            {isTh
+              ? 'ทุกการสนับสนุนช่วยให้โปรเจกต์ Awakened Life RPG พัฒนาต่อเนื่องและไม่มีโฆษณาคั่น ขอบคุณมากครับ!'
+              : 'Your support helps keep Awakened Life RPG ad-free and continuously updated. Thank you!'}
+          </Text>
+
           <View
             style={{
-              backgroundColor: `${theme.primary}15`,
-              borderColor: `${theme.primary}44`,
+              backgroundColor: theme.bgSecondary,
+              borderColor: '#138F4666',
               borderWidth: 1,
-              borderRadius: 10,
-              padding: 10,
+              borderRadius: 12,
+              padding: 12,
               marginTop: 10,
             }}
           >
-            <Text style={{ color: theme.text, fontSize: 12, lineHeight: 18 }}>
-              {isTh
-                ? 'เพื่อให้แอปสามารถแจ้งเตือนภารกิจรายวันและส่งเสียงปลุกบนแถบแจ้งเตือนมือถือได้ กรุณากดอนุญาตการแจ้งเตือน'
-                : 'Allow notifications so Awakened can remind you of daily missions on your device.'}
+            <View style={styles.inlineIconRow}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#138F46' }} />
+              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+                {isTh ? 'ธนาคารกสิกรไทย (KBANK)' : 'Kasikorn Bank (KBANK)'}
+              </Text>
+            </View>
+            <Text
+              style={{
+                color: '#3DDC97',
+                fontSize: 20,
+                fontWeight: '900',
+                letterSpacing: 1.5,
+                marginTop: 4,
+              }}
+            >
+              1638680528
             </Text>
+
+            <View style={[styles.inlineIconRow, { marginTop: 6 }]}>
+              <AppIcon name="user" size={13} color={theme.textSecondary} />
+              <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                {isTh ? 'ชื่อบัญชี:' : 'Account Name:'}
+              </Text>
+              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '900' }}>
+                นาย ฐิติวุฒน์ วงศ์ละคร
+              </Text>
+            </View>
+
             <AnimatedPressable
               reduceMotion={reduceMotion}
               style={[
                 styles.primaryBtn,
-                { backgroundColor: theme.primary, marginTop: 8, alignItems: 'center' },
-              ]}
-              onPress={async () => {
-                const granted = await requestNotificationPermission();
-                setNotifGranted(granted);
-                if (granted) {
-                  updateProfile({
-                    notifications: {
-                      ...(db.profile.notifications ?? {
-                        permissionAsked: true,
-                        morningReminderEnabled: true,
-                        morningReminderTime: '08:00',
-                        eveningReminderEnabled: true,
-                        eveningReminderTime: '20:00',
-                      }),
-                      enabled: true,
-                      permissionAsked: true,
-                    },
-                  });
-                }
-              }}
-            >
-              <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 12 }}>
-                {isTh ? '🔔 อนุญาตการแจ้งเตือนบนมือถือ' : '🔔 Allow Notifications'}
-              </Text>
-            </AnimatedPressable>
-          </View>
-        )}
-
-        {/* Daily Mission Alarm Clock Section */}
-        <View
-          style={{
-            backgroundColor: theme.bgSecondary,
-            borderColor: theme.border,
-            borderWidth: 1,
-            borderRadius: 12,
-            padding: 12,
-            marginTop: 12,
-          }}
-        >
-          <View style={styles.headerRowBetween}>
-            <View style={[styles.inlineIconRow, { flex: 1, marginRight: 8 }]}>
-              <Text style={{ fontSize: 16 }}>⏰</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
-                  {isTh ? 'นาฬิกาปลุกภารกิจประจำวัน' : 'Daily Mission Alarm Clock'}
-                </Text>
-                <Text style={{ color: theme.textMuted, fontSize: 11, flexShrink: 1 }}>
-                  {isTh
-                    ? 'แจ้งเตือนระดับสูงให้มาพิชิตภารกิจ (พร้อมปุ่มเลื่อน 10 นาที)'
-                    : 'High-priority wake alarm to complete missions (with snooze)'}
-                </Text>
-              </View>
-            </View>
-            <AnimatedPressable
-              reduceMotion={reduceMotion}
-              style={[
-                styles.togglePill,
                 {
-                  backgroundColor: db.profile.alarm?.enabled ? theme.success : theme.border,
+                  backgroundColor: copiedDonation ? theme.success : '#138F46',
+                  marginTop: 10,
+                  alignItems: 'center',
                 },
               ]}
               onPress={() => {
-                const current = db.profile.alarm ?? {
-                  enabled: false,
-                  time: '07:00',
-                  days: [],
-                };
-                updateProfile({
-                  alarm: {
-                    ...current,
-                    enabled: !current.enabled,
-                  },
-                });
+                copyToClipboard('1638680528');
+                setCopiedDonation(true);
+                setTimeout(() => setCopiedDonation(false), 3000);
               }}
             >
-              <Text style={{ color: '#0E1220', fontSize: 11, fontWeight: '900' }}>
-                {db.profile.alarm?.enabled ? (isTh ? 'เปิด' : 'ON') : (isTh ? 'ปิด' : 'OFF')}
-              </Text>
+              <View style={styles.inlineIconRow}>
+                <AppIcon name="edit" size={14} color="#0E1220" />
+                <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 12 }}>
+                  {copiedDonation
+                    ? isTh
+                      ? '✓ คัดลอกเลขบัญชี 1638680528 แล้ว'
+                      : '✓ Copied KBANK 1638680528'
+                    : isTh
+                    ? 'คัดลอกเลขบัญชี (นาย ฐิติวุฒน์ วงศ์ละคร)'
+                    : 'Copy Account (Thitiwut Wonglakhon)'}
+                </Text>
+              </View>
             </AnimatedPressable>
           </View>
+        </AnimatedCard>
+      )}
 
-          {/* Alarm Time Selector & Steppers */}
-          <View
-            style={{
-              marginTop: 10,
-              paddingTop: 8,
-              borderTopWidth: 1,
-              borderTopColor: `${theme.border}44`,
-            }}
+      {/* 5. Settings, Preferences & Privacy with 4 Sub-Tabs */}
+      {profileTab === 'settings' && (
+        <AnimatedCard
+          index={4}
+          reduceMotion={reduceMotion}
+          style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+        >
+          {/* Header */}
+          <View style={[styles.inlineIconRow, { marginBottom: 12 }]}>
+            <AppIcon name="settings" size={18} color={theme.primary} />
+            <Text style={[styles.cardTitle, { color: theme.text }]}>
+              {strings.profile.settings}
+            </Text>
+          </View>
+
+          {/* Sub-tab Navigation Chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 6, paddingBottom: 10 }}
           >
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
-                {isTh ? 'เวลาปลุกปัจจุบัน:' : 'Current Alarm Time:'}
+            {[
+              { id: 'privacy', label: isTh ? '🔒 ตั้งค่าความเป็นส่วนตัว' : '🔒 Privacy & Security' },
+              { id: 'personal_data', label: isTh ? '👤 จัดการข้อมูลส่วนตัว' : '👤 Personal Data' },
+              { id: 'notifications', label: isTh ? '🔔 การแจ้งเตือน' : '🔔 Notifications' },
+              { id: 'widgets', label: isTh ? '📱 วิดเจ็ต' : '📱 Widgets' },
+            ].map((subTab) => {
+              const active = settingsSubTab === subTab.id;
+              return (
+                <AnimatedPressable
+                  key={subTab.id}
+                  reduceMotion={reduceMotion}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: active ? theme.primary : theme.bgSecondary,
+                      borderColor: active ? theme.primary : theme.border,
+                      paddingVertical: 6,
+                      paddingHorizontal: 12,
+                    },
+                  ]}
+                  onPress={() => setSettingsSubTab(subTab.id as SettingsSubTab)}
+                >
+                  <Text
+                    style={{
+                      color: active ? '#0E1220' : theme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: active ? '900' : '700',
+                    }}
+                  >
+                    {subTab.label}
+                  </Text>
+                </AnimatedPressable>
+              );
+            })}
+          </ScrollView>
+
+          {/* Sub-Tab 1: Privacy & Security */}
+          {settingsSubTab === 'privacy' && (
+            <View style={{ marginTop: 4 }}>
+              <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 8 }}>
+                {isTh ? 'ความปลอดภัยและการแสดงผลระบบ:' : 'Security & System Display:'}
               </Text>
-              <Pressable
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 5,
-                  backgroundColor: `${theme.primary}20`,
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: theme.primary,
-                }}
+
+              {/* App Lock PIN Chip */}
+              <AnimatedPressable
+                reduceMotion={reduceMotion}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: Boolean(db.profile.appLockPin)
+                      ? `${theme.success}18`
+                      : theme.bgSecondary,
+                    borderColor: Boolean(db.profile.appLockPin) ? theme.success : theme.border,
+                    marginBottom: 8,
+                    paddingVertical: 10,
+                  },
+                ]}
                 onPress={() => {
-                  const [h, m] = (db.profile.alarm?.time ?? '07:00').split(':');
-                  setCustomAlarmHours(h || '07');
-                  setCustomAlarmMinutes(m || '00');
-                  setCustomAlarmModalOpen(true);
+                  setAppLockInputPin('');
+                  setAppLockConfirmPin('');
+                  setVerifyCurrentPin('');
+                  setPinVerified(false);
+                  setAppLockError(null);
+                  setAppLockSuccessMsg(null);
+                  setAppLockStep(db.profile.appLockPin ? 'manage' : 'enter_pin');
+                  setAppLockModalOpen(true);
                 }}
               >
-                <AppIcon name="clock" size={13} color={theme.primary} />
-                <Text style={{ color: theme.primary, fontSize: 14, fontWeight: '900' }}>
-                  {db.profile.alarm?.time ?? '07:00'}
+                <View style={styles.inlineIconRow}>
+                  <AppIcon
+                    name="lock"
+                    size={14}
+                    color={Boolean(db.profile.appLockPin) ? theme.success : theme.textSecondary}
+                  />
+                  <Text style={{ color: theme.text, fontWeight: '700', fontSize: 12 }}>
+                    {Boolean(db.profile.appLockPin)
+                      ? isTh
+                        ? 'ล็อกแอปด้วย PIN: เปิดแล้ว ✓ (แตะเพื่อจัดการ)'
+                        : 'App Lock PIN: Enabled ✓ (Tap to manage)'
+                      : isTh
+                      ? 'เปิดใช้งานล็อกแอป (App Lock)'
+                      : 'Enable App Lock'}
+                  </Text>
+                </View>
+              </AnimatedPressable>
+
+              <View style={styles.chipRow}>
+                {/* Sound Effects */}
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.border }]}
+                  onPress={() => updateProfile({ soundEnabled: !db.profile.soundEnabled })}
+                >
+                  <Text style={{ color: theme.text, fontWeight: '700', fontSize: 12 }}>
+                    {db.profile.soundEnabled
+                      ? isTh
+                        ? 'เสียงเอฟเฟกต์: เปิด'
+                        : 'Sound Effects: ON'
+                      : isTh
+                      ? 'เสียงเอฟเฟกต์: ปิด'
+                      : 'Sound Effects: OFF'}
+                  </Text>
+                </AnimatedPressable>
+
+                {/* Reduce Motion */}
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.border }]}
+                  onPress={() => updateProfile({ reduceEffects: !db.profile.reduceEffects })}
+                >
+                  <View style={styles.inlineIconRow}>
+                    <AppIcon
+                      name="bolt"
+                      size={13}
+                      color={db.profile.reduceEffects ? theme.textMuted : theme.success}
+                    />
+                    <Text style={{ color: theme.text, fontWeight: '700', fontSize: 12 }}>
+                      {db.profile.reduceEffects
+                        ? isTh
+                          ? 'ลดแอนิเมชัน: เปิด'
+                          : 'Reduce Motion: ON'
+                        : isTh
+                        ? 'แอนิเมชันเต็มรูปแบบ: เปิด'
+                        : 'Full Animations: ON'}
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+
+                {/* Mute Badges */}
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.border }]}
+                  onPress={() =>
+                    updateProfile({ muteAchievementAlerts: !db.profile.muteAchievementAlerts })
+                  }
+                >
+                  <View style={styles.inlineIconRow}>
+                    <AppIcon
+                      name="trophy"
+                      size={13}
+                      color={db.profile.muteAchievementAlerts ? theme.textMuted : theme.warning}
+                    />
+                    <Text style={{ color: theme.text, fontWeight: '700', fontSize: 12 }}>
+                      {db.profile.muteAchievementAlerts
+                        ? isTh
+                          ? 'ปิดป๊อปอัปถ้วย: เปิด'
+                          : 'Mute Badges: ON'
+                        : isTh
+                        ? 'ป๊อปอัปถ้วย: แสดงปกติ'
+                        : 'Badge Popups: ON'}
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+              </View>
+            </View>
+          )}
+
+          {/* Sub-Tab 2: Personal Data */}
+          {settingsSubTab === 'personal_data' && (
+            <View style={{ marginTop: 4 }}>
+              {/* Display Name */}
+              <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 4 }}>
+                {isTh ? 'ชื่อผู้เล่น (Display Name):' : 'Display Name:'}
+              </Text>
+              <View style={[styles.inlineRow, { marginBottom: 10 }]}>
+                <TextInput
+                  value={nameInput}
+                  onChangeText={setNameInput}
+                  style={[
+                    styles.input,
+                    {
+                      flex: 1,
+                      backgroundColor: theme.bgSecondary,
+                      color: theme.text,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                />
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[styles.primaryBtn, { backgroundColor: theme.primary }]}
+                  onPress={() => updateProfile({ displayName: nameInput.trim() || 'Hunter' })}
+                >
+                  <Text style={styles.primaryBtnText}>{isTh ? 'เปลี่ยนชื่อ' : 'Save Name'}</Text>
+                </AnimatedPressable>
+              </View>
+
+              {/* Language & Theme */}
+              <View style={[styles.chipRow, { marginBottom: 10 }]}>
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.primary }]}
+                  onPress={() =>
+                    updateProfile({ language: db.profile.language === 'th' ? 'en' : 'th' })
+                  }
+                >
+                  <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 12 }}>
+                    {isTh ? 'ภาษา: ไทย (แตะเพื่อเปลี่ยน EN)' : 'Language: EN (Tap for TH)'}
+                  </Text>
+                </AnimatedPressable>
+
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.primary }]}
+                  onPress={() =>
+                    updateProfile({ theme: db.profile.theme === 'dark' ? 'light' : 'dark' })
+                  }
+                >
+                  <View style={styles.inlineIconRow}>
+                    <AppIcon
+                      name={db.profile.theme === 'dark' ? 'moon' : 'sun'}
+                      size={13}
+                      color={theme.primary}
+                    />
+                    <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 12 }}>
+                      {db.profile.theme === 'dark' ? 'Dark RPG Mode' : 'Light Mode'}
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+              </View>
+
+              {/* System Narrator Tone Selector */}
+              <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 6 }}>
+                {isTh ? 'โทนเสียงผู้บรรยายของระบบ (System Narrator):' : 'System Narrator Tone:'}
+              </Text>
+              <View style={[styles.chipRow, { marginBottom: 10 }]}>
+                {(
+                  [
+                    { id: 'gentle', th: 'อ่อนโยน (Gentle)', en: 'Gentle' },
+                    { id: 'friend', th: 'เพื่อนลุย (Friend)', en: 'Friend' },
+                    { id: 'coach', th: 'โค้ชจริงจัง (Coach)', en: 'Coach' },
+                    { id: 'adventurer', th: 'นักผจญภัย (Adventurer)', en: 'Adventurer' },
+                  ] as const
+                ).map((tone) => {
+                  const currentNarrator = db.onboarding?.narrator ?? 'gentle';
+                  const active = currentNarrator === tone.id;
+                  return (
+                    <AnimatedPressable
+                      key={tone.id}
+                      reduceMotion={reduceMotion}
+                      style={[
+                        styles.chip,
+                        {
+                          backgroundColor: active ? `${theme.primary}25` : theme.bgSecondary,
+                          borderColor: active ? theme.primary : theme.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        updateOnboardingDraft({ narrator: tone.id });
+                        recordAppEvent('event:narrator_changed', 1);
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: active ? theme.primary : theme.textSecondary,
+                          fontSize: 12,
+                          fontWeight: '700',
+                        }}
+                      >
+                        {isTh ? tone.th : tone.en}
+                      </Text>
+                    </AnimatedPressable>
+                  );
+                })}
+              </View>
+
+              {/* Available Daily Time */}
+              <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 6 }}>
+                {isTh ? 'เวลาว่างต่อวัน (มีผลต่อ Adaptive Plan):' : 'Available time/day (Adaptive Plan):'}
+              </Text>
+              <View style={[styles.chipRow, { marginBottom: 10 }]}>
+                {[10, 15, 30, 60].map((mins) => {
+                  const active = db.profile.availableMinutesPerDay === mins;
+                  return (
+                    <AnimatedPressable
+                      key={mins}
+                      reduceMotion={reduceMotion}
+                      style={[
+                        styles.chip,
+                        {
+                          backgroundColor: active ? `${theme.primary}25` : theme.bgSecondary,
+                          borderColor: active ? theme.primary : theme.border,
+                        },
+                      ]}
+                      onPress={() => updateProfile({ availableMinutesPerDay: mins })}
+                    >
+                      <Text style={{ color: active ? theme.primary : theme.textSecondary, fontSize: 12 }}>
+                        {mins} {isTh ? 'นาที/วัน' : 'min/day'}
+                      </Text>
+                    </AnimatedPressable>
+                  );
+                })}
+              </View>
+
+              {/* Edit / Re-run Onboarding Questionnaire */}
+              <AnimatedPressable
+                reduceMotion={reduceMotion}
+                style={[
+                  styles.primaryBtn,
+                  {
+                    backgroundColor: `${theme.primary}22`,
+                    borderColor: theme.primary,
+                    borderWidth: 1,
+                    marginBottom: 14,
+                  },
+                ]}
+                onPress={reopenOnboarding}
+              >
+                <View style={styles.inlineIconRow}>
+                  <AppIcon name="edit" size={14} color={theme.primary} />
+                  <Text style={{ color: theme.primary, fontWeight: '900', fontSize: 13 }}>
+                    {isTh
+                      ? 'ปรับแผนของฉัน (แก้ไขคำตอบแบบสอบถามเริ่มต้น)'
+                      : 'Adjust My Plan (Edit Onboarding Questionnaire)'}
+                  </Text>
+                </View>
+              </AnimatedPressable>
+
+              {/* Export / Import Backup JSON */}
+              <View style={[styles.inlineIconRow, { marginTop: 4, marginBottom: 8 }]}>
+                <AppIcon name="shield" size={16} color={theme.primary} />
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  {isTh ? 'จัดการข้อมูลสำรอง (Offline-First 100%)' : 'Offline Data & Backup'}
                 </Text>
-                <AppIcon name="edit" size={11} color={theme.primary} />
-              </Pressable>
-            </View>
+              </View>
 
-            {/* Stepper Buttons for Quick Adjustment */}
-            <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
-              <Pressable
-                style={[
-                  styles.timeChip,
-                  {
-                    backgroundColor: theme.card,
-                    borderColor: theme.border,
-                    flex: 1,
-                    alignItems: 'center',
-                  },
-                ]}
-                onPress={() => adjustAlarmTime(-1, 0)}
-              >
-                <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>-1 ชม.</Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.timeChip,
-                  {
-                    backgroundColor: theme.card,
-                    borderColor: theme.border,
-                    flex: 1,
-                    alignItems: 'center',
-                  },
-                ]}
-                onPress={() => adjustAlarmTime(0, -5)}
-              >
-                <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>-5 นาที</Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.timeChip,
-                  {
-                    backgroundColor: theme.card,
-                    borderColor: theme.border,
-                    flex: 1,
-                    alignItems: 'center',
-                  },
-                ]}
-                onPress={() => adjustAlarmTime(0, 5)}
-              >
-                <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>+5 นาที</Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.timeChip,
-                  {
-                    backgroundColor: theme.card,
-                    borderColor: theme.border,
-                    flex: 1,
-                    alignItems: 'center',
-                  },
-                ]}
-                onPress={() => adjustAlarmTime(1, 0)}
-              >
-                <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>+1 ชม.</Text>
-              </Pressable>
-            </View>
+              <View style={styles.inlineRow}>
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[styles.primaryBtn, { backgroundColor: theme.primary, flex: 1 }]}
+                  onPress={() => {
+                    const json = exportBackupJson();
+                    setBackupJsonBox(json);
+                    setBackupStatusMsg(
+                      isTh
+                        ? 'สร้างข้อมูลสำรอง JSON สำเร็จ (คัดลอกข้อความด้านล่างเก็บไว้ได้เลย)'
+                        : 'Exported JSON backup below.'
+                    );
+                  }}
+                >
+                  <View style={styles.inlineIconRow}>
+                    <AppIcon name="export" size={14} color="#0E1220" />
+                    <Text style={styles.primaryBtnText}>{strings.profile.exportData}</Text>
+                  </View>
+                </AnimatedPressable>
 
-            {/* Presets Chips */}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-              {['05:30', '06:00', '06:30', '07:00', '07:30', '08:00', '08:30'].map((timeStr) => {
-                const active = (db.profile.alarm?.time ?? '07:00') === timeStr;
-                return (
-                  <Pressable
-                    key={timeStr}
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[styles.primaryBtn, { backgroundColor: theme.success, flex: 1 }]}
+                  onPress={() => {
+                    if (!backupJsonBox.trim()) return;
+                    const res = importBackupJson(backupJsonBox);
+                    setBackupStatusMsg(res.message);
+                  }}
+                >
+                  <View style={styles.inlineIconRow}>
+                    <AppIcon name="import" size={14} color="#0E1220" />
+                    <Text style={styles.primaryBtnText}>{strings.profile.importData}</Text>
+                  </View>
+                </AnimatedPressable>
+              </View>
+
+              {backupStatusMsg && (
+                <Text style={{ color: theme.success, fontSize: 12, marginTop: 6, fontWeight: '700' }}>
+                  {backupStatusMsg}
+                </Text>
+              )}
+
+              <TextInput
+                value={backupJsonBox}
+                onChangeText={setBackupJsonBox}
+                multiline
+                numberOfLines={3}
+                placeholder={
+                  isTh
+                    ? 'กดปุ่ม Export เพื่อดู JSON หรือวาง JSON ที่นี่แล้วกด Import...'
+                    : 'Press Export to generate JSON, or paste backup JSON here to Import...'
+                }
+                placeholderTextColor={theme.textMuted}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.bgSecondary,
+                    color: theme.text,
+                    borderColor: theme.border,
+                    marginTop: 8,
+                    minHeight: 70,
+                  },
+                ]}
+              />
+
+              {/* Delete by category & 2-Step Reset All */}
+              <View style={[styles.chipRow, { marginTop: 12 }]}>
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[styles.chip, { borderColor: theme.warning, backgroundColor: theme.bgSecondary }]}
+                  onPress={() => deleteCategoryData('meals')}
+                >
+                  <View style={styles.inlineIconRow}>
+                    <AppIcon name="trash" size={12} color={theme.warning} />
+                    <Text style={{ color: theme.warning, fontSize: 11, fontWeight: '700' }}>
+                      {isTh ? 'ลบเฉพาะประวัติอาหาร' : 'Clear Meals Only'}
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[styles.chip, { borderColor: theme.warning, backgroundColor: theme.bgSecondary }]}
+                  onPress={() => deleteCategoryData('journals')}
+                >
+                  <View style={styles.inlineIconRow}>
+                    <AppIcon name="trash" size={12} color={theme.warning} />
+                    <Text style={{ color: theme.warning, fontSize: 11, fontWeight: '700' }}>
+                      {isTh ? 'ลบเฉพาะไดอารี่' : 'Clear Journals Only'}
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+              </View>
+
+              <AnimatedPressable
+                reduceMotion={reduceMotion}
+                style={[
+                  styles.primaryBtn,
+                  {
+                    backgroundColor: resetConfirmStep === 1 ? theme.danger : theme.bgSecondary,
+                    borderColor: theme.danger,
+                    borderWidth: 1,
+                    marginTop: 12,
+                  },
+                ]}
+                onPress={() => {
+                  if (resetConfirmStep === 0) {
+                    setResetConfirmStep(1);
+                  } else {
+                    resetAllData();
+                    setResetConfirmStep(0);
+                  }
+                }}
+              >
+                <View style={styles.inlineIconRow}>
+                  <AppIcon
+                    name="trash"
+                    size={14}
+                    color={resetConfirmStep === 1 ? '#FFFFFF' : theme.danger}
+                  />
+                  <Text
+                    style={{
+                      color: resetConfirmStep === 1 ? '#FFFFFF' : theme.danger,
+                      fontWeight: '900',
+                      fontSize: 13,
+                    }}
+                  >
+                    {resetConfirmStep === 0
+                      ? strings.profile.resetAllData
+                      : isTh
+                      ? 'ยืนยันขั้นที่ 2: แตะอีกครั้งเพื่อลบข้อมูลทั้งหมดถาวร'
+                      : 'Step 2 Confirm: Tap again to permanently wipe all data'}
+                  </Text>
+                </View>
+              </AnimatedPressable>
+            </View>
+          )}
+
+          {/* Sub-Tab 3: Notifications & Daily Mission Alarm Clock */}
+          {settingsSubTab === 'notifications' && (
+            <View style={{ marginTop: 4 }}>
+              <View style={styles.headerRowBetween}>
+                <View style={styles.inlineIconRow}>
+                  <AppIcon name="clock" size={16} color={theme.primary} />
+                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+                    {isTh ? 'สิทธิ์การแจ้งเตือนบนระบบ' : 'System Notification Permission'}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.notifBadge,
+                    {
+                      backgroundColor: notifGranted ? `${theme.success}25` : `${theme.warning}25`,
+                      borderColor: notifGranted ? theme.success : theme.warning,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      color: notifGranted ? theme.success : theme.warning,
+                      fontSize: 10,
+                      fontWeight: '900',
+                    }}
+                  >
+                    {notifGranted
+                      ? isTh
+                        ? '✓ อนุญาตแล้ว'
+                        : '✓ Allowed'
+                      : isTh
+                      ? 'รอการอนุญาต'
+                      : 'Permission Needed'}
+                  </Text>
+                </View>
+              </View>
+
+              {!notifGranted && (
+                <View
+                  style={{
+                    backgroundColor: `${theme.primary}15`,
+                    borderColor: `${theme.primary}44`,
+                    borderWidth: 1,
+                    borderRadius: 10,
+                    padding: 10,
+                    marginTop: 8,
+                  }}
+                >
+                  <Text style={{ color: theme.text, fontSize: 12, lineHeight: 18 }}>
+                    {isTh
+                      ? 'เพื่อให้แอปสามารถแจ้งเตือนภารกิจรายวันและส่งเสียงปลุกบนแถบแจ้งเตือนมือถือได้ กรุณากดอนุญาตการแจ้งเตือน'
+                      : 'Allow notifications so Awakened can remind you of daily missions on your device.'}
+                  </Text>
+                  <AnimatedPressable
+                    reduceMotion={reduceMotion}
                     style={[
-                      styles.timeChip,
+                      styles.primaryBtn,
+                      { backgroundColor: theme.primary, marginTop: 8, alignItems: 'center' },
+                    ]}
+                    onPress={async () => {
+                      const granted = await requestNotificationPermission();
+                      setNotifGranted(granted);
+                      if (granted) {
+                        updateProfile({
+                          notifications: {
+                            ...(db.profile.notifications ?? {
+                              permissionAsked: true,
+                              morningReminderEnabled: true,
+                              morningReminderTime: '08:00',
+                              noonReminderEnabled: true,
+                              noonReminderTime: '12:00',
+                              eveningReminderEnabled: true,
+                              eveningReminderTime: '20:00',
+                            }),
+                            enabled: true,
+                            permissionAsked: true,
+                          },
+                        });
+                      }
+                    }}
+                  >
+                    <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 12 }}>
+                      {isTh ? '🔔 อนุญาตการแจ้งเตือนบนมือถือ' : '🔔 Allow Notifications'}
+                    </Text>
+                  </AnimatedPressable>
+                </View>
+              )}
+
+              {/* Daily Mission Alarm Clock Section (Mobile Phone Style) */}
+              <View
+                style={{
+                  backgroundColor: theme.bgSecondary,
+                  borderColor: theme.border,
+                  borderWidth: 1,
+                  borderRadius: 12,
+                  padding: 12,
+                  marginTop: 12,
+                }}
+              >
+                <View style={styles.headerRowBetween}>
+                  <View style={[styles.inlineIconRow, { flex: 1, marginRight: 8 }]}>
+                    <Text style={{ fontSize: 16 }}>⏰</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+                        {isTh ? 'นาฬิกาปลุกภารกิจประจำวัน' : 'Daily Mission Alarm Clock'}
+                      </Text>
+                      <Text style={{ color: theme.textMuted, fontSize: 11, flexShrink: 1 }}>
+                        {isTh
+                          ? 'ส่งเสียงปลุกระดับ USAGE_ALARM พร้อมปุ่ม Snooze'
+                          : 'Genuine USAGE_ALARM audio with snooze'}
+                      </Text>
+                    </View>
+                  </View>
+                  <AnimatedPressable
+                    reduceMotion={reduceMotion}
+                    style={[
+                      styles.togglePill,
                       {
-                        backgroundColor: active ? theme.primary : theme.card,
-                        borderColor: active ? theme.primary : theme.border,
+                        backgroundColor: db.profile.alarm?.enabled ? theme.success : theme.border,
                       },
                     ]}
                     onPress={() => {
                       const current = db.profile.alarm ?? {
-                        enabled: true,
-                        time: timeStr,
-                        days: [],
+                        enabled: false,
+                        time: '07:00',
+                        days: [1, 2, 3, 4, 5, 6, 7],
                       };
                       updateProfile({
                         alarm: {
                           ...current,
-                          enabled: true,
-                          time: timeStr,
+                          enabled: !current.enabled,
                         },
                       });
                     }}
                   >
-                    <Text
+                    <Text style={{ color: '#0E1220', fontSize: 11, fontWeight: '900' }}>
+                      {db.profile.alarm?.enabled ? (isTh ? 'เปิด' : 'ON') : (isTh ? 'ปิด' : 'OFF')}
+                    </Text>
+                  </AnimatedPressable>
+                </View>
+
+                {/* Alarm Time Selector & Mobile Style Trigger */}
+                <View
+                  style={{
+                    marginTop: 10,
+                    paddingTop: 8,
+                    borderTopWidth: 1,
+                    borderTopColor: `${theme.border}44`,
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                      {isTh ? 'เวลาปลุกปัจจุบัน:' : 'Current Alarm Time:'}
+                    </Text>
+                    <Pressable
                       style={{
-                        color: active ? '#0E1220' : theme.text,
-                        fontSize: 11,
-                        fontWeight: '800',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        backgroundColor: `${theme.primary}20`,
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: theme.primary,
+                      }}
+                      onPress={() => {
+                        const [h, m] = (db.profile.alarm?.time ?? '07:00').split(':');
+                        setCustomAlarmHours(h || '07');
+                        setCustomAlarmMinutes(m || '00');
+                        setAlarmRepeatDays(db.profile.alarm?.days ?? [1, 2, 3, 4, 5, 6, 7]);
+                        setCustomAlarmModalOpen(true);
                       }}
                     >
-                      {timeStr}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                      <AppIcon name="clock" size={14} color={theme.primary} />
+                      <Text style={{ color: theme.primary, fontSize: 15, fontWeight: '900' }}>
+                        {db.profile.alarm?.time ?? '07:00'}
+                      </Text>
+                      <AppIcon name="edit" size={12} color={theme.primary} />
+                    </Pressable>
+                  </View>
+
+                  {/* Stepper Buttons */}
+                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
+                    <Pressable
+                      style={[
+                        styles.timeChip,
+                        {
+                          backgroundColor: theme.card,
+                          borderColor: theme.border,
+                          flex: 1,
+                          alignItems: 'center',
+                        },
+                      ]}
+                      onPress={() => adjustAlarmTime(-1, 0)}
+                    >
+                      <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>-1 ชม.</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.timeChip,
+                        {
+                          backgroundColor: theme.card,
+                          borderColor: theme.border,
+                          flex: 1,
+                          alignItems: 'center',
+                        },
+                      ]}
+                      onPress={() => adjustAlarmTime(0, -5)}
+                    >
+                      <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>-5 นาที</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.timeChip,
+                        {
+                          backgroundColor: theme.card,
+                          borderColor: theme.border,
+                          flex: 1,
+                          alignItems: 'center',
+                        },
+                      ]}
+                      onPress={() => adjustAlarmTime(0, 5)}
+                    >
+                      <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>+5 นาที</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.timeChip,
+                        {
+                          backgroundColor: theme.card,
+                          borderColor: theme.border,
+                          flex: 1,
+                          alignItems: 'center',
+                        },
+                      ]}
+                      onPress={() => adjustAlarmTime(1, 0)}
+                    >
+                      <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>+1 ชม.</Text>
+                    </Pressable>
+                  </View>
+
+                  {/* Sound Test Button */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+                    <Pressable
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        backgroundColor: isAlarmTesting ? theme.warning : `${theme.primary}20`,
+                        borderColor: isAlarmTesting ? theme.warning : theme.primary,
+                        borderWidth: 1,
+                        paddingHorizontal: 10,
+                        paddingVertical: 5,
+                        borderRadius: 8,
+                      }}
+                      onPress={() => {
+                        const next = !isAlarmTesting;
+                        setIsAlarmTesting(next);
+                        testAlarmSound(next);
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: isAlarmTesting ? '#0E1220' : theme.primary,
+                          fontSize: 11,
+                          fontWeight: '800',
+                        }}
+                      >
+                        {isAlarmTesting ? (isTh ? '⏹ หยุดทดสอบเสียงปลุก' : '⏹ Stop Alarm Test') : (isTh ? '🔊 ทดสอบเสียงนาฬิกาปลุก' : '🔊 Test Alarm Sound')}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+
+              {/* 3 Time-of-Day Reminders: เช้า / เที่ยง / เย็น */}
+              <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700', marginTop: 14, marginBottom: 6 }}>
+                {isTh ? 'การแจ้งเตือนเควสประจำวัน (เช้า / เที่ยง / เย็น):' : 'Daily Quest Reminders (Morning / Noon / Evening):'}
+              </Text>
+
+              {/* Morning (เช้า - 08:00) */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: theme.bgSecondary,
+                  padding: 10,
+                  borderRadius: 10,
+                  marginBottom: 6,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                }}
+              >
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
+                    🌅 {isTh ? 'แจ้งเตือนเควสตอนเช้า (08:00)' : 'Morning Quest Reminder (08:00)'}
+                  </Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 10 }}>
+                    {isTh ? 'เริ่มทำภารกิจรายวันเพื่อสะสมแต้ม XP' : 'Start your daily quests and earn XP'}
+                  </Text>
+                </View>
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[
+                    styles.togglePill,
+                    {
+                      backgroundColor:
+                        db.profile.notifications?.enabled &&
+                        db.profile.notifications?.morningReminderEnabled
+                          ? theme.primary
+                          : theme.border,
+                    },
+                  ]}
+                  onPress={() => {
+                    const current = db.profile.notifications ?? {
+                      enabled: true,
+                      permissionAsked: true,
+                      morningReminderEnabled: true,
+                      morningReminderTime: '08:00',
+                      noonReminderEnabled: true,
+                      noonReminderTime: '12:00',
+                      eveningReminderEnabled: true,
+                      eveningReminderTime: '20:00',
+                    };
+                    updateProfile({
+                      notifications: {
+                        ...current,
+                        morningReminderEnabled: !current.morningReminderEnabled,
+                      },
+                    });
+                  }}
+                >
+                  <Text style={{ color: '#0E1220', fontSize: 11, fontWeight: '900' }}>
+                    {db.profile.notifications?.morningReminderEnabled ? 'ON' : 'OFF'}
+                  </Text>
+                </AnimatedPressable>
+              </View>
+
+              {/* Noon (เที่ยง - 12:00) */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: theme.bgSecondary,
+                  padding: 10,
+                  borderRadius: 10,
+                  marginBottom: 6,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                }}
+              >
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
+                    ☀️ {isTh ? 'แจ้งเตือนเควสตอนเที่ยง (12:00)' : 'Noon Quest Reminder (12:00)'}
+                  </Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 10 }}>
+                    {isTh ? 'เช็กความคืบหน้าระหว่างวัน บันทึกมื้อเที่ยง & ดื่มน้ำ' : 'Midday check-in, log lunch & hydrate'}
+                  </Text>
+                </View>
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[
+                    styles.togglePill,
+                    {
+                      backgroundColor:
+                        db.profile.notifications?.enabled &&
+                        db.profile.notifications?.noonReminderEnabled !== false
+                          ? theme.primary
+                          : theme.border,
+                    },
+                  ]}
+                  onPress={() => {
+                    const current = db.profile.notifications ?? {
+                      enabled: true,
+                      permissionAsked: true,
+                      morningReminderEnabled: true,
+                      morningReminderTime: '08:00',
+                      noonReminderEnabled: true,
+                      noonReminderTime: '12:00',
+                      eveningReminderEnabled: true,
+                      eveningReminderTime: '20:00',
+                    };
+                    updateProfile({
+                      notifications: {
+                        ...current,
+                        noonReminderEnabled: current.noonReminderEnabled === false ? true : false,
+                      },
+                    });
+                  }}
+                >
+                  <Text style={{ color: '#0E1220', fontSize: 11, fontWeight: '900' }}>
+                    {db.profile.notifications?.noonReminderEnabled !== false ? 'ON' : 'OFF'}
+                  </Text>
+                </AnimatedPressable>
+              </View>
+
+              {/* Evening (เย็น - 20:00) */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: theme.bgSecondary,
+                  padding: 10,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                }}
+              >
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
+                    🌙 {isTh ? 'แจ้งเตือนเควสตอนค่ำ (20:00)' : 'Evening Check-in (20:00)'}
+                  </Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 10 }}>
+                    {isTh ? 'สรุปภารกิจก่อนหมดวันเพื่อรักษา Daily Streak' : 'Complete remaining quests to protect Streak'}
+                  </Text>
+                </View>
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[
+                    styles.togglePill,
+                    {
+                      backgroundColor:
+                        db.profile.notifications?.enabled &&
+                        db.profile.notifications?.eveningReminderEnabled
+                          ? theme.primary
+                          : theme.border,
+                    },
+                  ]}
+                  onPress={() => {
+                    const current = db.profile.notifications ?? {
+                      enabled: true,
+                      permissionAsked: true,
+                      morningReminderEnabled: true,
+                      morningReminderTime: '08:00',
+                      noonReminderEnabled: true,
+                      noonReminderTime: '12:00',
+                      eveningReminderEnabled: true,
+                      eveningReminderTime: '20:00',
+                    };
+                    updateProfile({
+                      notifications: {
+                        ...current,
+                        eveningReminderEnabled: !current.eveningReminderEnabled,
+                      },
+                    });
+                  }}
+                >
+                  <Text style={{ color: '#0E1220', fontSize: 11, fontWeight: '900' }}>
+                    {db.profile.notifications?.eveningReminderEnabled ? 'ON' : 'OFF'}
+                  </Text>
+                </AnimatedPressable>
+              </View>
             </View>
-          </View>
-        </View>
+          )}
 
-        {/* Notification Reminders Toggle */}
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginTop: 12,
-          }}
+          {/* Sub-Tab 4: 4 Widgets + All-in-One */}
+          {settingsSubTab === 'widgets' && (
+            <View style={{ marginTop: 4 }}>
+              <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 18, marginBottom: 10 }}>
+                {isTh
+                  ? 'คุณสามารถแยกเพิ่มวิดเจ็ต 4 แบบลงหน้าจอมือถือได้ตามต้องการ หรือกดค้างที่หน้าจอหลักของโทรศัพท์เพื่อเพิ่มวิดเจ็ต'
+                  : 'Add any of the 4 dedicated widgets directly to your home screen or long-press your home screen.'}
+              </Text>
+
+              {/* 4 Separate Widgets */}
+              <View style={{ gap: 8 }}>
+                {/* 1. Daily Quests Widget */}
+                <View
+                  style={{
+                    backgroundColor: theme.bgSecondary,
+                    borderColor: theme.border,
+                    borderWidth: 1,
+                    borderRadius: 10,
+                    padding: 10,
+                  }}
+                >
+                  <View style={styles.headerRowBetween}>
+                    <View style={styles.inlineIconRow}>
+                      <AppIcon name="quest" size={15} color={theme.primary} />
+                      <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+                        {isTh ? '1. วิดเจ็ต เควสประจำวัน' : '1. Daily Quests Widget'}
+                      </Text>
+                    </View>
+                    <AnimatedPressable
+                      reduceMotion={reduceMotion}
+                      style={[styles.primaryBtn, { backgroundColor: theme.primary, paddingVertical: 4, paddingHorizontal: 10 }]}
+                      onPress={async () => {
+                        const res = await requestPinWidget('quests');
+                        setWidgetFeedback(
+                          res
+                            ? isTh ? '✓ ส่งคำขอเพิ่มวิดเจ็ตเควสประจำวันแล้ว' : '✓ Daily Quests widget pinned'
+                            : isTh ? 'คุณสามารถกดค้างที่หน้าจอหลักเพื่อเพิ่มวิดเจ็ต Awakened Daily Quests' : 'Long-press home screen to add Awakened Quests widget'
+                        );
+                        setTimeout(() => setWidgetFeedback(null), 4000);
+                      }}
+                    >
+                      <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 11 }}>
+                        {isTh ? '+ เพิ่มวิดเจ็ต' : '+ Add Widget'}
+                      </Text>
+                    </AnimatedPressable>
+                  </View>
+                  <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 4 }}>
+                    {isTh ? 'แสดงรายการภารกิจวันนี้ ว่ามีเควสอะไรบ้าง และสถานะสำเร็จแล้วกี่ข้อ' : 'Shows today’s quest list and completed progress'}
+                  </Text>
+                </View>
+
+                {/* 2. Clock Widget */}
+                <View
+                  style={{
+                    backgroundColor: theme.bgSecondary,
+                    borderColor: theme.border,
+                    borderWidth: 1,
+                    borderRadius: 10,
+                    padding: 10,
+                  }}
+                >
+                  <View style={styles.headerRowBetween}>
+                    <View style={styles.inlineIconRow}>
+                      <AppIcon name="clock" size={15} color={theme.primary} />
+                      <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+                        {isTh ? '2. วิดเจ็ต นาฬิกา & การแจ้งเตือน' : '2. Clock & Alerts Widget'}
+                      </Text>
+                    </View>
+                    <AnimatedPressable
+                      reduceMotion={reduceMotion}
+                      style={[styles.primaryBtn, { backgroundColor: theme.primary, paddingVertical: 4, paddingHorizontal: 10 }]}
+                      onPress={async () => {
+                        const res = await requestPinWidget('clock');
+                        setWidgetFeedback(
+                          res
+                            ? isTh ? '✓ ส่งคำขอเพิ่มวิดเจ็ตนาฬิกาแล้ว' : '✓ Clock widget pinned'
+                            : isTh ? 'คุณสามารถกดค้างที่หน้าจอหลักเพื่อเพิ่มวิดเจ็ต Awakened Clock' : 'Long-press home screen to add Awakened Clock widget'
+                        );
+                        setTimeout(() => setWidgetFeedback(null), 4000);
+                      }}
+                    >
+                      <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 11 }}>
+                        {isTh ? '+ เพิ่มวิดเจ็ต' : '+ Add Widget'}
+                      </Text>
+                    </AnimatedPressable>
+                  </View>
+                  <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 4 }}>
+                    {isTh ? 'แสดงเวลาปัจจุบัน เวลาที่ตั้งปลุก และรอบเตือนภารกิจ (เช้า 08:00 | เที่ยง 12:00 | เย็น 20:00)' : 'Shows clock time, alarm time, and quest notification schedules'}
+                  </Text>
+                </View>
+
+                {/* 3. Calorie Summary Widget */}
+                <View
+                  style={{
+                    backgroundColor: theme.bgSecondary,
+                    borderColor: theme.border,
+                    borderWidth: 1,
+                    borderRadius: 10,
+                    padding: 10,
+                  }}
+                >
+                  <View style={styles.headerRowBetween}>
+                    <View style={styles.inlineIconRow}>
+                      <Text style={{ fontSize: 14 }}>🔥</Text>
+                      <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+                        {isTh ? '3. วิดเจ็ต สรุปแคลอรี่' : '3. Calorie Summary Widget'}
+                      </Text>
+                    </View>
+                    <AnimatedPressable
+                      reduceMotion={reduceMotion}
+                      style={[styles.primaryBtn, { backgroundColor: theme.primary, paddingVertical: 4, paddingHorizontal: 10 }]}
+                      onPress={async () => {
+                        const res = await requestPinWidget('calorie');
+                        setWidgetFeedback(
+                          res
+                            ? isTh ? '✓ ส่งคำขอเพิ่มวิดเจ็ตสรุปแคลอรี่แล้ว' : '✓ Calorie widget pinned'
+                            : isTh ? 'คุณสามารถกดค้างที่หน้าจอหลักเพื่อเพิ่มวิดเจ็ต Awakened Calories' : 'Long-press home screen to add Awakened Calorie widget'
+                        );
+                        setTimeout(() => setWidgetFeedback(null), 4000);
+                      }}
+                    >
+                      <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 11 }}>
+                        {isTh ? '+ เพิ่มวิดเจ็ต' : '+ Add Widget'}
+                      </Text>
+                    </AnimatedPressable>
+                  </View>
+                  <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 4 }}>
+                    {isTh ? 'แสดงแคลอรี่ที่บริโภค / เผาผลาญ ปริมาณน้ำดื่ม และสารอาหาร คาร์บ/โปรตีน/ไขมัน' : 'Shows consumed & burned kcal, water intake, and macros'}
+                  </Text>
+                </View>
+
+                {/* 4. Trophy Room Widget */}
+                <View
+                  style={{
+                    backgroundColor: theme.bgSecondary,
+                    borderColor: theme.border,
+                    borderWidth: 1,
+                    borderRadius: 10,
+                    padding: 10,
+                  }}
+                >
+                  <View style={styles.headerRowBetween}>
+                    <View style={styles.inlineIconRow}>
+                      <AppIcon name="trophy" size={15} color={theme.warning} />
+                      <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+                        {isTh ? '4. วิดเจ็ต ถ้วยรางวัล' : '4. Trophy Room Widget'}
+                      </Text>
+                    </View>
+                    <AnimatedPressable
+                      reduceMotion={reduceMotion}
+                      style={[styles.primaryBtn, { backgroundColor: theme.primary, paddingVertical: 4, paddingHorizontal: 10 }]}
+                      onPress={async () => {
+                        const res = await requestPinWidget('trophy');
+                        setWidgetFeedback(
+                          res
+                            ? isTh ? '✓ ส่งคำขอเพิ่มวิดเจ็ตถ้วยรางวัลแล้ว' : '✓ Trophy widget pinned'
+                            : isTh ? 'คุณสามารถกดค้างที่หน้าจอหลักเพื่อเพิ่มวิดเจ็ต Awakened Trophies' : 'Long-press home screen to add Awakened Trophy widget'
+                        );
+                        setTimeout(() => setWidgetFeedback(null), 4000);
+                      }}
+                    >
+                      <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 11 }}>
+                        {isTh ? '+ เพิ่มวิดเจ็ต' : '+ Add Widget'}
+                      </Text>
+                    </AnimatedPressable>
+                  </View>
+                  <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 4 }}>
+                    {isTh ? 'แสดงจำนวนถ้วยรางวัลที่ปลดล็อกแล้ว แยกตามระดับ Bronze / Silver / Gold / Legend' : 'Shows unlocked trophies breakdown by tier'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Extra Shortcuts */}
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[
+                    styles.primaryBtn,
+                    {
+                      flex: 1,
+                      backgroundColor: `${theme.primary}20`,
+                      borderColor: theme.primary,
+                      borderWidth: 1,
+                      alignItems: 'center',
+                    },
+                  ]}
+                  onPress={async () => {
+                    const res = await requestPinWidget('all');
+                    setWidgetFeedback(
+                      res
+                        ? isTh ? '✓ ส่งคำขอเพิ่มวิดเจ็ตรวมแล้ว' : '✓ All-in-one widget pinned'
+                        : isTh ? 'คุณสามารถกดค้างที่หน้าจอหลักเพื่อเพิ่มวิดเจ็ต' : 'Long-press to add widget'
+                    );
+                    setTimeout(() => setWidgetFeedback(null), 4000);
+                  }}
+                >
+                  <View style={styles.inlineIconRow}>
+                    <AppIcon name="bolt" size={13} color={theme.primary} />
+                    <Text style={{ color: theme.primary, fontWeight: '900', fontSize: 11 }}>
+                      {isTh ? 'วิดเจ็ตรวมทั้งหมด' : 'All-in-One Widget'}
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[
+                    styles.primaryBtn,
+                    {
+                      flex: 1,
+                      backgroundColor: `${theme.warning}20`,
+                      borderColor: theme.warning,
+                      borderWidth: 1,
+                      alignItems: 'center',
+                    },
+                  ]}
+                  onPress={async () => {
+                    const res = await requestPinShortcut(
+                      db.profile.displayName,
+                      db.profile.avatarUri ?? null
+                    );
+                    setShortcutFeedback(
+                      res
+                        ? isTh ? '✓ สร้างไอคอนโปรไฟล์บนหน้าจอหลักแล้ว' : '✓ Profile icon pinned'
+                        : isTh ? 'อุปกรณ์นี้ไม่รองรับการปักหมุดไอคอนอัตโนมัติ' : 'Not supported on launcher'
+                    );
+                    setTimeout(() => setShortcutFeedback(null), 4000);
+                  }}
+                >
+                  <View style={styles.inlineIconRow}>
+                    <AppIcon name="user" size={13} color={theme.warning} />
+                    <Text style={{ color: theme.warning, fontWeight: '900', fontSize: 11 }}>
+                      {isTh ? 'ปักหมุดไอคอนโปรไฟล์' : 'Pin Profile Icon'}
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+              </View>
+
+              {(widgetFeedback || shortcutFeedback) && (
+                <Text style={{ color: theme.success, fontSize: 11, fontWeight: '700', marginTop: 8 }}>
+                  {widgetFeedback || shortcutFeedback}
+                </Text>
+              )}
+            </View>
+          )}
+        </AnimatedCard>
+      )}
+
+      {/* 6. Health Disclaimer & Open-Source Credits (Profile Footer) */}
+      {profileTab === 'footer' && (
+        <AnimatedCard
+          index={5}
+          reduceMotion={reduceMotion}
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.card,
+              borderColor: theme.border,
+              overflow: 'hidden',
+              padding: 14,
+            },
+          ]}
         >
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
-              {isTh ? 'เตือนทำภารกิจตอนเช้า (08:00)' : 'Morning Mission Reminder (08:00)'}
-            </Text>
-            <Text style={{ color: theme.textMuted, fontSize: 10, flexShrink: 1 }}>
-              {isTh ? 'เตือนภารกิจรายวันบนแถบแจ้งเตือน' : 'Notification tray reminder'}
-            </Text>
-          </View>
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[
-              styles.togglePill,
-              {
-                backgroundColor:
-                  db.profile.notifications?.enabled &&
-                  db.profile.notifications?.morningReminderEnabled
-                    ? theme.primary
-                    : theme.border,
-              },
-            ]}
-            onPress={() => {
-              const current = db.profile.notifications ?? {
-                enabled: true,
-                permissionAsked: true,
-                morningReminderEnabled: true,
-                morningReminderTime: '08:00',
-                eveningReminderEnabled: true,
-                eveningReminderTime: '20:00',
-              };
-              updateProfile({
-                notifications: {
-                  ...current,
-                  morningReminderEnabled: !current.morningReminderEnabled,
+          <View style={styles.headerRowBetween}>
+            <View style={[styles.inlineIconRow, { flexShrink: 1, marginRight: 8 }]}>
+              <AppIcon name="shield" size={18} color={theme.primary} />
+              <Text style={[styles.cardTitle, { color: theme.text, flexShrink: 1 }]}>
+                {strings.profile.disclaimerTitle}
+              </Text>
+            </View>
+            <AnimatedPressable
+              reduceMotion={reduceMotion}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: `${theme.primary}20`,
+                  borderColor: theme.primary,
+                  paddingVertical: 4,
+                  flexShrink: 0,
                 },
-              });
-            }}
-          >
-            <Text style={{ color: '#0E1220', fontSize: 11, fontWeight: '900' }}>
-              {db.profile.notifications?.morningReminderEnabled ? 'ON' : 'OFF'}
-            </Text>
-          </AnimatedPressable>
-        </View>
-
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginTop: 10,
-          }}
-        >
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
-              {isTh ? 'เตือนสรุปภารกิจตอนค่ำ (20:00)' : 'Evening Check-in (20:00)'}
-            </Text>
-            <Text style={{ color: theme.textMuted, fontSize: 10, flexShrink: 1 }}>
-              {isTh ? 'เตือนก่อนหมดวันเพื่อรักษา Streak' : 'Streak protection check-in'}
-            </Text>
-          </View>
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[
-              styles.togglePill,
-              {
-                backgroundColor:
-                  db.profile.notifications?.enabled &&
-                  db.profile.notifications?.eveningReminderEnabled
-                    ? theme.primary
-                    : theme.border,
-              },
-            ]}
-            onPress={() => {
-              const current = db.profile.notifications ?? {
-                enabled: true,
-                permissionAsked: true,
-                morningReminderEnabled: true,
-                morningReminderTime: '08:00',
-                eveningReminderEnabled: true,
-                eveningReminderTime: '20:00',
-              };
-              updateProfile({
-                notifications: {
-                  ...current,
-                  eveningReminderEnabled: !current.eveningReminderEnabled,
-                },
-              });
-            }}
-          >
-            <Text style={{ color: '#0E1220', fontSize: 11, fontWeight: '900' }}>
-              {db.profile.notifications?.eveningReminderEnabled ? 'ON' : 'OFF'}
-            </Text>
-          </AnimatedPressable>
-        </View>
-      </AnimatedCard>
-
-      {/* 4C. Developer Support & Donation (Thailand Only) */}
-      <AnimatedCard
-        index={6}
-        reduceMotion={reduceMotion}
-        style={[
-          styles.card,
-          { backgroundColor: theme.card, borderColor: '#138F46', borderWidth: 1.5 },
-        ]}
-      >
-        <View style={styles.headerRowBetween}>
-          <View style={styles.inlineIconRow}>
-            <Text style={{ fontSize: 18 }}>💚</Text>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>
-              {isTh ? 'สนับสนุนผู้พัฒนา (Donation)' : 'Support Developer (Donation)'}
-            </Text>
-          </View>
-          <View
-            style={{
-              backgroundColor: '#138F4625',
-              borderColor: '#138F46',
-              borderWidth: 1,
-              borderRadius: 6,
-              paddingHorizontal: 7,
-              paddingVertical: 2,
-            }}
-          >
-            <Text style={{ color: '#138F46', fontSize: 10, fontWeight: '900' }}>
-              {isTh ? 'ประเทศไทยเท่านั้น' : 'Thailand Only'}
-            </Text>
-          </View>
-        </View>
-
-        <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 6, lineHeight: 18 }}>
-          {isTh
-            ? 'ทุกการสนับสนุนช่วยให้โปรเจกต์ Awakened Life RPG พัฒนาต่อเนื่องและไม่มีโฆษณาคั่น ขอบคุณมากครับ!'
-            : 'Your support helps keep Awakened Life RPG ad-free and continuously updated. Thank you!'}
-        </Text>
-
-        <View
-          style={{
-            backgroundColor: theme.bgSecondary,
-            borderColor: '#138F4666',
-            borderWidth: 1,
-            borderRadius: 12,
-            padding: 12,
-            marginTop: 10,
-          }}
-        >
-          <View style={styles.inlineIconRow}>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#138F46' }} />
-            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
-              {isTh ? 'ธนาคารกสิกรไทย (KBANK)' : 'Kasikorn Bank (KBANK)'}
-            </Text>
+              ]}
+              onPress={() => recordAppEvent('event:credits_viewed', 1)}
+            >
+              <Text style={{ color: theme.primary, fontSize: 11, fontWeight: '800' }}>
+                {Number(achievementMetrics['event:credits_viewed'] ?? 0) >= 1
+                  ? isTh
+                    ? '✓ อ่านแล้ว'
+                    : '✓ Read'
+                  : isTh
+                  ? 'ยืนยันการอ่าน'
+                  : 'Acknowledge'}
+              </Text>
+            </AnimatedPressable>
           </View>
           <Text
             style={{
-              color: '#3DDC97',
-              fontSize: 20,
-              fontWeight: '900',
-              letterSpacing: 1.5,
-              marginTop: 4,
-            }}
-          >
-            1638680528
-          </Text>
-
-          <View style={[styles.inlineIconRow, { marginTop: 6 }]}>
-            <AppIcon name="user" size={13} color={theme.textSecondary} />
-            <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
-              {isTh ? 'ชื่อบัญชี:' : 'Account Name:'}
-            </Text>
-            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '900' }}>
-              นาย ฐิติวุฒน์ วงศ์ละคร
-            </Text>
-          </View>
-
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[
-              styles.primaryBtn,
-              {
-                backgroundColor: copiedDonation ? theme.success : '#138F46',
-                marginTop: 10,
-                alignItems: 'center',
-              },
-            ]}
-            onPress={() => {
-              copyToClipboard('1638680528');
-              setCopiedDonation(true);
-              setTimeout(() => setCopiedDonation(false), 3000);
-            }}
-          >
-            <View style={styles.inlineIconRow}>
-              <AppIcon name="edit" size={14} color="#0E1220" />
-              <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 12 }}>
-                {copiedDonation
-                  ? isTh
-                    ? '✓ คัดลอกเลขบัญชี 1638680528 แล้ว'
-                    : '✓ Copied KBANK 1638680528'
-                  : isTh
-                  ? 'คัดลอกเลขบัญชี (นาย ฐิติวุฒน์ วงศ์ละคร)'
-                  : 'Copy Account (Thitiwut Wonglakhon)'}
-              </Text>
-            </View>
-          </AnimatedPressable>
-        </View>
-      </AnimatedCard>
-
-      {/* 5. Settings, Preferences & Privacy (Section 14 & 15) */}
-      <AnimatedCard
-        index={4}
-        reduceMotion={reduceMotion}
-        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
-      >
-        <View style={[styles.inlineIconRow, { marginBottom: 12 }]}>
-          <AppIcon name="settings" size={18} color={theme.primary} />
-          <Text style={[styles.cardTitle, { color: theme.text }]}>
-            {strings.profile.settings}
-          </Text>
-        </View>
-
-        {/* Display Name */}
-        <View style={[styles.inlineRow, { marginBottom: 10 }]}>
-          <TextInput
-            value={nameInput}
-            onChangeText={setNameInput}
-            style={[
-              styles.input,
-              {
-                flex: 1,
-                backgroundColor: theme.bgSecondary,
-                color: theme.text,
-                borderColor: theme.border,
-              },
-            ]}
-          />
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[styles.primaryBtn, { backgroundColor: theme.primary }]}
-            onPress={() => updateProfile({ displayName: nameInput.trim() || 'Hunter' })}
-          >
-            <Text style={styles.primaryBtnText}>{isTh ? 'เปลี่ยนชื่อ' : 'Save Name'}</Text>
-          </AnimatedPressable>
-        </View>
-
-        {/* Toggles: Language, Theme, Sound, Reduce Motion */}
-        <View style={styles.chipRow}>
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.primary }]}
-            onPress={() =>
-              updateProfile({ language: db.profile.language === 'th' ? 'en' : 'th' })
-            }
-          >
-            <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 12 }}>
-              {isTh ? 'ภาษา: ไทย (แตะเปลี่ยนเป็น EN)' : 'Language: EN (Tap for TH)'}
-            </Text>
-          </AnimatedPressable>
-
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.primary }]}
-            onPress={() =>
-              updateProfile({ theme: db.profile.theme === 'dark' ? 'light' : 'dark' })
-            }
-          >
-            <View style={styles.inlineIconRow}>
-              <AppIcon
-                name={db.profile.theme === 'dark' ? 'moon' : 'sun'}
-                size={13}
-                color={theme.primary}
-              />
-              <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 12 }}>
-                {db.profile.theme === 'dark' ? 'Dark RPG Mode' : 'Light Mode'}
-              </Text>
-            </View>
-          </AnimatedPressable>
-
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.border }]}
-            onPress={() => updateProfile({ soundEnabled: !db.profile.soundEnabled })}
-          >
-            <Text style={{ color: theme.text, fontWeight: '700', fontSize: 12 }}>
-              {db.profile.soundEnabled
-                ? isTh
-                  ? 'เสียงเอฟเฟกต์: เปิด'
-                  : 'Sound Effects: ON'
-                : isTh
-                ? 'เสียงเอฟเฟกต์: ปิด'
-                : 'Sound Effects: OFF'}
-            </Text>
-          </AnimatedPressable>
-
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.border }]}
-            onPress={() => updateProfile({ reduceEffects: !db.profile.reduceEffects })}
-          >
-            <View style={styles.inlineIconRow}>
-              <AppIcon
-                name="bolt"
-                size={13}
-                color={db.profile.reduceEffects ? theme.textMuted : theme.success}
-              />
-              <Text style={{ color: theme.text, fontWeight: '700', fontSize: 12 }}>
-                {db.profile.reduceEffects
-                  ? isTh
-                    ? 'ลดแอนิเมชัน (Reduce Motion): เปิด'
-                    : 'Reduce Motion: ON'
-                  : isTh
-                  ? 'แอนิเมชันเต็มรูปแบบ: เปิด'
-                  : 'Full Animations: ON'}
-              </Text>
-            </View>
-          </AnimatedPressable>
-
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[styles.chip, { backgroundColor: theme.bgSecondary, borderColor: theme.border }]}
-            onPress={() =>
-              updateProfile({ muteAchievementAlerts: !db.profile.muteAchievementAlerts })
-            }
-          >
-            <View style={styles.inlineIconRow}>
-              <AppIcon
-                name="trophy"
-                size={13}
-                color={db.profile.muteAchievementAlerts ? theme.textMuted : theme.warning}
-              />
-              <Text style={{ color: theme.text, fontWeight: '700', fontSize: 12 }}>
-                {db.profile.muteAchievementAlerts
-                  ? isTh
-                    ? 'ปิดป๊อปอัปถ้วยรางวัล: เปิด'
-                    : 'Mute Badge Popups: ON'
-                  : isTh
-                  ? 'ป๊อปอัปถ้วยรางวัล: แสดงปกติ'
-                  : 'Badge Popups: ON'}
-              </Text>
-            </View>
-          </AnimatedPressable>
-
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: Boolean(db.profile.appLockPin)
-                  ? `${theme.success}18`
-                  : theme.bgSecondary,
-                borderColor: Boolean(db.profile.appLockPin) ? theme.success : theme.border,
-              },
-            ]}
-            onPress={() => {
-              setAppLockInputPin('');
-              setAppLockConfirmPin('');
-              setVerifyCurrentPin('');
-              setPinVerified(false);
-              setAppLockError(null);
-              setAppLockSuccessMsg(null);
-              setAppLockStep(db.profile.appLockPin ? 'manage' : 'enter_pin');
-              setAppLockModalOpen(true);
-            }}
-          >
-            <View style={styles.inlineIconRow}>
-              <AppIcon
-                name="lock"
-                size={13}
-                color={Boolean(db.profile.appLockPin) ? theme.success : theme.textSecondary}
-              />
-              <Text style={{ color: theme.text, fontWeight: '700', fontSize: 12 }}>
-                {Boolean(db.profile.appLockPin)
-                  ? isTh
-                    ? 'ล็อกแอปด้วย PIN: เปิดแล้ว ✓'
-                    : 'App Lock: Enabled ✓'
-                  : isTh
-                  ? 'เปิดใช้งานล็อกแอป (App Lock)'
-                  : 'Enable App Lock'}
-              </Text>
-            </View>
-          </AnimatedPressable>
-        </View>
-
-        {/* System Narrator Tone Selector (Unlocks app_narrator) */}
-        <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 12, marginBottom: 6 }}>
-          {isTh ? 'โทนเสียงผู้บรรยายของระบบ (System Narrator):' : 'System Narrator Tone:'}
-        </Text>
-        <View style={styles.chipRow}>
-          {(
-            [
-              { id: 'gentle', th: 'อ่อนโยน (Gentle)', en: 'Gentle' },
-              { id: 'friend', th: 'เพื่อนลุย (Friend)', en: 'Friend' },
-              { id: 'coach', th: 'โค้ชจริงจัง (Coach)', en: 'Coach' },
-              { id: 'adventurer', th: 'นักผจญภัย (Adventurer)', en: 'Adventurer' },
-            ] as const
-          ).map((tone) => {
-            const currentNarrator = db.onboarding?.narrator ?? 'gentle';
-            const active = currentNarrator === tone.id;
-            return (
-              <AnimatedPressable
-                key={tone.id}
-                reduceMotion={reduceMotion}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: active ? `${theme.primary}25` : theme.bgSecondary,
-                    borderColor: active ? theme.primary : theme.border,
-                  },
-                ]}
-                onPress={() => {
-                  updateOnboardingDraft({ narrator: tone.id });
-                  recordAppEvent('event:narrator_changed', 1);
-                }}
-              >
-                <Text
-                  style={{
-                    color: active ? theme.primary : theme.textSecondary,
-                    fontSize: 12,
-                    fontWeight: '700',
-                  }}
-                >
-                  {isTh ? tone.th : tone.en}
-                </Text>
-              </AnimatedPressable>
-            );
-          })}
-        </View>
-
-        {/* Available Daily Time & Weekly Goal */}
-        <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 12, marginBottom: 6 }}>
-          {isTh ? 'เวลาว่างต่อวัน (มีผลต่อ Adaptive Plan):' : 'Available time/day (Adaptive Plan):'}
-        </Text>
-        <View style={styles.chipRow}>
-          {[10, 15, 30, 60].map((mins) => {
-            const active = db.profile.availableMinutesPerDay === mins;
-            return (
-              <AnimatedPressable
-                key={mins}
-                reduceMotion={reduceMotion}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: active ? `${theme.primary}25` : theme.bgSecondary,
-                    borderColor: active ? theme.primary : theme.border,
-                  },
-                ]}
-                onPress={() => updateProfile({ availableMinutesPerDay: mins })}
-              >
-                <Text style={{ color: active ? theme.primary : theme.textSecondary, fontSize: 12 }}>
-                  {mins} {isTh ? 'นาที/วัน' : 'min/day'}
-                </Text>
-              </AnimatedPressable>
-            );
-          })}
-        </View>
-
-        {/* Edit / Re-run Onboarding Questionnaire (Section 1 & 11.1) */}
-        <AnimatedPressable
-          reduceMotion={reduceMotion}
-          style={[
-            styles.primaryBtn,
-            {
-              backgroundColor: `${theme.primary}22`,
-              borderColor: theme.primary,
-              borderWidth: 1,
-              marginTop: 14,
-            },
-          ]}
-          onPress={reopenOnboarding}
-        >
-          <View style={styles.inlineIconRow}>
-            <AppIcon name="edit" size={14} color={theme.primary} />
-            <Text style={{ color: theme.primary, fontWeight: '900', fontSize: 13 }}>
-              {isTh
-                ? 'ปรับแผนของฉัน (แก้ไขคำตอบแบบสอบถามเริ่มต้น)'
-                : 'Adjust My Plan (Edit Onboarding Questionnaire)'}
-            </Text>
-          </View>
-        </AnimatedPressable>
-
-        {/* Export / Import Backup JSON */}
-        <View style={[styles.inlineIconRow, { marginTop: 16, marginBottom: 8 }]}>
-          <AppIcon name="shield" size={16} color={theme.primary} />
-          <Text style={[styles.cardTitle, { color: theme.text }]}>
-            {isTh ? 'จัดการข้อมูลส่วนตัว (Offline-First 100%)' : 'Offline Data & Backup'}
-          </Text>
-        </View>
-
-        <View style={styles.inlineRow}>
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[styles.primaryBtn, { backgroundColor: theme.primary, flex: 1 }]}
-            onPress={() => {
-              const json = exportBackupJson();
-              setBackupJsonBox(json);
-              setBackupStatusMsg(
-                isTh
-                  ? 'สร้างข้อมูลสำรอง JSON สำเร็จ (คัดลอกข้อความด้านล่างเก็บไว้ได้เลย)'
-                  : 'Exported JSON backup below.'
-              );
-            }}
-          >
-            <View style={styles.inlineIconRow}>
-              <AppIcon name="export" size={14} color="#0E1220" />
-              <Text style={styles.primaryBtnText}>{strings.profile.exportData}</Text>
-            </View>
-          </AnimatedPressable>
-
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[styles.primaryBtn, { backgroundColor: theme.success, flex: 1 }]}
-            onPress={() => {
-              if (!backupJsonBox.trim()) return;
-              const res = importBackupJson(backupJsonBox);
-              setBackupStatusMsg(res.message);
-            }}
-          >
-            <View style={styles.inlineIconRow}>
-              <AppIcon name="import" size={14} color="#0E1220" />
-              <Text style={styles.primaryBtnText}>{strings.profile.importData}</Text>
-            </View>
-          </AnimatedPressable>
-        </View>
-
-        {backupStatusMsg && (
-          <Text style={{ color: theme.success, fontSize: 12, marginTop: 6, fontWeight: '700' }}>
-            {backupStatusMsg}
-          </Text>
-        )}
-
-        <TextInput
-          value={backupJsonBox}
-          onChangeText={setBackupJsonBox}
-          multiline
-          numberOfLines={3}
-          placeholder={
-            isTh
-              ? 'กดปุ่ม Export เพื่อดู JSON หรือวาง JSON ที่นี่แล้วกด Import...'
-              : 'Press Export to generate JSON, or paste backup JSON here to Import...'
-          }
-          placeholderTextColor={theme.textMuted}
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.bgSecondary,
-              color: theme.text,
-              borderColor: theme.border,
+              color: theme.textSecondary,
+              fontSize: 12,
               marginTop: 8,
-              minHeight: 70,
-            },
-          ]}
-        />
-
-        {/* Delete by category & 2-Step Reset All */}
-        <View style={[styles.chipRow, { marginTop: 12 }]}>
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[styles.chip, { borderColor: theme.warning, backgroundColor: theme.bgSecondary }]}
-            onPress={() => deleteCategoryData('meals')}
+              lineHeight: 18,
+              flexShrink: 1,
+              flexWrap: 'wrap',
+            }}
           >
-            <View style={styles.inlineIconRow}>
-              <AppIcon name="trash" size={12} color={theme.warning} />
-              <Text style={{ color: theme.warning, fontSize: 11, fontWeight: '700' }}>
-                {isTh ? 'ลบเฉพาะประวัติอาหาร' : 'Clear Meals Only'}
-              </Text>
-            </View>
-          </AnimatedPressable>
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[styles.chip, { borderColor: theme.warning, backgroundColor: theme.bgSecondary }]}
-            onPress={() => deleteCategoryData('journals')}
-          >
-            <View style={styles.inlineIconRow}>
-              <AppIcon name="trash" size={12} color={theme.warning} />
-              <Text style={{ color: theme.warning, fontSize: 11, fontWeight: '700' }}>
-                {isTh ? 'ลบเฉพาะไดอารี่' : 'Clear Journals Only'}
-              </Text>
-            </View>
-          </AnimatedPressable>
-        </View>
-
-        <AnimatedPressable
-          reduceMotion={reduceMotion}
-          style={[
-            styles.primaryBtn,
-            {
-              backgroundColor: resetConfirmStep === 1 ? theme.danger : theme.bgSecondary,
-              borderColor: theme.danger,
-              borderWidth: 1,
+            {strings.profile.disclaimerBody}
+          </Text>
+          <View
+            style={{
               marginTop: 12,
-            },
-          ]}
-          onPress={() => {
-            if (resetConfirmStep === 0) {
-              setResetConfirmStep(1);
-            } else {
-              resetAllData();
-              setResetConfirmStep(0);
-            }
-          }}
-        >
-          <View style={styles.inlineIconRow}>
-            <AppIcon
-              name="trash"
-              size={14}
-              color={resetConfirmStep === 1 ? '#FFFFFF' : theme.danger}
-            />
+              paddingTop: 10,
+              borderTopWidth: 1,
+              borderTopColor: `${theme.border}44`,
+            }}
+          >
             <Text
               style={{
-                color: resetConfirmStep === 1 ? '#FFFFFF' : theme.danger,
-                fontWeight: '900',
-                fontSize: 13,
+                color: theme.textMuted,
+                fontSize: 11,
+                lineHeight: 16,
+                flexShrink: 1,
+                flexWrap: 'wrap',
               }}
             >
-              {resetConfirmStep === 0
-                ? strings.profile.resetAllData
-                : isTh
-                ? 'ยืนยันขั้นที่ 2: แตะอีกครั้งเพื่อลบข้อมูลทั้งหมดถาวร'
-                : 'Step 2 Confirm: Tap again to permanently wipe all data'}
+              Awakened v0.10.3 · Open-Source Licenses: React Native & Expo (MIT), AsyncStorage & SQLite (MIT), React Native SVG (MIT), Vector Icons sourced from FreeIcons.io (Iconly Essential & Free Vector Sets), Thai Food Nutrition Reference (Public Domain / DOH Estimation).
             </Text>
           </View>
-        </AnimatedPressable>
-      </AnimatedCard>
-
-      {/* 6. Health Disclaimer & Open-Source Credits (Section 14.3 & 19) */}
-      <AnimatedCard
-        index={5}
-        reduceMotion={reduceMotion}
-        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
-      >
-        <View style={styles.headerRowBetween}>
-          <View style={styles.inlineIconRow}>
-            <AppIcon name="shield" size={18} color={theme.primary} />
-            <Text style={[styles.cardTitle, { color: theme.text }]}>
-              {strings.profile.disclaimerTitle}
-            </Text>
-          </View>
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: `${theme.primary}20`,
-                borderColor: theme.primary,
-                paddingVertical: 4,
-              },
-            ]}
-            onPress={() => recordAppEvent('event:credits_viewed', 1)}
-          >
-            <Text style={{ color: theme.primary, fontSize: 11, fontWeight: '800' }}>
-              {Number(achievementMetrics['event:credits_viewed'] ?? 0) >= 1
-                ? isTh
-                  ? '✓ อ่านเครดิตแล้ว'
-                  : '✓ Credits Viewed'
-                : isTh
-                ? 'ยืนยันการอ่านคำชี้แจง & เครดิต'
-                : 'Acknowledge Credits & Disclaimer'}
-            </Text>
-          </AnimatedPressable>
-        </View>
-        <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 6, lineHeight: 18 }}>
-          {strings.profile.disclaimerBody}
-        </Text>
-        <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 10 }}>
-          Awakened v0.10.2 · Open-Source Licenses: React Native & Expo (MIT), AsyncStorage & SQLite (MIT), React Native SVG (MIT), Vector Icons sourced from FreeIcons.io (Iconly Essential & Free Vector Sets), Thai Food Nutrition Reference (Public Domain / DOH Estimation).
-        </Text>
-      </AnimatedCard>
+        </AnimatedCard>
+      )}
 
       {/* Profile Avatar Selection Modal */}
       <Modal
@@ -2346,204 +2762,402 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
         </View>
       </Modal>
 
-      {/* Custom Alarm Time Picker Modal */}
+      {/* Custom Alarm Time Picker Modal (Mobile Phone Style) */}
       <Modal
         visible={customAlarmModalOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setCustomAlarmModalOpen(false)}
+        onRequestClose={() => {
+          testAlarmSound(false);
+          setIsAlarmTesting(false);
+          setCustomAlarmModalOpen(false);
+        }}
       >
         <View style={styles.modalBackdrop}>
           <View
             style={[
               styles.modalCard,
-              { backgroundColor: theme.card, borderColor: theme.border },
+              { backgroundColor: theme.card, borderColor: theme.border, maxHeight: '90%' },
             ]}
           >
             <View style={styles.headerRowBetween}>
               <View style={styles.inlineIconRow}>
                 <Text style={{ fontSize: 18 }}>⏰</Text>
                 <Text style={[styles.cardTitle, { color: theme.text }]}>
-                  {isTh ? 'ตั้งเวลาปลุกด้วยตัวเอง' : 'Set Custom Alarm Time'}
-                </Text>
-              </View>
-              <Pressable onPress={() => setCustomAlarmModalOpen(false)}>
-                <Text style={{ color: theme.textMuted, fontSize: 16 }}>✕</Text>
-              </Pressable>
-            </View>
-
-            {/* Time Preview Display */}
-            <View
-              style={{
-                alignItems: 'center',
-                marginVertical: 14,
-                padding: 12,
-                backgroundColor: `${theme.primary}15`,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: `${theme.primary}44`,
-              }}
-            >
-              <Text style={{ color: theme.primary, fontSize: 36, fontWeight: '900', letterSpacing: 2 }}>
-                {customAlarmHours.padStart(2, '0')}:{customAlarmMinutes.padStart(2, '0')}
-              </Text>
-              <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 4 }}>
-                {isTh ? 'เวลาปลุกภารกิจรายวัน' : 'Daily Mission Alarm Time'}
-              </Text>
-            </View>
-
-            {/* Hour Selector */}
-            <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 6 }}>
-              {isTh ? 'ชั่วโมง (00 - 23):' : 'Hour (00 - 23):'}
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <Pressable
-                style={[styles.timeChip, { backgroundColor: theme.bgSecondary, borderColor: theme.border, paddingHorizontal: 16 }]}
-                onPress={() => {
-                  const h = (Number(customAlarmHours) - 1 + 24) % 24;
-                  setCustomAlarmHours(String(h).padStart(2, '0'));
-                }}
-              >
-                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>-</Text>
-              </Pressable>
-              <View style={{ flex: 1, alignItems: 'center' }}>
-                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900' }}>
-                  {customAlarmHours.padStart(2, '0')} {isTh ? 'น.' : ''}
+                  {isTh ? 'ตั้งนาฬิกาปลุกภารกิจ' : 'Mission Alarm Clock'}
                 </Text>
               </View>
               <Pressable
-                style={[styles.timeChip, { backgroundColor: theme.bgSecondary, borderColor: theme.border, paddingHorizontal: 16 }]}
                 onPress={() => {
-                  const h = (Number(customAlarmHours) + 1) % 24;
-                  setCustomAlarmHours(String(h).padStart(2, '0'));
+                  testAlarmSound(false);
+                  setIsAlarmTesting(false);
+                  setCustomAlarmModalOpen(false);
                 }}
               >
-                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>+</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 18, padding: 4 }}>✕</Text>
               </Pressable>
             </View>
 
-            {/* Quick Hour Chips */}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-              {['05', '06', '07', '08', '09', '10', '20', '21', '22'].map((hh) => (
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Big Digital Clock Display (Touch Hour or Minute like phone clock) */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginVertical: 12,
+                  padding: 10,
+                  backgroundColor: `${theme.primary}12`,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: `${theme.primary}33`,
+                }}
+              >
                 <Pressable
-                  key={hh}
-                  style={[
-                    styles.timeChip,
-                    {
-                      backgroundColor: customAlarmHours === hh ? theme.primary : theme.bgSecondary,
-                      borderColor: customAlarmHours === hh ? theme.primary : theme.border,
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                    },
-                  ]}
-                  onPress={() => setCustomAlarmHours(hh)}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 12,
+                    backgroundColor: alarmTimeTab === 'hour' ? `${theme.primary}35` : 'transparent',
+                    borderWidth: 2,
+                    borderColor: alarmTimeTab === 'hour' ? theme.primary : 'transparent',
+                  }}
+                  onPress={() => setAlarmTimeTab('hour')}
                 >
                   <Text
                     style={{
-                      color: customAlarmHours === hh ? '#0E1220' : theme.text,
+                      color: alarmTimeTab === 'hour' ? theme.primary : theme.text,
+                      fontSize: 42,
+                      fontWeight: '900',
+                    }}
+                  >
+                    {customAlarmHours.padStart(2, '0')}
+                  </Text>
+                  <Text
+                    style={{
+                      color: alarmTimeTab === 'hour' ? theme.primary : theme.textMuted,
+                      fontSize: 10,
+                      fontWeight: '800',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {isTh ? 'ชั่วโมง' : 'HOUR'}
+                  </Text>
+                </Pressable>
+
+                <Text
+                  style={{
+                    color: theme.textSecondary,
+                    fontSize: 36,
+                    fontWeight: '900',
+                    marginHorizontal: 8,
+                    paddingBottom: 14,
+                  }}
+                >
+                  :
+                </Text>
+
+                <Pressable
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 12,
+                    backgroundColor: alarmTimeTab === 'minute' ? `${theme.primary}35` : 'transparent',
+                    borderWidth: 2,
+                    borderColor: alarmTimeTab === 'minute' ? theme.primary : 'transparent',
+                  }}
+                  onPress={() => setAlarmTimeTab('minute')}
+                >
+                  <Text
+                    style={{
+                      color: alarmTimeTab === 'minute' ? theme.primary : theme.text,
+                      fontSize: 42,
+                      fontWeight: '900',
+                    }}
+                  >
+                    {customAlarmMinutes.padStart(2, '0')}
+                  </Text>
+                  <Text
+                    style={{
+                      color: alarmTimeTab === 'minute' ? theme.primary : theme.textMuted,
+                      fontSize: 10,
+                      fontWeight: '800',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {isTh ? 'นาที' : 'MIN'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Hour / Minute Selection Views */}
+              {alarmTimeTab === 'hour' ? (
+                <View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                      {isTh ? 'เลือกชั่วโมง (00 - 23):' : 'Select Hour (00 - 23):'}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      <Pressable
+                        style={[styles.timeChip, { backgroundColor: theme.bgSecondary, borderColor: theme.border }]}
+                        onPress={() => {
+                          const h = (Number(customAlarmHours) - 1 + 24) % 24;
+                          setCustomAlarmHours(String(h).padStart(2, '0'));
+                        }}
+                      >
+                        <Text style={{ color: theme.text, fontWeight: '900' }}>-1 ชม.</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.timeChip, { backgroundColor: theme.bgSecondary, borderColor: theme.border }]}
+                        onPress={() => {
+                          const h = (Number(customAlarmHours) + 1) % 24;
+                          setCustomAlarmHours(String(h).padStart(2, '0'));
+                        }}
+                      >
+                        <Text style={{ color: theme.text, fontWeight: '900' }}>+1 ชม.</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+
+                  {/* 24 Hour Grid */}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                    {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map((hh) => {
+                      const sel = customAlarmHours === hh;
+                      return (
+                        <Pressable
+                          key={hh}
+                          style={{
+                            width: '14.5%',
+                            aspectRatio: 1.2,
+                            borderRadius: 8,
+                            backgroundColor: sel ? theme.primary : theme.bgSecondary,
+                            borderColor: sel ? theme.primary : theme.border,
+                            borderWidth: 1,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                          onPress={() => {
+                            setCustomAlarmHours(hh);
+                            setAlarmTimeTab('minute');
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: sel ? '#0E1220' : theme.text,
+                              fontSize: 12,
+                              fontWeight: '800',
+                            }}
+                          >
+                            {hh}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ) : (
+                <View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                      {isTh ? 'เลือกนาที (00 - 59):' : 'Select Minute (00 - 59):'}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      <Pressable
+                        style={[styles.timeChip, { backgroundColor: theme.bgSecondary, borderColor: theme.border }]}
+                        onPress={() => {
+                          const m = (Number(customAlarmMinutes) - 1 + 60) % 60;
+                          setCustomAlarmMinutes(String(m).padStart(2, '0'));
+                        }}
+                      >
+                        <Text style={{ color: theme.text, fontWeight: '900' }}>-1</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.timeChip, { backgroundColor: theme.bgSecondary, borderColor: theme.border }]}
+                        onPress={() => {
+                          const m = (Number(customAlarmMinutes) + 1) % 60;
+                          setCustomAlarmMinutes(String(m).padStart(2, '0'));
+                        }}
+                      >
+                        <Text style={{ color: theme.text, fontWeight: '900' }}>+1</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+
+                  {/* Minute Increments Grid */}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                    {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map((mm) => {
+                      const sel = customAlarmMinutes === mm;
+                      return (
+                        <Pressable
+                          key={mm}
+                          style={{
+                            width: '23%',
+                            aspectRatio: 1.5,
+                            borderRadius: 8,
+                            backgroundColor: sel ? theme.primary : theme.bgSecondary,
+                            borderColor: sel ? theme.primary : theme.border,
+                            borderWidth: 1,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                          onPress={() => setCustomAlarmMinutes(mm)}
+                        >
+                          <Text
+                            style={{
+                              color: sel ? '#0E1220' : theme.text,
+                              fontSize: 13,
+                              fontWeight: '800',
+                            }}
+                          >
+                            :{mm}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              {/* Repeat Days (เหมือนการตั้งนาฬิกาในมือถือ) */}
+              <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700', marginTop: 6, marginBottom: 6 }}>
+                {isTh ? 'ทำซ้ำในวัน:' : 'Repeat on Days:'}
+              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+                {[
+                  { id: 1, th: 'จ', en: 'M' },
+                  { id: 2, th: 'อ', en: 'T' },
+                  { id: 3, th: 'พ', en: 'W' },
+                  { id: 4, th: 'พฤ', en: 'T' },
+                  { id: 5, th: 'ศ', en: 'F' },
+                  { id: 6, th: 'ส', en: 'S' },
+                  { id: 7, th: 'อา', en: 'S' },
+                ].map((day) => {
+                  const sel = alarmRepeatDays.includes(day.id);
+                  return (
+                    <Pressable
+                      key={day.id}
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 19,
+                        backgroundColor: sel ? theme.primary : theme.bgSecondary,
+                        borderColor: sel ? theme.primary : theme.border,
+                        borderWidth: 1,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      onPress={() => {
+                        if (sel) {
+                          setAlarmRepeatDays(alarmRepeatDays.filter((d) => d !== day.id));
+                        } else {
+                          setAlarmRepeatDays([...alarmRepeatDays, day.id]);
+                        }
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: sel ? '#0E1220' : theme.text,
+                          fontSize: 12,
+                          fontWeight: '800',
+                        }}
+                      >
+                        {isTh ? day.th : day.en}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* System Alarm Sound & Test */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 10,
+                  backgroundColor: theme.bgSecondary,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  marginVertical: 8,
+                }}
+              >
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
+                    {isTh ? '🔊 เสียงนาฬิกาปลุกของระบบ' : '🔊 System Alarm Sound'}
+                  </Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 10 }}>
+                    {isTh ? 'ใช้เสียงปลุกจริงระดับ USAGE_ALARM ของเครื่อง' : 'Plays genuine Android alarm sound'}
+                  </Text>
+                </View>
+                <Pressable
+                  style={{
+                    backgroundColor: isAlarmTesting ? theme.warning : `${theme.primary}25`,
+                    borderColor: isAlarmTesting ? theme.warning : theme.primary,
+                    borderWidth: 1,
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: 8,
+                  }}
+                  onPress={() => {
+                    const next = !isAlarmTesting;
+                    setIsAlarmTesting(next);
+                    testAlarmSound(next);
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: isAlarmTesting ? '#0E1220' : theme.primary,
                       fontSize: 11,
                       fontWeight: '800',
                     }}
                   >
-                    {hh}:00
+                    {isAlarmTesting ? (isTh ? '⏹ หยุดเสียง' : '⏹ Stop') : (isTh ? '▶ ทดสอบเสียง' : '▶ Test Sound')}
                   </Text>
                 </Pressable>
-              ))}
-            </View>
-
-            {/* Minute Selector */}
-            <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 6 }}>
-              {isTh ? 'นาที (00 - 59):' : 'Minute (00 - 59):'}
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <Pressable
-                style={[styles.timeChip, { backgroundColor: theme.bgSecondary, borderColor: theme.border, paddingHorizontal: 16 }]}
-                onPress={() => {
-                  const m = (Number(customAlarmMinutes) - 5 + 60) % 60;
-                  setCustomAlarmMinutes(String(m).padStart(2, '0'));
-                }}
-              >
-                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>-5</Text>
-              </Pressable>
-              <View style={{ flex: 1, alignItems: 'center' }}>
-                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900' }}>
-                  {customAlarmMinutes.padStart(2, '0')} {isTh ? 'นาที' : 'min'}
-                </Text>
               </View>
-              <Pressable
-                style={[styles.timeChip, { backgroundColor: theme.bgSecondary, borderColor: theme.border, paddingHorizontal: 16 }]}
+
+              {/* Save Button */}
+              <AnimatedPressable
+                reduceMotion={reduceMotion}
+                style={[
+                  styles.primaryBtn,
+                  { backgroundColor: theme.primary, alignItems: 'center', marginTop: 10 },
+                ]}
                 onPress={() => {
-                  const m = (Number(customAlarmMinutes) + 5) % 60;
-                  setCustomAlarmMinutes(String(m).padStart(2, '0'));
+                  testAlarmSound(false);
+                  setIsAlarmTesting(false);
+                  const finalTime = `${customAlarmHours.padStart(2, '0')}:${customAlarmMinutes.padStart(2, '0')}`;
+                  updateProfile({
+                    alarm: {
+                      enabled: true,
+                      time: finalTime,
+                      days: alarmRepeatDays,
+                    },
+                  });
+                  setCustomAlarmModalOpen(false);
                 }}
               >
-                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>+5</Text>
+                <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 13 }}>
+                  {isTh
+                    ? `✓ บันทึกเวลาปลุก (${customAlarmHours.padStart(2, '0')}:${customAlarmMinutes.padStart(2, '0')})`
+                    : `✓ Save Alarm (${customAlarmHours.padStart(2, '0')}:${customAlarmMinutes.padStart(2, '0')})`}
+                </Text>
+              </AnimatedPressable>
+
+              <Pressable
+                style={{ marginTop: 8, alignItems: 'center', padding: 6 }}
+                onPress={() => {
+                  testAlarmSound(false);
+                  setIsAlarmTesting(false);
+                  setCustomAlarmModalOpen(false);
+                }}
+              >
+                <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
+                  {isTh ? 'ยกเลิก' : 'Cancel'}
+                </Text>
               </Pressable>
-            </View>
-
-            {/* Quick Minute Chips */}
-            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 14 }}>
-              {['00', '15', '30', '45'].map((mm) => (
-                <Pressable
-                  key={mm}
-                  style={[
-                    styles.timeChip,
-                    {
-                      backgroundColor: customAlarmMinutes === mm ? theme.primary : theme.bgSecondary,
-                      borderColor: customAlarmMinutes === mm ? theme.primary : theme.border,
-                      flex: 1,
-                      alignItems: 'center',
-                    },
-                  ]}
-                  onPress={() => setCustomAlarmMinutes(mm)}
-                >
-                  <Text
-                    style={{
-                      color: customAlarmMinutes === mm ? '#0E1220' : theme.text,
-                      fontSize: 12,
-                      fontWeight: '800',
-                    }}
-                  >
-                    :{mm}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            {/* Save Button */}
-            <AnimatedPressable
-              reduceMotion={reduceMotion}
-              style={[
-                styles.primaryBtn,
-                { backgroundColor: theme.primary, alignItems: 'center' },
-              ]}
-              onPress={() => {
-                const finalTime = `${customAlarmHours.padStart(2, '0')}:${customAlarmMinutes.padStart(2, '0')}`;
-                updateProfile({
-                  alarm: {
-                    ...(db.profile.alarm ?? { days: [] }),
-                    enabled: true,
-                    time: finalTime,
-                  },
-                });
-                setCustomAlarmModalOpen(false);
-              }}
-            >
-              <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 13 }}>
-                {isTh
-                  ? `✓ บันทึกเวลาปลุก (${customAlarmHours.padStart(2, '0')}:${customAlarmMinutes.padStart(2, '0')})`
-                  : `✓ Save Alarm (${customAlarmHours.padStart(2, '0')}:${customAlarmMinutes.padStart(2, '0')})`}
-              </Text>
-            </AnimatedPressable>
-
-            <Pressable
-              style={{ marginTop: 10, alignItems: 'center', padding: 6 }}
-              onPress={() => setCustomAlarmModalOpen(false)}
-            >
-              <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
-                {isTh ? 'ยกเลิก' : 'Cancel'}
-              </Text>
-            </Pressable>
+            </ScrollView>
           </View>
         </View>
       </Modal>

@@ -33,15 +33,30 @@ import {
   AnimatedScreenWrapper,
 } from '../components/AnimatedComponents';
 
-const EXERCISES = [
-  'Squat',
-  'Push-up',
-  'Sit-up',
-  'Plank (sec)',
-  'Lunges',
-  'Pull-up',
-  'Burpee',
+interface ExerciseItem {
+  id: string;
+  en: string;
+  th: string;
+}
+
+const EXERCISES: ExerciseItem[] = [
+  { id: 'Push-up', en: 'Push-up', th: 'วิดพื้น' },
+  { id: 'Sit-up', en: 'Sit-up', th: 'ซิทอัพ' },
+  { id: 'Squat', en: 'Squat', th: 'สควอท' },
+  { id: 'Plank (sec)', en: 'Plank (sec)', th: 'แพลงก์ (วินาที)' },
+  { id: 'Lunges', en: 'Lunges', th: 'ก้าวขาย่อ' },
+  { id: 'Pull-up', en: 'Pull-up', th: 'ดึงข้อ' },
+  { id: 'Burpee', en: 'Burpee', th: 'เบอร์ปี' },
+  { id: 'Jumping Jacks', en: 'Jumping Jacks', th: 'กระโดดตบ' },
 ];
+
+function getExerciseDisplayName(exerciseId: string, isTh: boolean): string {
+  const match = EXERCISES.find((e) => e.id.toLowerCase() === exerciseId.toLowerCase());
+  if (match) {
+    return isTh ? `${match.th} (${match.en})` : match.en;
+  }
+  return exerciseId;
+}
 
 export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
   // Keep screen awake during workouts & timers (Section 6.5)
@@ -212,10 +227,10 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
 
               <View style={[styles.chipRow, { marginTop: 10 }]}>
                 {EXERCISES.map((ex) => {
-                  const active = selectedExercise === ex;
+                  const active = selectedExercise === ex.id;
                   return (
                     <AnimatedPressable
-                      key={ex}
+                      key={ex.id}
                       reduceMotion={reduceMotion}
                       style={[
                         styles.chip,
@@ -224,7 +239,7 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                           borderColor: active ? theme.workout : theme.border,
                         },
                       ]}
-                      onPress={() => setSelectedExercise(ex)}
+                      onPress={() => setSelectedExercise(ex.id)}
                     >
                       <Text
                         style={{
@@ -233,7 +248,7 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                           fontSize: 12,
                         }}
                       >
-                        {ex}
+                        {isTh ? `${ex.th} (${ex.en})` : ex.en}
                       </Text>
                     </AnimatedPressable>
                   );
@@ -267,7 +282,7 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                 ]}
               >
                 <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '700' }}>
-                  {selectedExercise} · Set #{loggedSets.length + 1}
+                  {getExerciseDisplayName(selectedExercise, isTh)} · {isTh ? `เซตที่ #${loggedSets.length + 1}` : `Set #${loggedSets.length + 1}`}
                 </Text>
                 <AnimatedNumberText
                   value={currentReps}
@@ -348,7 +363,7 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                   </Text>
                   {loggedSets.map((s, idx) => (
                     <Text key={idx} style={{ color: theme.textSecondary, fontSize: 13, marginBottom: 2 }}>
-                      • Set #{s.setIndex}: {s.exerciseName} — {s.reps} reps
+                      • {isTh ? `เซตที่ #${s.setIndex}` : `Set #${s.setIndex}`}: {getExerciseDisplayName(s.exerciseName, isTh)} — {s.reps} reps
                     </Text>
                   ))}
 
@@ -393,7 +408,7 @@ export const TrainScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                     onPress={() => {
                       const estDurationSec = Math.max(300, loggedSets.length * 180);
                       logWorkout(
-                        `${selectedExercise} (${loggedSets.length} sets)`,
+                        `${getExerciseDisplayName(selectedExercise, isTh)} (${loggedSets.length} sets)`,
                         {
                           workoutType: 'strength',
                           durationSec: estDurationSec,

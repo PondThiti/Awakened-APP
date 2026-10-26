@@ -117,6 +117,8 @@ export interface NotificationSettings {
   permissionAsked: boolean;
   morningReminderEnabled: boolean;
   morningReminderTime: string; // 'HH:MM'
+  noonReminderEnabled?: boolean;
+  noonReminderTime?: string; // 'HH:MM'
   eveningReminderEnabled: boolean;
   eveningReminderTime: string; // 'HH:MM'
 }
@@ -137,6 +139,7 @@ export interface UserProfile {
   alarm?: AlarmSettings;
   totalXp: number;
   waterGoalMl: number;
+  dailyCalorieTarget?: number;
   weeklyGoalDays: number;
   weekStartDay: number; // 1 = Monday
   longestStreak: number;

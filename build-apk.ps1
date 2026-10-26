@@ -13,7 +13,7 @@ $env:GRADLE_USER_HOME = $gradleHome
 $env:GRADLE_OPTS = "-Djava.net.preferIPv4Stack=true"
 $env:PATH = "$jdkDir\bin;$sdkDir\platform-tools;$env:PATH"
 
-$appVersion = "0.10.2"
+$appVersion = "0.10.3"
 Write-Host "Building Awakened v$appVersion Release APK (strictly isolated in project folder)..."
 Push-Location (Join-Path $projectRoot "android")
 try {
@@ -27,27 +27,22 @@ try {
 
 $apkSource = Join-Path $projectRoot "android\app\build\outputs\apk\release\app-release.apk"
 $apkDest = Join-Path $projectRoot "Awakened-$appVersion.apk"
-$legacyApks = @(
-  (Join-Path $projectRoot "Awakened.apk"),
-  (Join-Path $projectRoot "Awakened-0-9-4a.apk"),
-  (Join-Path $projectRoot "Awakened-Life-RPG.apk")
-)
 
 if (Test-Path $apkSource) {
+  # Clean up old APKs in project root
+  Get-ChildItem -Path $projectRoot -Filter "Awakened*.apk" | Where-Object { $_.Name -ne "Awakened-$appVersion.apk" } | Remove-Item -Force
   Copy-Item -Path $apkSource -Destination $apkDest -Force
-  foreach ($oldApk in $legacyApks) {
-    if (Test-Path $oldApk) {
-      Remove-Item -Path $oldApk -Force
-    }
-  }
+
   $sizeMb = [Math]::Round((Get-Item $apkDest).Length / 1MB, 2)
   Write-Host "[OK] APK Built Successfully: $apkDest ($sizeMb MB)"
 
   $phoneAppDir = "C:\Users\zeroy\Desktop\MyProject\Apps\PhoneApp"
   if (Test-Path $phoneAppDir) {
+    # Delete old APK versions from PhoneApp folder
+    Get-ChildItem -Path $phoneAppDir -Filter "Awakened*.apk" | Remove-Item -Force
     $phoneAppDest = Join-Path $phoneAppDir "Awakened-$appVersion.apk"
     Copy-Item -Path $apkSource -Destination $phoneAppDest -Force
-    Write-Host "[OK] Copied APK to PhoneApp folder: $phoneAppDest"
+    Write-Host "[OK] Copied APK to PhoneApp folder: $phoneAppDest (removed older versions)"
   }
 } else {
   throw "APK output not found at $apkSource"

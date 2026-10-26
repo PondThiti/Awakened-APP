@@ -135,6 +135,8 @@ const DEFAULT_PROFILE: UserProfile = {
     permissionAsked: false,
     morningReminderEnabled: true,
     morningReminderTime: '08:00',
+    noonReminderEnabled: true,
+    noonReminderTime: '12:00',
     eveningReminderEnabled: true,
     eveningReminderTime: '20:00',
   },
@@ -2145,13 +2147,32 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     ).size;
   }, [db.achievementsUnlocked]);
 
+  const unlockedTrophyCounts = useMemo(() => {
+    const allAch = achievementsJson.achievements as AchievementDef[];
+    const unlockedSet = new Set(db.achievementsUnlocked.map((u) => u.achievementId));
+    let bronze = 0;
+    let silver = 0;
+    let gold = 0;
+    let legend = 0;
+    for (const a of allAch) {
+      if (unlockedSet.has(a.id)) {
+        if (a.tier === 'bronze') bronze++;
+        else if (a.tier === 'silver') silver++;
+        else if (a.tier === 'gold') gold++;
+        else if (a.tier === 'legend') legend++;
+      }
+    }
+    return { bronze, silver, gold, legend };
+  }, [db.achievementsUnlocked]);
+
   const { currentRank, nextRank, monarchEligibility } = useMemo(
     () =>
       getRankForLevel(levelState.level, {
         totalActiveDays: todayMetrics.total_active_days,
         unlockedBadgeCategoriesCount: unlockedCategoriesCount,
+        trophiesByTier: unlockedTrophyCounts,
       }),
-    [levelState.level, todayMetrics.total_active_days, unlockedCategoriesCount]
+    [levelState.level, todayMetrics.total_active_days, unlockedCategoriesCount, unlockedTrophyCounts]
   );
 
   const todayQuests = db.dailyQuestsByDay[todayKey] ?? [];
@@ -2253,12 +2274,43 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       restDay: Boolean(isRest),
       questsDone: doneQuests,
       questsTotal: todayQuests.length,
+      questList: todayQuests.slice(0, 5).map((q) => ({
+        title:
+          db.profile.language === 'th'
+            ? q.template.title_th || q.template.title_en
+            : q.template.title_en,
+        status: q.status,
+        progress: q.progress,
+        target: q.target,
+        done: q.status === 'completed',
+      })),
       waterMl: todayMetrics.water_ml,
       waterGoal: db.profile.waterGoalMl,
       kcal: dailyNutrition.kcal,
+      kcalGoal: db.profile.dailyCalorieTarget || 2000,
+      carbsG: dailyNutrition.carbsG,
+      proteinG: dailyNutrition.proteinG,
+      fatG: dailyNutrition.fatG,
       streak: streakState.currentStreak,
       trophiesDone: db.achievementsUnlocked.length,
+      trophiesTotal: 199,
+      bronzeDone: unlockedTrophyCounts.bronze,
+      silverDone: unlockedTrophyCounts.silver,
+      goldDone: unlockedTrophyCounts.gold,
+      legendDone: unlockedTrophyCounts.legend,
       alarmTime: db.profile.alarm?.enabled ? db.profile.alarm.time : '',
+      morningReminderTime:
+        db.profile.notifications?.enabled && db.profile.notifications?.morningReminderEnabled
+          ? db.profile.notifications.morningReminderTime || '08:00'
+          : '',
+      noonReminderTime:
+        db.profile.notifications?.enabled && db.profile.notifications?.noonReminderEnabled
+          ? db.profile.notifications.noonReminderTime || '12:00'
+          : '',
+      eveningReminderTime:
+        db.profile.notifications?.enabled && db.profile.notifications?.eveningReminderEnabled
+          ? db.profile.notifications.eveningReminderTime || '20:00'
+          : '',
     });
   }, [
     isLoaded,
@@ -2268,22 +2320,35 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     db.profile.avatarUri,
     db.profile.alarm?.enabled,
     db.profile.alarm?.time,
+    db.profile.notifications?.enabled,
+    db.profile.notifications?.morningReminderEnabled,
+    db.profile.notifications?.morningReminderTime,
+    db.profile.notifications?.noonReminderEnabled,
+    db.profile.notifications?.noonReminderTime,
+    db.profile.notifications?.eveningReminderEnabled,
+    db.profile.notifications?.eveningReminderTime,
     db.achievementsUnlocked.length,
+    unlockedTrophyCounts,
     currentRank.id,
     levelState.level,
     levelState.progress,
     todayQuests,
     todayMetrics.water_ml,
     db.profile.waterGoalMl,
+    db.profile.dailyCalorieTarget,
     dailyNutrition.kcal,
+    dailyNutrition.carbsG,
+    dailyNutrition.proteinG,
+    dailyNutrition.fatG,
     streakState.currentStreak,
   ]);
 
-  // Sync notification reminders
+  // Sync notification reminders (เช้า เที่ยง เย็น)
   useEffect(() => {
     if (!isLoaded) return;
     const notifs = db.profile.notifications;
     if (notifs?.enabled) {
+      // 1. Morning reminder (เช้า)
       if (notifs.morningReminderEnabled) {
         const [h, m] = (notifs.morningReminderTime || '08:00').split(':').map(Number);
         scheduleReminder(
@@ -2299,6 +2364,7 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       } else {
         cancelReminder(1);
       }
+      // 2. Evening reminder (เย็น)
       if (notifs.eveningReminderEnabled) {
         const [h, m] = (notifs.eveningReminderTime || '20:00').split(':').map(Number);
         scheduleReminder(
@@ -2314,9 +2380,26 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       } else {
         cancelReminder(2);
       }
+      // 3. Noon reminder (เที่ยง)
+      if (notifs.noonReminderEnabled) {
+        const [h, m] = (notifs.noonReminderTime || '12:00').split(':').map(Number);
+        scheduleReminder(
+          3,
+          h || 12,
+          m || 0,
+          db.profile.language === 'th' ? 'พักเที่ยง & เช็กความคืบหน้าเควส' : 'Midday Quest Check-in',
+          db.profile.language === 'th'
+            ? `พักเที่ยงแล้ว ${db.profile.displayName} เติมพลังแล้วแวะมาเช็กเควสประจำวันกันเถอะ`
+            : `Midday check-in ${db.profile.displayName}! Fuel up and check your daily quest progress.`,
+          false
+        );
+      } else {
+        cancelReminder(3);
+      }
     } else {
       cancelReminder(1);
       cancelReminder(2);
+      cancelReminder(3);
     }
   }, [
     isLoaded,

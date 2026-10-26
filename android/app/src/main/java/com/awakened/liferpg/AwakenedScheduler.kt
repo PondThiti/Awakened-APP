@@ -20,9 +20,57 @@ import org.json.JSONObject
 import java.util.Calendar
 
 /** Reminder / alarm-clock scheduling + notification posting helpers. */
+object AwakenedAlarmPlayer {
+  private var activeRingtone: android.media.Ringtone? = null
+  private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+  private val stopRunnable = Runnable { stop() }
+
+  @Synchronized
+  fun play(context: Context, durationMs: Long = 60_000L) {
+    try {
+      stop()
+      val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+      val r = RingtoneManager.getRingtone(context.applicationContext, alarmUri)
+      if (r != null) {
+        if (Build.VERSION.SDK_INT >= 21) {
+          r.audioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        } else {
+          @Suppress("DEPRECATION")
+          r.streamType = android.media.AudioManager.STREAM_ALARM
+        }
+        r.play()
+        activeRingtone = r
+        handler.removeCallbacks(stopRunnable)
+        if (durationMs > 0) {
+          handler.postDelayed(stopRunnable, durationMs)
+        }
+      }
+    } catch (_: Throwable) {
+    }
+  }
+
+  @Synchronized
+  fun stop() {
+    try {
+      handler.removeCallbacks(stopRunnable)
+      activeRingtone?.stop()
+      activeRingtone = null
+    } catch (_: Throwable) {
+    }
+  }
+
+  @Synchronized
+  fun isPlaying(): Boolean = activeRingtone?.isPlaying == true
+}
+
 object AwakenedScheduler {
   const val CHANNEL_REMINDERS = "awakened_reminders"
-  const val CHANNEL_ALARM = "awakened_alarm"
+  const val CHANNEL_ALARM = "awakened_alarm_v3"
 
   const val ACTION_REMINDER = "com.awakened.liferpg.action.REMINDER"
   const val ACTION_ALARM = "com.awakened.liferpg.action.ALARM"
@@ -299,6 +347,7 @@ object AwakenedScheduler {
 
   fun cancelAlarm(context: Context) {
     try {
+      AwakenedAlarmPlayer.stop()
       val am = alarmManager(context)
       val main = alarmPendingIntent(context)
       am.cancel(main)
@@ -317,6 +366,7 @@ object AwakenedScheduler {
   }
 
   fun scheduleSnooze(context: Context, title: String?, body: String?, snoozeLabel: String?) {
+    AwakenedAlarmPlayer.stop()
     val triggerAt = System.currentTimeMillis() + SNOOZE_MS
     val info = AlarmManager.AlarmClockInfo(
       triggerAt,
@@ -330,6 +380,7 @@ object AwakenedScheduler {
 
   fun cancelAlarmNotification(context: Context) {
     try {
+      AwakenedAlarmPlayer.stop()
       (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
         .cancel(ALARM_NOTIFICATION_ID)
     } catch (_: Throwable) {
@@ -455,6 +506,7 @@ object AwakenedScheduler {
     val notification = builder.build()
     notification.flags = notification.flags or Notification.FLAG_INSISTENT
     notificationManager(context).notify(ALARM_NOTIFICATION_ID, notification)
+    AwakenedAlarmPlayer.play(context, 60_000L)
   }
 
   fun defaultSnoozeLabel(): String = DEFAULT_SNOOZE_LABEL

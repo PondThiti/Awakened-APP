@@ -13,6 +13,15 @@ class MainActivity : ReactActivity() {
     super.onCreate(null)
   }
 
+  override fun onStart() {
+    super.onStart()
+    try {
+      AwakenedAlarmPlayer.stop()
+      AwakenedScheduler.cancelAlarmNotification(this)
+    } catch (_: Throwable) {
+    }
+  }
+
   override fun getMainComponentName(): String = "main"
 
   override fun createReactActivityDelegate(): ReactActivityDelegate =

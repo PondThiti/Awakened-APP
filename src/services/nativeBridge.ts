@@ -28,8 +28,9 @@ interface AwakenedNativeApi {
     snoozeLabel: string
   ): void;
   cancelAlarm(): void;
+  testAlarmSound(play: boolean): void;
   updateWidgetData(json: string): void;
-  requestPinWidget(): Promise<boolean>;
+  requestPinWidget(type?: string): Promise<boolean>;
   pickProfileImage(): Promise<string | null>;
   requestPinShortcut(label: string, avatarPath: string | null): Promise<boolean>;
   copyToClipboard(text: string): void;
@@ -120,6 +121,14 @@ export function cancelAlarm(): void {
   }
 }
 
+export function testAlarmSound(play: boolean): void {
+  try {
+    getNative()?.testAlarmSound?.(play);
+  } catch {
+    // ignore
+  }
+}
+
 export function updateWidgetData(payload: Record<string, unknown>): void {
   try {
     getNative()?.updateWidgetData?.(JSON.stringify(payload));
@@ -128,9 +137,12 @@ export function updateWidgetData(payload: Record<string, unknown>): void {
   }
 }
 
-export async function requestPinWidget(): Promise<boolean> {
+export async function requestPinWidget(
+  type: 'all' | 'quests' | 'clock' | 'calorie' | 'trophy' = 'all'
+): Promise<boolean> {
   const n = getNative();
-  return safe(n?.requestPinWidget?.bind(n), false);
+  if (!n?.requestPinWidget) return false;
+  return safe(() => n.requestPinWidget!(type), false);
 }
 
 /** Opens the system gallery, returns a `file://` URI of a square 512px copy, or null. */
