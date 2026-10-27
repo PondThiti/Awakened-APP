@@ -1,6 +1,19 @@
 import { NativeModules, Platform, Vibration } from 'react-native';
 
 /**
+ * Light selection haptic feedback for carousels, tabs, and interactive controls.
+ * Uses React Native's built-in Vibration API so zero external native modules are required.
+ */
+export function triggerSelectionHaptic(soundEnabled: boolean = true): void {
+  if (!soundEnabled || Platform.OS === 'web') return;
+  try {
+    Vibration.vibrate(12);
+  } catch {
+    // Ignore if device doesn't support vibration
+  }
+}
+
+/**
  * Sound & Haptics Service (Section 6.9 & 15)
  * Uses native Android ToneGenerator + Vibration on Android APK,
  * and Web Audio API synthesizer on Web, requiring zero external audio files

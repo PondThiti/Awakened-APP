@@ -392,13 +392,34 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setDb((prev) => ({
             ...prev,
             ...parsed,
-            profile: { ...DEFAULT_PROFILE, ...parsed.profile },
+            profile: { ...DEFAULT_PROFILE, ...(parsed.profile ?? {}) },
             onboarding: mergedOnboarding,
             playerStats:
               parsed.playerStats ?? calculateInitialStats(mergedOnboarding),
+            activities: Array.isArray(parsed.activities) ? parsed.activities : prev.activities,
+            xpEvents: Array.isArray(parsed.xpEvents) ? parsed.xpEvents : prev.xpEvents,
+            dailyQuestsByDay: parsed.dailyQuestsByDay ?? prev.dailyQuestsByDay,
             manualDailyQuestDoneByDay: parsed.manualDailyQuestDoneByDay ?? {},
+            weeklyQuestsByWeek: parsed.weeklyQuestsByWeek ?? prev.weeklyQuestsByWeek,
+            milestoneQuests: Array.isArray(parsed.milestoneQuests)
+              ? parsed.milestoneQuests
+              : prev.milestoneQuests,
+            personalQuestTemplates: Array.isArray(parsed.personalQuestTemplates)
+              ? parsed.personalQuestTemplates
+              : prev.personalQuestTemplates,
+            personalQuestDoneByDay: parsed.personalQuestDoneByDay ?? {},
+            trainingPlan: Array.isArray(parsed.trainingPlan)
+              ? parsed.trainingPlan
+              : prev.trainingPlan,
+            journals: Array.isArray(parsed.journals) ? parsed.journals : prev.journals,
+            moods: Array.isArray(parsed.moods) ? parsed.moods : prev.moods,
+            achievementsUnlocked: Array.isArray(parsed.achievementsUnlocked)
+              ? parsed.achievementsUnlocked
+              : prev.achievementsUnlocked,
             metricCounters: parsed.metricCounters ?? { tabs_visited: 1 },
-            visitedTabs: parsed.visitedTabs ?? ['home'],
+            visitedTabs: Array.isArray(parsed.visitedTabs) ? parsed.visitedTabs : ['home'],
+            streakLogs: parsed.streakLogs ?? {},
+            customFoods: Array.isArray(parsed.customFoods) ? parsed.customFoods : [],
           }));
         }
       } catch {

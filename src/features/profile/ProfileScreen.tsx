@@ -13,7 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { triggerSelectionHaptic } from '../../services/soundService';
 import {
   copyToClipboard,
   getDeviceRegion,
@@ -216,7 +216,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
       );
       setCarouselRankIdx(idx);
       setTimeout(() => {
-        rankFlatListRef.current?.scrollToOffset({
+        rankFlatListRef.current?.scrollToOffset?.({
           offset: idx * RANK_SNAP_INTERVAL,
           animated: !reduceMotion,
         });
@@ -1485,7 +1485,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
               const clamped = Math.max(0, Math.min(ranksToShow.length - 1, idx));
               if (clamped !== carouselRankIdx) {
                 setCarouselRankIdx(clamped);
-                Haptics.selectionAsync().catch(() => {});
+                triggerSelectionHaptic(db.profile.soundEnabled);
               }
             }}
             renderItem={({ item: r, index }) => {
@@ -1745,8 +1745,8 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                   key={r.id}
                   onPress={() => {
                     setCarouselRankIdx(idx);
-                    Haptics.selectionAsync().catch(() => {});
-                    rankFlatListRef.current?.scrollToOffset({
+                    triggerSelectionHaptic(db.profile.soundEnabled);
+                    rankFlatListRef.current?.scrollToOffset?.({
                       offset: idx * RANK_SNAP_INTERVAL,
                       animated: !reduceMotion,
                     });
