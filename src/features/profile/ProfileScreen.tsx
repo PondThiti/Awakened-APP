@@ -58,6 +58,7 @@ import {
   isAppLockEnabled,
   verifyPin,
 } from '../../core/utils/pinSecurity';
+import { BankPinDots, BankPinPad } from '../components/AppLockScreen';
 import { RankBadge, ScreenHeader, XpBar } from '../components/SystemSharedComponents';
 import { AppIcon } from '../components/AppIcons';
 import {
@@ -4028,80 +4029,66 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                 </View>
 
                 {!pinVerified ? (
-                  <View>
-                    <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 8 }}>
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '700', marginBottom: 6, textAlign: 'center' }}>
                       {isTh
-                        ? `กรุณากรอกรหัส PIN ปัจจุบัน (${db.profile.appLockPinLength ?? 4} หลัก) เพื่อดำเนินการ:`
-                        : `Enter your current ${db.profile.appLockPinLength ?? 4}-digit PIN to manage:`}
+                        ? `กรอกรหัส PIN ปัจจุบัน (${db.profile.appLockPinLength ?? 4} หลัก)`
+                        : `Enter current ${db.profile.appLockPinLength ?? 4}-digit PIN`}
                     </Text>
 
-                    {/* PIN Dots */}
-                    <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'center', marginVertical: 10 }}>
-                      {Array.from({ length: db.profile.appLockPinLength ?? 4 }).map((_, idx) => (
-                        <View
-                          key={idx}
-                          style={{
-                            width: 14,
-                            height: 14,
-                            borderRadius: 7,
-                            backgroundColor: verifyCurrentPin.length > idx ? theme.primary : 'transparent',
-                            borderWidth: 1.5,
-                            borderColor: verifyCurrentPin.length > idx ? theme.primary : theme.border,
-                          }}
-                        />
-                      ))}
-                    </View>
+                    <BankPinDots
+                      pinLength={(db.profile.appLockPinLength ?? 4) as 4 | 6}
+                      filledCount={verifyCurrentPin.length}
+                      theme={theme}
+                      isError={Boolean(appLockError)}
+                      size={14}
+                    />
 
-                    {appLockError && (
-                      <Text style={{ color: theme.danger, fontSize: 11, fontWeight: '700', textAlign: 'center', marginBottom: 6 }}>
+                    {appLockError ? (
+                      <Text style={{ color: theme.danger, fontSize: 11, fontWeight: '700', textAlign: 'center', marginVertical: 4 }}>
                         {appLockError}
                       </Text>
+                    ) : (
+                      <View style={{ height: 18 }} />
                     )}
 
-                    {/* Compact keypad */}
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginVertical: 8 }}>
-                      {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map((k) => {
-                        const targetLen = db.profile.appLockPinLength ?? 4;
-                        return (
-                          <Pressable
-                            key={k}
-                            style={{
-                              width: 58,
-                              height: 44,
-                              borderRadius: 8,
-                              backgroundColor: theme.bgSecondary,
-                              borderWidth: 1,
-                              borderColor: theme.border,
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                            onPress={() => {
-                              setAppLockError(null);
-                              if (k === 'C') {
+                    <View style={{ marginVertical: 6 }}>
+                      <BankPinPad
+                        compact
+                        theme={theme}
+                        soundEnabled={db.profile.soundEnabled}
+                        leftActionType="clear"
+                        leftActionLabel={isTh ? 'ล้าง' : 'Clear'}
+                        onLeftActionPress={() => {
+                          setAppLockError(null);
+                          setVerifyCurrentPin('');
+                        }}
+                        onDeletePress={() => {
+                          setAppLockError(null);
+                          setVerifyCurrentPin((p) => p.slice(0, -1));
+                        }}
+                        onClearLongPress={() => {
+                          setAppLockError(null);
+                          setVerifyCurrentPin('');
+                        }}
+                        onDigitPress={(digit) => {
+                          const targetLen = db.profile.appLockPinLength ?? 4;
+                          setAppLockError(null);
+                          const next = verifyCurrentPin + digit;
+                          if (next.length <= targetLen) {
+                            setVerifyCurrentPin(next);
+                            if (next.length === targetLen) {
+                              if (verifyPin(next, db.profile)) {
+                                setPinVerified(true);
                                 setVerifyCurrentPin('');
-                              } else if (k === '⌫') {
-                                setVerifyCurrentPin((p) => p.slice(0, -1));
                               } else {
-                                const next = verifyCurrentPin + k;
-                                if (next.length <= targetLen) {
-                                  setVerifyCurrentPin(next);
-                                  if (next.length === targetLen) {
-                                    if (verifyPin(next, db.profile)) {
-                                      setPinVerified(true);
-                                      setVerifyCurrentPin('');
-                                    } else {
-                                      setAppLockError(isTh ? 'รหัส PIN ไม่ถูกต้อง' : 'Incorrect PIN');
-                                      setTimeout(() => setVerifyCurrentPin(''), 500);
-                                    }
-                                  }
-                                }
+                                setAppLockError(isTh ? 'รหัส PIN ไม่ถูกต้อง' : 'Incorrect PIN');
+                                setTimeout(() => setVerifyCurrentPin(''), 450);
                               }
-                            }}
-                          >
-                            <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>{k}</Text>
-                          </Pressable>
-                        );
-                      })}
+                            }
+                          }
+                        }}
+                      />
                     </View>
                   </View>
                 ) : (
@@ -4368,123 +4355,115 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                   </View>
                 )}
 
-                <Text style={{ color: theme.textSecondary, fontSize: 12, textAlign: 'center' }}>
+                <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '700', textAlign: 'center', marginBottom: 4 }}>
                   {appLockStep === 'enter_pin'
                     ? isTh
-                      ? `กำหนดรหัส PIN ${appLockPinLenChoice} หลักใหม่:`
-                      : `Enter new ${appLockPinLenChoice}-digit PIN:`
+                      ? `กำหนดรหัส PIN ${appLockPinLenChoice} หลักใหม่`
+                      : `Enter new ${appLockPinLenChoice}-digit PIN`
                     : isTh
-                    ? `ยืนยันรหัส PIN ${appLockPinLenChoice} หลักอีกครั้ง:`
-                    : `Confirm new ${appLockPinLenChoice}-digit PIN:`}
+                    ? `ยืนยันรหัส PIN ${appLockPinLenChoice} หลักอีกครั้ง`
+                    : `Confirm new ${appLockPinLenChoice}-digit PIN`}
                 </Text>
 
-                {/* PIN Dots */}
-                <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'center', marginVertical: 14 }}>
-                  {Array.from({ length: appLockPinLenChoice }).map((_, idx) => {
-                    const currentPinStr = appLockStep === 'enter_pin' ? appLockInputPin : appLockConfirmPin;
-                    return (
-                      <View
-                        key={idx}
-                        style={{
-                          width: 16,
-                          height: 16,
-                          borderRadius: 8,
-                          backgroundColor: currentPinStr.length > idx ? theme.primary : 'transparent',
-                          borderWidth: 2,
-                          borderColor: currentPinStr.length > idx ? theme.primary : theme.border,
-                        }}
-                      />
-                    );
-                  })}
-                </View>
+                {/* Banking-Style PIN Dots */}
+                <BankPinDots
+                  pinLength={appLockPinLenChoice}
+                  filledCount={
+                    (appLockStep === 'enter_pin' ? appLockInputPin : appLockConfirmPin).length
+                  }
+                  theme={theme}
+                  isError={Boolean(appLockError)}
+                  size={14}
+                />
 
-                {appLockError && (
-                  <Text style={{ color: theme.danger, fontSize: 11, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>
+                {appLockError ? (
+                  <Text style={{ color: theme.danger, fontSize: 11, fontWeight: '700', textAlign: 'center', marginVertical: 4 }}>
                     {appLockError}
                   </Text>
-                )}
-
-                {appLockSuccessMsg && (
-                  <Text style={{ color: theme.success, fontSize: 12, fontWeight: '800', textAlign: 'center', marginBottom: 8 }}>
+                ) : appLockSuccessMsg ? (
+                  <Text style={{ color: theme.success, fontSize: 12, fontWeight: '800', textAlign: 'center', marginVertical: 4 }}>
                     {appLockSuccessMsg}
                   </Text>
+                ) : (
+                  <View style={{ height: 18 }} />
                 )}
 
-                {/* Keypad */}
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginVertical: 8 }}>
-                  {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map((k) => (
-                    <Pressable
-                      key={k}
-                      style={{
-                        width: 58,
-                        height: 46,
-                        borderRadius: 8,
-                        backgroundColor: theme.bgSecondary,
-                        borderWidth: 1,
-                        borderColor: theme.border,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                      onPress={() => {
-                        setAppLockError(null);
-                        if (appLockStep === 'enter_pin') {
-                          if (k === 'C') {
-                            setAppLockInputPin('');
-                          } else if (k === '⌫') {
-                            setAppLockInputPin((p) => p.slice(0, -1));
-                          } else {
-                            const next = appLockInputPin + k;
-                            if (next.length <= appLockPinLenChoice) {
-                              setAppLockInputPin(next);
-                              if (next.length === appLockPinLenChoice) {
-                                setTimeout(() => setAppLockStep('confirm_pin'), 150);
-                              }
-                            }
+                {/* Banking-Style 3x4 PIN Keypad */}
+                <View style={{ alignItems: 'center', marginVertical: 6 }}>
+                  <BankPinPad
+                    compact
+                    theme={theme}
+                    soundEnabled={db.profile.soundEnabled}
+                    leftActionType="clear"
+                    leftActionLabel={isTh ? 'ล้าง' : 'Clear'}
+                    onLeftActionPress={() => {
+                      setAppLockError(null);
+                      if (appLockStep === 'enter_pin') {
+                        setAppLockInputPin('');
+                      } else {
+                        setAppLockConfirmPin('');
+                      }
+                    }}
+                    onDeletePress={() => {
+                      setAppLockError(null);
+                      if (appLockStep === 'enter_pin') {
+                        setAppLockInputPin((p) => p.slice(0, -1));
+                      } else {
+                        setAppLockConfirmPin((p) => p.slice(0, -1));
+                      }
+                    }}
+                    onClearLongPress={() => {
+                      setAppLockError(null);
+                      if (appLockStep === 'enter_pin') {
+                        setAppLockInputPin('');
+                      } else {
+                        setAppLockConfirmPin('');
+                      }
+                    }}
+                    onDigitPress={(digit) => {
+                      setAppLockError(null);
+                      if (appLockStep === 'enter_pin') {
+                        const next = appLockInputPin + digit;
+                        if (next.length <= appLockPinLenChoice) {
+                          setAppLockInputPin(next);
+                          if (next.length === appLockPinLenChoice) {
+                            setTimeout(() => setAppLockStep('confirm_pin'), 150);
                           }
-                        } else {
-                          // confirm_pin
-                          if (k === 'C') {
-                            setAppLockConfirmPin('');
-                          } else if (k === '⌫') {
-                            setAppLockConfirmPin((p) => p.slice(0, -1));
-                          } else {
-                            const next = appLockConfirmPin + k;
-                            if (next.length <= appLockPinLenChoice) {
-                              setAppLockConfirmPin(next);
-                              if (next.length === appLockPinLenChoice) {
-                                if (next === appLockInputPin) {
-                                  const salt = generatePinSalt();
-                                  const pinHash = hashPin(appLockInputPin, salt);
-                                  const recoveryCode = generateRecoveryCode();
-                                  updateProfile({
-                                    appLockPin: null,
-                                    appLockPinHash: pinHash,
-                                    appLockSalt: salt,
-                                    appLockPinLength: appLockPinLenChoice,
-                                    appLockRecoveryCode: recoveryCode,
-                                    appLockBiometricEnabled: appLockBiometricOpt,
-                                    appLockFailedAttempts: 0,
-                                    appLockLockedUntilMs: null,
-                                  });
-                                  recordAppEvent('event:applock_set', 1);
-                                  setGeneratedRecoveryCode(recoveryCode);
-                                  setCopiedRecoveryCode(false);
-                                  setAppLockInputPin('');
-                                  setAppLockConfirmPin('');
-                                  setAppLockStep('show_recovery');
-                                } else {
-                                  setAppLockError(isTh ? 'รหัส PIN ไม่ตรงกัน กรุณากรอกใหม่' : 'PINs do not match, try again');
-                                  setTimeout(() => setAppLockConfirmPin(''), 500);
-                                }
-                              }
+                        }
+                      } else {
+                        const next = appLockConfirmPin + digit;
+                        if (next.length <= appLockPinLenChoice) {
+                          setAppLockConfirmPin(next);
+                          if (next.length === appLockPinLenChoice) {
+                            if (next === appLockInputPin) {
+                              const salt = generatePinSalt();
+                              const pinHash = hashPin(appLockInputPin, salt);
+                              const recoveryCode = generateRecoveryCode();
+                              updateProfile({
+                                appLockPin: null,
+                                appLockPinHash: pinHash,
+                                appLockSalt: salt,
+                                appLockPinLength: appLockPinLenChoice,
+                                appLockRecoveryCode: recoveryCode,
+                                appLockBiometricEnabled: appLockBiometricOpt,
+                                appLockFailedAttempts: 0,
+                                appLockLockedUntilMs: null,
+                              });
+                              recordAppEvent('event:applock_set', 1);
+                              setGeneratedRecoveryCode(recoveryCode);
+                              setCopiedRecoveryCode(false);
+                              setAppLockInputPin('');
+                              setAppLockConfirmPin('');
+                              setAppLockStep('show_recovery');
+                            } else {
+                              setAppLockError(isTh ? 'รหัส PIN ไม่ตรงกัน กรุณากรอกใหม่' : 'PINs do not match, try again');
+                              setTimeout(() => setAppLockConfirmPin(''), 450);
                             }
                           }
                         }
-                      }}
-                    >
-                      <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>{k}</Text>
-                    </Pressable>
-                  ))}
+                      }
+                    }}
+                  />
                 </View>
 
                 {/* Back / Cancel button */}

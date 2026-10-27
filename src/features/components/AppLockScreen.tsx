@@ -23,7 +23,280 @@ import {
   authenticateBiometric,
   canAuthenticateBiometric,
 } from '../../services/nativeBridge';
-import { playSystemFeedback } from '../../services/soundService';
+import { playSystemFeedback, triggerSelectionHaptic } from '../../services/soundService';
+
+export interface BankPinDotsProps {
+  pinLength: 4 | 6;
+  filledCount: number;
+  theme: AppTheme;
+  isError?: boolean;
+  shakeAnim?: Animated.Value;
+  size?: number;
+}
+
+/**
+ * Standard Banking-App style PIN indicator dots (4 or 6 dots).
+ */
+export const BankPinDots: React.FC<BankPinDotsProps> = ({
+  pinLength,
+  filledCount,
+  theme,
+  isError = false,
+  shakeAnim,
+  size = 16,
+}) => {
+  const dots = Array.from({ length: pinLength }, (_, i) => i);
+  const Container: any = shakeAnim ? Animated.View : View;
+
+  return (
+    <Container
+      style={[
+        styles.pinDotsRow,
+        shakeAnim ? { transform: [{ translateX: shakeAnim }] } : null,
+      ]}
+    >
+      {dots.map((index) => {
+        const filled = filledCount > index;
+        const activeColor = isError ? theme.danger : theme.primary;
+        return (
+          <View
+            key={index}
+            style={[
+              styles.pinDotOuter,
+              {
+                width: size + 8,
+                height: size + 8,
+                borderRadius: (size + 8) / 2,
+                backgroundColor: filled ? `${activeColor}22` : 'transparent',
+              },
+            ]}
+          >
+            <View
+              style={{
+                width: size,
+                height: size,
+                borderRadius: size / 2,
+                backgroundColor: filled ? activeColor : 'transparent',
+                borderWidth: 2,
+                borderColor: isError
+                  ? theme.danger
+                  : filled
+                  ? activeColor
+                  : theme.textMuted,
+              }}
+            />
+          </View>
+        );
+      })}
+    </Container>
+  );
+};
+
+export interface BankPinPadProps {
+  onDigitPress: (digit: string) => void;
+  onDeletePress: () => void;
+  onClearLongPress?: () => void;
+  leftActionType?: 'biometric' | 'forgot' | 'clear' | 'none';
+  leftActionLabel?: string;
+  onLeftActionPress?: () => void;
+  disabled?: boolean;
+  compact?: boolean;
+  theme: AppTheme;
+  soundEnabled?: boolean;
+}
+
+const KEYPAD_ROWS: readonly (readonly string[])[] = [
+  ['1', '2', '3'],
+  ['4', '5', '6'],
+  ['7', '8', '9'],
+];
+
+/**
+ * Authentic Banking-Style 3x4 Numeric PIN Keypad (like K PLUS / SCB EASY).
+ * Strictly 3 columns per row:
+ *   1  2  3
+ *   4  5  6
+ *   7  8  9
+ *  [L] 0 [⌫]
+ */
+export const BankPinPad: React.FC<BankPinPadProps> = ({
+  onDigitPress,
+  onDeletePress,
+  onClearLongPress,
+  leftActionType = 'none',
+  leftActionLabel,
+  onLeftActionPress,
+  disabled = false,
+  compact = false,
+  theme,
+  soundEnabled = true,
+}) => {
+  const btnSize = compact ? 64 : 76;
+  const numFontSize = compact ? 25 : 29;
+  const rowGap = compact ? 12 : 16;
+  const colGap = compact ? 22 : 28;
+
+  const renderDigitButton = (digit: string) => (
+    <Pressable
+      key={digit}
+      disabled={disabled}
+      onPress={() => {
+        triggerSelectionHaptic(soundEnabled);
+        onDigitPress(digit);
+      }}
+      style={({ pressed }) => [
+        styles.bankKeyCircle,
+        {
+          width: btnSize,
+          height: btnSize,
+          borderRadius: btnSize / 2,
+          backgroundColor: pressed
+            ? `${theme.primary}2E`
+            : theme.mode === 'dark'
+            ? 'rgba(255, 255, 255, 0.05)'
+            : 'rgba(15, 23, 42, 0.04)',
+          borderColor: pressed
+            ? theme.primary
+            : theme.mode === 'dark'
+            ? 'rgba(255, 255, 255, 0.16)'
+            : 'rgba(15, 23, 42, 0.15)',
+          transform: [{ scale: pressed ? 0.95 : 1 }],
+        },
+      ]}
+    >
+      {({ pressed }) => (
+        <Text
+          style={[
+            styles.bankKeyDigitText,
+            {
+              fontSize: numFontSize,
+              color: pressed ? theme.primary : theme.text,
+            },
+          ]}
+        >
+          {digit}
+        </Text>
+      )}
+    </Pressable>
+  );
+
+  return (
+    <View
+      style={[
+        styles.bankKeypadWrap,
+        { gap: rowGap },
+        disabled && { opacity: 0.42 },
+      ]}
+    >
+      {KEYPAD_ROWS.map((row, rIdx) => (
+        <View key={rIdx} style={[styles.bankKeypadRow, { gap: colGap }]}>
+          {row.map((digit) => renderDigitButton(digit))}
+        </View>
+      ))}
+
+      {/* Bottom Row: Left Action | 0 | Backspace */}
+      <View style={[styles.bankKeypadRow, { gap: colGap }]}>
+        {/* Left Action Slot */}
+        {leftActionType !== 'none' && onLeftActionPress ? (
+          <Pressable
+            disabled={disabled}
+            onPress={() => {
+              triggerSelectionHaptic(soundEnabled);
+              onLeftActionPress();
+            }}
+            style={({ pressed }) => [
+              styles.bankKeyUtility,
+              {
+                width: btnSize,
+                height: btnSize,
+                borderRadius: btnSize / 2,
+                backgroundColor: pressed ? `${theme.primary}1E` : 'transparent',
+              },
+            ]}
+          >
+            {leftActionType === 'biometric' ? (
+              <View style={{ alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                <AppIcon name="scan" size={compact ? 22 : 26} color={theme.primary} />
+                {leftActionLabel ? (
+                  <Text
+                    style={{
+                      color: theme.primary,
+                      fontSize: 9.5,
+                      fontWeight: '700',
+                    }}
+                    numberOfLines={1}
+                  >
+                    {leftActionLabel}
+                  </Text>
+                ) : null}
+              </View>
+            ) : (
+              <Text
+                style={{
+                  color: theme.textSecondary,
+                  fontSize: compact ? 12 : 13,
+                  fontWeight: '700',
+                  textAlign: 'center',
+                }}
+              >
+                {leftActionLabel || 'ลืมรหัส?'}
+              </Text>
+            )}
+          </Pressable>
+        ) : (
+          <View style={{ width: btnSize, height: btnSize }} />
+        )}
+
+        {/* Center 0 Digit */}
+        {renderDigitButton('0')}
+
+        {/* Right Backspace Slot (Frameless banking backspace icon) */}
+        <Pressable
+          disabled={disabled}
+          onPress={() => {
+            triggerSelectionHaptic(soundEnabled);
+            onDeletePress();
+          }}
+          onLongPress={() => {
+            if (onClearLongPress) {
+              triggerSelectionHaptic(soundEnabled);
+              onClearLongPress();
+            }
+          }}
+          style={({ pressed }) => [
+            styles.bankKeyUtility,
+            {
+              width: btnSize,
+              height: btnSize,
+              borderRadius: btnSize / 2,
+              backgroundColor: pressed ? `${theme.textMuted}22` : 'transparent',
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.backspaceIconBox,
+              {
+                borderColor: theme.textSecondary,
+              },
+            ]}
+          >
+            <Text
+              style={{
+                color: theme.text,
+                fontSize: compact ? 13 : 14,
+                fontWeight: '900',
+                lineHeight: compact ? 15 : 16,
+              }}
+            >
+              ✕
+            </Text>
+          </View>
+        </Pressable>
+      </View>
+    </View>
+  );
+};
 
 interface AppLockScreenProps {
   profile?: UserProfile;
@@ -241,26 +514,31 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({
     onUnlock();
   };
 
-  const keypadNumbers = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
-  const dotsArray = Array.from({ length: pinLength }, (_, i) => i);
+  const openForgotModal = () => {
+    setRecoveryInput('');
+    setRecoveryError(null);
+    setResetStep(0);
+    setResetConfirmText('');
+    setForgotModalOpen(true);
+  };
 
   return (
     <Modal visible animationType="fade" transparent={false}>
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-        <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
+        <StatusBar
+          barStyle={theme.mode === 'dark' ? 'light-content' : 'dark-content'}
+          backgroundColor={theme.bg}
+        />
 
         <View style={styles.headerArea}>
           <View style={styles.avatarWrap}>
             {avatarUri ? (
               <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
             ) : (
-              <AwakenedBrandIcon size={56} />
+              <AwakenedBrandIcon size={58} />
             )}
           </View>
 
-          <Text style={[styles.systemStatus, { color: theme.primary }]}>
-            AWAKENED SYSTEM LOCK
-          </Text>
           <Text style={[styles.hunterName, { color: theme.text }]} numberOfLines={1}>
             {displayName || 'HUNTER'}
           </Text>
@@ -274,41 +552,19 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({
                 ? `⏳ ระบบล็อกชั่วคราว กรุณารออีก ${remainingLockSec} วินาที`
                 : `⏳ Temporarily locked. Please wait ${remainingLockSec}s`
               : isTh
-              ? `กรุณากรอกรหัส PIN ${pinLength} หลักเพื่อเข้าสู่ระบบ`
-              : `Enter ${pinLength}-digit PIN to access system`}
+              ? 'กรุณาใส่รหัส PIN เพื่อเข้าใช้งาน'
+              : 'Enter PIN to unlock'}
           </Text>
 
-          {/* 4 or 6 PIN Dots */}
-          <Animated.View
-            style={[
-              styles.pinDotsRow,
-              { transform: [{ translateX: shakeAnim }] },
-            ]}
-          >
-            {dotsArray.map((index) => {
-              const filled = enteredPin.length > index;
-              return (
-                <View
-                  key={index}
-                  style={[
-                    styles.pinDot,
-                    {
-                      backgroundColor: filled
-                        ? isLockedOut
-                          ? theme.danger
-                          : theme.primary
-                        : 'transparent',
-                      borderColor: isLockedOut
-                        ? theme.danger
-                        : filled
-                        ? theme.primary
-                        : theme.border,
-                    },
-                  ]}
-                />
-              );
-            })}
-          </Animated.View>
+          {/* Banking-Style PIN Dots */}
+          <BankPinDots
+            pinLength={pinLength}
+            filledCount={enteredPin.length}
+            theme={theme}
+            isError={Boolean(errorMsg) || isLockedOut}
+            shakeAnim={shakeAnim}
+            size={15}
+          />
 
           {errorMsg ? (
             <Text style={[styles.errorText, { color: theme.danger }]}>
@@ -319,77 +575,41 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({
           )}
         </View>
 
-        {/* 3x4 Keypad */}
+        {/* Banking-Style 3x4 PIN Keypad */}
         <View style={styles.keypadContainer}>
-          <View style={[styles.keypadGrid, isLockedOut && { opacity: 0.45 }]}>
-            {keypadNumbers.map((num) => (
-              <Pressable
-                key={num}
-                disabled={isLockedOut}
-                style={[
-                  styles.keypadBtn,
-                  { backgroundColor: theme.card, borderColor: theme.border },
-                ]}
-                onPress={() => handleKeyPress(num)}
-              >
-                <Text style={[styles.keypadText, { color: theme.text }]}>
-                  {num}
-                </Text>
-              </Pressable>
-            ))}
-
-            {/* Bottom Row: Biometric, 0, Backspace */}
-            {hasBiometric && biometricEnabled ? (
-              <Pressable
-                disabled={isLockedOut}
-                style={[
-                  styles.keypadBtn,
-                  { backgroundColor: theme.cardElevated, borderColor: theme.border },
-                ]}
-                onPress={handleBiometricAuth}
-              >
-                <AppIcon name="shield" size={24} color={theme.primary} />
-              </Pressable>
-            ) : (
-              <View style={styles.keypadBtnEmpty} />
-            )}
-
-            <Pressable
-              disabled={isLockedOut}
-              style={[
-                styles.keypadBtn,
-                { backgroundColor: theme.card, borderColor: theme.border },
-              ]}
-              onPress={() => handleKeyPress('0')}
-            >
-              <Text style={[styles.keypadText, { color: theme.text }]}>0</Text>
-            </Pressable>
-
-            <Pressable
-              disabled={isLockedOut}
-              style={[
-                styles.keypadBtn,
-                { backgroundColor: theme.cardElevated, borderColor: theme.border },
-              ]}
-              onPress={handleDelete}
-            >
-              <Text style={{ color: theme.textSecondary, fontSize: 18, fontWeight: '800' }}>⌫</Text>
-            </Pressable>
-          </View>
-
-          {/* Forgot PIN Button */}
-          <Pressable
-            style={styles.forgotBtn}
-            onPress={() => {
-              setRecoveryInput('');
-              setRecoveryError(null);
-              setResetStep(0);
-              setResetConfirmText('');
-              setForgotModalOpen(true);
+          <BankPinPad
+            onDigitPress={handleKeyPress}
+            onDeletePress={handleDelete}
+            onClearLongPress={() => {
+              setEnteredPin('');
+              setErrorMsg(null);
             }}
-          >
-            <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '800' }}>
-              {isTh ? 'ลืมรหัส PIN? (กู้คืนด้วย Recovery Code / รีเซ็ต)' : 'Forgot PIN? (Recovery Code / Reset)'}
+            leftActionType={
+              hasBiometric && biometricEnabled ? 'biometric' : 'forgot'
+            }
+            leftActionLabel={
+              hasBiometric && biometricEnabled
+                ? isTh
+                  ? 'สแกน'
+                  : 'Scan'
+                : isTh
+                ? 'ลืมรหัส?'
+                : 'Forgot?'
+            }
+            onLeftActionPress={
+              hasBiometric && biometricEnabled
+                ? handleBiometricAuth
+                : openForgotModal
+            }
+            disabled={isLockedOut}
+            theme={theme}
+            soundEnabled={soundEnabled}
+          />
+
+          {/* Bottom Forgot PIN link */}
+          <Pressable style={styles.forgotBtn} onPress={openForgotModal}>
+            <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '700' }}>
+              {isTh ? 'ลืมรหัส PIN?' : 'Forgot PIN?'}
             </Text>
           </Pressable>
         </View>
@@ -559,42 +779,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingVertical: 20,
+    paddingVertical: 24,
     paddingHorizontal: 20,
   },
   headerArea: {
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 22,
   },
   avatarWrap: {
     marginBottom: 10,
   },
   avatarImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     borderWidth: 2,
     borderColor: '#5B8CFF',
   },
-  systemStatus: {
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 2,
-    marginBottom: 4,
-  },
   hunterName: {
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: 1,
+    fontSize: 21,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   hunterRank: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     marginTop: 2,
   },
   instruction: {
-    fontSize: 13,
-    marginTop: 16,
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 18,
     marginBottom: 14,
     textAlign: 'center',
   },
@@ -602,51 +817,59 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 14,
     justifyContent: 'center',
+    alignItems: 'center',
     marginVertical: 8,
   },
-  pinDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
+  pinDotOuter: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   errorText: {
     fontSize: 12,
     fontWeight: '800',
-    marginTop: 4,
+    marginTop: 6,
     minHeight: 22,
     textAlign: 'center',
   },
   keypadContainer: {
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  keypadGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    width: 280,
-    gap: 14,
-  },
-  keypadBtn: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+  bankKeypadWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    elevation: 2,
   },
-  keypadBtnEmpty: {
-    width: 72,
-    height: 72,
+  bankKeypadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  keypadText: {
-    fontSize: 24,
-    fontWeight: '800',
+  bankKeyCircle: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.2,
+  },
+  bankKeyDigitText: {
+    fontWeight: '600',
+    includeFontPadding: false,
+  },
+  bankKeyUtility: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backspaceIconBox: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderWidth: 1.6,
+    borderTopLeftRadius: 10,
+    borderBottomLeftRadius: 10,
+    borderTopRightRadius: 5,
+    borderBottomRightRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   forgotBtn: {
-    marginTop: 14,
+    marginTop: 16,
     paddingVertical: 8,
     paddingHorizontal: 14,
   },
