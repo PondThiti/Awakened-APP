@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { AppState, DeviceEventEmitter } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import achievementsJson from '../../assets/config/achievements.json';
 import questsJson from '../../assets/config/quests.json';
@@ -40,6 +41,7 @@ import {
   calculateActivityXp,
   canRevertXpOnDelete,
   getCustomActivityKey,
+  reconcileLedgerTotalXp,
   XpActivityKey,
 } from '../core/engine/xpEngine';
 import {
@@ -60,17 +62,25 @@ import {
   getAchievementCatalog,
 } from '../core/engine/achievementEngine';
 import {
+  addDaysToDayKey,
   getCurrentTzOffsetMin,
   getDaysInWeekRange,
   getLocalDayKey,
   getWeekdayOneBased,
   getWeekStartDayKey,
 } from '../core/utils/dateUtils';
-import { evaluateWorkoutPenalty, WorkoutPenaltyResult } from '../core/engine/penaltyEngine';
+import {
+  evaluateWorkoutPenalty,
+  INACTIVITY,
+  settleInactivity,
+  SettleInactivityResult,
+  WorkoutPenaltyResult,
+} from '../core/engine/penaltyEngine';
 import { getDailyNutritionSummary, DailyNutritionSummary } from '../core/engine/nutritionSummary';
 import {
   cancelAlarm,
   cancelReminder,
+  consumePendingWidgetActions,
   scheduleAlarm,
   scheduleReminder,
   updateWidgetData,
@@ -165,6 +175,19 @@ const DEFAULT_PROFILE: UserProfile = {
   selectedTitleId: null,
   featuredBadgeIds: [],
   appLockPin: null,
+  appLockPinLength: 4,
+  appLockPinHash: null,
+  appLockSalt: null,
+  appLockRecoveryCode: null,
+  appLockTimeoutSec: 30,
+  appLockFailedAttempts: 0,
+  appLockLockedUntilMs: null,
+  hideQuestsOnWidgetWhenLocked: false,
+  inactivitySettings: INACTIVITY,
+  vacationUntilDayKey: null,
+  penaltyShields: 1,
+  lastShieldGrantMonth: getLocalDayKey().slice(0, 7),
+  activeComebackQuest: null,
   createdAt: Date.now(),
 };
 
@@ -250,6 +273,20 @@ function createInitialState(): AwakenedDatabaseState {
   };
 }
 
+export interface DeleteActivityPreview {
+  activityId: number;
+  title: string;
+  directXp: number;
+  revertedQuestXp: number;
+  revertedBonusXp: number;
+  totalXpLoss: number;
+  oldTotalXp: number;
+  newTotalXp: number;
+  oldLevel: number;
+  newLevel: number;
+  revertedQuestTitles: string[];
+}
+
 export interface AwakenedContextValue {
   db: AwakenedDatabaseState;
   isLoaded: boolean;
@@ -265,6 +302,7 @@ export interface AwakenedContextValue {
   thisWeekQuests: QuestInstance[];
   dailyNutrition: DailyNutritionSummary;
   workoutPenalty: WorkoutPenaltyResult;
+  inactivityStatus: SettleInactivityResult;
   adaptiveRecommendations: AdaptivePlanRecommendation[];
   dailyRepeatableXpToday: number;
   celebrationQueue: CelebrationEvent[];
@@ -287,12 +325,19 @@ export interface AwakenedContextValue {
     occurredAtMs?: number
   ) => void;
   logRestDayCheckin: (note?: string) => void;
+  previewDeleteActivity: (activityId: number) => DeleteActivityPreview | null;
   deleteActivity: (activityId: number) => { xpReverted: boolean; xpAmount: number };
 
   // Journal & Mood
   saveJournalEntry: (entry: { id?: number; title: string; body: string; category: string }) => void;
   deleteJournalEntry: (id: number) => void;
   logMoodEntry: (moodLevel: number, note: string, tags: string[]) => void;
+  deleteMoodEntry: (id: number) => void;
+
+  // Inactivity & Comeback
+  claimComebackQuest: () => number;
+  dismissComebackQuest: () => void;
+  setVacationMode: (days: number | null) => void;
 
   // Quests & Plan
   swapDailyQuest: (questInstanceId: number) => boolean;
@@ -373,53 +418,102 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(db)).catch(() => {});
   }, [db, isLoaded]);
 
-  // Ensure today's daily quests and this week's weekly quests exist
+  // Ensure today's daily quests, weekly quests, ledger integrity, and inactivity settlement run on load/day change
   useEffect(() => {
     if (!isLoaded) return;
     setDb((prev) => {
       let changed = false;
-      const next = { ...prev };
+      const next: AwakenedDatabaseState = {
+        ...prev,
+        profile: { ...prev.profile },
+      };
 
-      // Grant weekly +1 freeze token if entering a new week (capped at 2)
-      if (prev.profile.lastFreezeGrantWeek !== weekKey) {
+      // 1. Ledger integrity check (Section 6.5): ensure SUM(xpEvents.amount) === profile.totalXp
+      const reconciled = reconcileLedgerTotalXp(next.profile.totalXp, next.xpEvents);
+      if (reconciled.addedOpeningEvent) {
+        next.xpEvents = reconciled.events;
+        changed = true;
+      }
+
+      // 2. Grant weekly +1 freeze token if entering a new week (capped at 2)
+      if (next.profile.lastFreezeGrantWeek !== weekKey) {
         next.profile = {
-          ...prev.profile,
-          freezeTokens: Math.min(2, prev.profile.freezeTokens + 1),
+          ...next.profile,
+          freezeTokens: Math.min(2, next.profile.freezeTokens + 1),
           lastFreezeGrantWeek: weekKey,
         };
         changed = true;
       }
 
-      if (!prev.dailyQuestsByDay[todayKey]) {
+      // 3. Grant monthly +1 Penalty Shield if entering a new month (capped at 3)
+      const monthKey = todayKey.slice(0, 7);
+      if (next.profile.lastShieldGrantMonth !== monthKey) {
+        next.profile = {
+          ...next.profile,
+          penaltyShields: Math.min(3, (next.profile.penaltyShields ?? 1) + 1),
+          lastShieldGrantMonth: monthKey,
+        };
+        changed = true;
+      }
+
+      // 4. Retroactive offline settlement for 30% Inactivity EXP Penalty (Section 1.2)
+      const settleRes = settleInactivity({
+        todayKey,
+        createdAt: next.profile.createdAt,
+        totalXp: next.profile.totalXp,
+        xpEvents: next.xpEvents,
+        trainingPlan: next.trainingPlan,
+        activities: next.activities,
+        dailyQuestsByDay: next.dailyQuestsByDay,
+        streakLogs: next.streakLogs ?? {},
+        restModeToday: next.profile.restModeToday,
+        vacationUntilDayKey: next.profile.vacationUntilDayKey,
+        penaltyShields: next.profile.penaltyShields ?? 0,
+        settings: next.profile.inactivitySettings,
+      });
+
+      if (settleRes.newEvents.length > 0) {
+        next.xpEvents = [...next.xpEvents, ...settleRes.newEvents];
+        next.profile = {
+          ...next.profile,
+          totalXp: settleRes.newTotalXp,
+          penaltyShields: settleRes.shieldsRemaining,
+          activeComebackQuest: settleRes.comebackQuest ?? next.profile.activeComebackQuest ?? null,
+        };
+        changed = true;
+      }
+
+      if (!next.dailyQuestsByDay[todayKey]) {
         const weekday = getWeekdayOneBased(todayKey);
         const planRest =
-          prev.trainingPlan.find((d) => d.weekday === weekday)?.dayType === 'rest' ||
-          prev.profile.restModeToday === todayKey;
+          next.trainingPlan.find((d) => d.weekday === weekday)?.dayType === 'rest' ||
+          next.profile.restModeToday === todayKey;
 
         const penalty = evaluateWorkoutPenalty({
           todayKey,
-          rankId: getRankForLevel(computeLevelState(prev.profile.totalXp).level).currentRank.id,
-          trainingPlan: prev.trainingPlan,
-          activities: prev.activities,
-          dailyQuestsByDay: prev.dailyQuestsByDay,
-          streakLogs: prev.streakLogs ?? {},
-          createdAt: prev.profile.createdAt,
-          onboarding: prev.onboarding,
+          rankId: getRankForLevel(computeLevelState(next.profile.totalXp).level).currentRank.id,
+          trainingPlan: next.trainingPlan,
+          activities: next.activities,
+          dailyQuestsByDay: next.dailyQuestsByDay,
+          streakLogs: next.streakLogs ?? {},
+          createdAt: next.profile.createdAt,
+          onboarding: next.onboarding,
         });
 
         const quests = generateDailyQuestsForDay({
           dayKey: todayKey,
           isRestDay: planRest,
-          availableMinutesPerDay: prev.profile.availableMinutesPerDay,
-          waterGoalMl: prev.profile.waterGoalMl,
-          onboarding: prev.onboarding,
+          availableMinutesPerDay: next.profile.availableMinutesPerDay,
+          waterGoalMl: next.profile.waterGoalMl,
+          onboarding: next.onboarding,
+          missedDaysInRow: settleRes.consecutiveMissedDays,
           penaltyMultiplier: penalty.active ? penalty.multiplier : 1,
         });
-        next.dailyQuestsByDay = { ...prev.dailyQuestsByDay, [todayKey]: quests };
+        next.dailyQuestsByDay = { ...next.dailyQuestsByDay, [todayKey]: quests };
         changed = true;
       }
 
-      if (!prev.weeklyQuestsByWeek[weekKey]) {
+      if (!next.weeklyQuestsByWeek[weekKey]) {
         const weeklyTemplates = (questsJson.quests as QuestTemplate[]).filter(
           (q) => q.type === 'weekly'
         );
@@ -431,12 +525,12 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           progress: 0,
           target:
             tpl.condition.target === 'weekly_goal'
-              ? prev.profile.weeklyGoalDays
+              ? next.profile.weeklyGoalDays
               : Number(tpl.condition.target),
           status: 'available',
           completedAt: null,
         }));
-        next.weeklyQuestsByWeek = { ...prev.weeklyQuestsByWeek, [weekKey]: wQuests };
+        next.weeklyQuestsByWeek = { ...next.weeklyQuestsByWeek, [weekKey]: wQuests };
         changed = true;
       }
 
@@ -445,14 +539,17 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [isLoaded, todayKey, weekKey]);
 
   // Helper to compute metrics from state
-  const computeMetricsForState = (state: AwakenedDatabaseState): {
+  const computeMetricsForState = (
+    state: AwakenedDatabaseState,
+    forDayKey: string = todayKey
+  ): {
     metrics: DailyMetricsSnapshot;
     streak: StreakEvaluationResult;
     dailyRepeatableXp: number;
   } => {
     const activeActivities = state.activities.filter((a) => !a.deletedAt);
     const todayActs = activeActivities.filter(
-      (a) => getLocalDayKey(a.occurredAt, a.tzOffsetMin) === todayKey
+      (a) => getLocalDayKey(a.occurredAt, a.tzOffsetMin) === forDayKey
     );
 
     const waterMl = todayActs
@@ -468,9 +565,9 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       (a) => a.type === 'focus' && a.focusDetail?.completed !== false
     ).length;
     const journalCount = state.journals.filter(
-      (j) => j.entryDate === todayKey && j.body.trim().length >= 20
+      (j) => j.entryDate === forDayKey && j.body.trim().length >= 20
     ).length;
-    const moodCount = state.moods.filter((m) => m.dayKey === todayKey).length;
+    const moodCount = state.moods.filter((m) => m.dayKey === forDayKey).length;
     const restOrStretch = todayActs.filter(
       (a) =>
         a.type === 'rest' ||
@@ -509,7 +606,7 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       weekStartDay: state.profile.weekStartDay,
     });
 
-    const weekDays = new Set(getDaysInWeekRange(todayKey, state.profile.weekStartDay));
+    const weekDays = new Set(getDaysInWeekRange(forDayKey, state.profile.weekStartDay));
     const weeklyFocusMin = activeActivities
       .filter(
         (a) =>
@@ -531,7 +628,7 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       .filter(
         (e) =>
           e.sourceType === 'activity' &&
-          getLocalDayKey(e.occurredAt) === todayKey &&
+          getLocalDayKey(e.occurredAt) === forDayKey &&
           e.amount > 0
       )
       .reduce((sum, e) => sum + e.amount, 0);
@@ -555,7 +652,7 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         activeActivities.length + state.journals.length + state.moods.length,
       longest_streak: streak.longestStreak,
       total_active_days: totalActiveDays,
-      manual_done_ids: state.manualDailyQuestDoneByDay?.[todayKey] ?? [],
+      manual_done_ids: state.manualDailyQuestDoneByDay?.[forDayKey] ?? [],
     };
 
     return { metrics, streak, dailyRepeatableXp };
@@ -694,6 +791,46 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               : 'Your consistency is building real momentum.',
           xpGained: allDailyBonus,
         });
+
+        // Auto-refund 50% Comeback Quest when all daily quests are completed (Section 1.3)
+        const cq = working.profile.activeComebackQuest;
+        if (cq && !cq.claimedAt && cq.refundableXp > 0) {
+          questXpBonusTotal += cq.refundableXp;
+          working.xpEvents = [
+            ...working.xpEvents,
+            {
+              id: now + 1001,
+              amount: cq.refundableXp,
+              sourceType: 'adjust',
+              sourceId: cq.penaltyEventId,
+              reasonKey: 'comeback_quest_refund',
+              configVersion: xpConfigJson.version,
+              occurredAt: now,
+              idemKey: `comeback_refund:${cq.penaltyIdemKey}`,
+              dayKey: todayKey,
+            },
+          ];
+          working.profile = {
+            ...working.profile,
+            activeComebackQuest: {
+              ...cq,
+              claimedAt: now,
+            },
+          };
+          newCelebrations.push({
+            id: `comeback_refund_${now}`,
+            tier: 1,
+            title:
+              working.profile.language === 'th'
+                ? `ภารกิจกู้คืนสำเร็จ! ได้รับคืน +${cq.refundableXp} XP (50%)`
+                : `Comeback Quest Complete! Refunded +${cq.refundableXp} XP (50%)`,
+            subtitle:
+              working.profile.language === 'th'
+                ? 'ยินดีต้อนรับกลับสู่ระบบ ก้าวต่อไปอย่างมั่นคง!'
+                : 'Welcome back to the System. Keep moving forward!',
+            xpGained: cq.refundableXp,
+          });
+        }
       }
       working.dailyQuestsByDay = {
         ...working.dailyQuestsByDay,
@@ -1393,6 +1530,206 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   };
 
+  /**
+   * Computes the full state and XP/Quest/Level rollback when deleting an activity (Section 6).
+   * Always reverts direct XP, water_goal bonus (if dropping below waterGoalMl), any daily/weekly
+   * quests that were completed because of this activity, and the all_daily_completed bonus.
+   */
+  const computeActivityDeleteOutcome = (
+    state: AwakenedDatabaseState,
+    activityId: number,
+    nowMs: number = Date.now()
+  ): {
+    nextState: AwakenedDatabaseState;
+    preview: DeleteActivityPreview;
+  } | null => {
+    const target = state.activities.find((a) => a.id === activityId && !a.deletedAt);
+    if (!target) return null;
+
+    const targetDayKey = getLocalDayKey(target.occurredAt, target.tzOffsetMin);
+    const targetWeekKey = getWeekStartDayKey(targetDayKey, state.profile.weekStartDay);
+
+    const beforeDaySnap = computeMetricsForState(state, targetDayKey);
+    const updatedActivities = state.activities.map((a) =>
+      a.id === activityId ? { ...a, deletedAt: nowMs } : a
+    );
+    const draftAfterAct: AwakenedDatabaseState = {
+      ...state,
+      activities: updatedActivities,
+    };
+    const afterDaySnap = computeMetricsForState(draftAfterAct, targetDayKey);
+
+    let directXp = Math.max(0, target.xpAwarded || 0);
+
+    // If deleting a water log causes daily water to drop below waterGoalMl, also check if
+    // another water log on that day held the +20 water_goal XP while this log was needed to reach it
+    if (
+      target.type === 'water' &&
+      beforeDaySnap.metrics.water_ml >= state.profile.waterGoalMl &&
+      afterDaySnap.metrics.water_ml < state.profile.waterGoalMl
+    ) {
+      const targetHadGoalEvent = state.xpEvents.some(
+        (e) => e.sourceId === activityId && e.reasonKey === 'water_goal' && e.amount > 0
+      );
+      if (!targetHadGoalEvent) {
+        const otherGoalEvent = state.xpEvents.find(
+          (e) =>
+            e.reasonKey === 'water_goal' &&
+            getLocalDayKey(e.occurredAt) === targetDayKey &&
+            e.amount > 0
+        );
+        const alreadyRevertedGoal = state.xpEvents.some(
+          (e) =>
+            e.sourceType === 'revert' &&
+            e.reasonKey === 'revert_water_goal' &&
+            e.dayKey === targetDayKey
+        );
+        if (otherGoalEvent && !alreadyRevertedGoal) {
+          directXp += otherGoalEvent.amount;
+        }
+      }
+    }
+
+    let revertedQuestXp = 0;
+    let revertedBonusXp = 0;
+    const revertedQuestTitles: string[] = [];
+    const nextStats: PlayerStats = {
+      ...(state.playerStats ?? { STR: 10, VIT: 10, INT: 10, WIL: 10 }),
+    };
+
+    const currentDaily = state.dailyQuestsByDay[targetDayKey] ?? [];
+    const prevAllDailyDone =
+      currentDaily.length > 0 && currentDaily.every((q) => q.status === 'completed');
+
+    const updatedDaily = currentDaily.map((q) => {
+      if (q.template.condition.metric === 'manual') {
+        return q;
+      }
+      const resetQuest: QuestInstance = {
+        ...q,
+        progress: 0,
+        status: 'available',
+        completedAt: null,
+      };
+      const reEval = evaluateQuestProgress(resetQuest, afterDaySnap.metrics, nowMs);
+      if (q.status === 'completed' && reEval.updated.status !== 'completed') {
+        revertedQuestXp += q.template.reward_xp;
+        revertedQuestTitles.push(
+          state.profile.language === 'th' ? q.template.title_th : q.template.title_en
+        );
+        const statKeys: PlayerStatKey[] = Array.isArray(q.template.stat)
+          ? q.template.stat
+          : q.template.stat
+          ? [q.template.stat]
+          : q.template.slot === 'body'
+          ? ['STR']
+          : q.template.slot === 'mind'
+          ? ['WIL']
+          : ['VIT'];
+        for (const sk of statKeys) {
+          nextStats[sk] = Math.max(10, (nextStats[sk] ?? 10) - 1);
+        }
+      }
+      return reEval.updated;
+    });
+
+    const nowAllDailyDone =
+      updatedDaily.length > 0 && updatedDaily.every((q) => q.status === 'completed');
+    if (prevAllDailyDone && !nowAllDailyDone) {
+      revertedBonusXp += xpConfigJson.quest_bonus.all_daily_completed ?? 30;
+    }
+
+    const currentWeekly = state.weeklyQuestsByWeek[targetWeekKey] ?? [];
+    const updatedWeekly = currentWeekly.map((wq) => {
+      const resetWq: QuestInstance = {
+        ...wq,
+        progress: 0,
+        status: 'available',
+        completedAt: null,
+      };
+      const reEval = evaluateQuestProgress(resetWq, afterDaySnap.metrics, nowMs);
+      if (wq.status === 'completed' && reEval.updated.status !== 'completed') {
+        revertedQuestXp += wq.template.reward_xp;
+        revertedQuestTitles.push(
+          state.profile.language === 'th' ? wq.template.title_th : wq.template.title_en
+        );
+      }
+      return reEval.updated;
+    });
+
+    const totalXpLoss = directXp + revertedQuestXp + revertedBonusXp;
+    const oldTotalXp = state.profile.totalXp;
+    const newTotalXp = Math.max(0, oldTotalXp - totalXpLoss);
+    const actualDeducted = oldTotalXp - newTotalXp;
+
+    const oldLevel = computeLevelState(oldTotalXp).level;
+    const newLevel = computeLevelState(newTotalXp).level;
+
+    const revertEvents: XpEventRecord[] = [];
+    let nextEventId =
+      state.xpEvents.reduce((max, e) => (e.id > max ? e.id : max), nowMs) + 1;
+
+    if (actualDeducted > 0) {
+      revertEvents.push({
+        id: nextEventId++,
+        amount: -actualDeducted,
+        sourceType: 'revert',
+        sourceId: activityId,
+        reasonKey:
+          revertedQuestXp > 0 || revertedBonusXp > 0
+            ? 'delete_activity_and_quest_revert'
+            : 'delete_activity_revert',
+        configVersion: xpConfigJson.version,
+        occurredAt: nowMs,
+        dayKey: targetDayKey,
+      });
+    }
+
+    const nextState: AwakenedDatabaseState = {
+      ...state,
+      profile: {
+        ...state.profile,
+        totalXp: newTotalXp,
+        longestStreak: afterDaySnap.streak.longestStreak,
+        freezeTokens: afterDaySnap.streak.freezeTokensRemaining,
+      },
+      playerStats: nextStats,
+      activities: updatedActivities,
+      xpEvents: [...state.xpEvents, ...revertEvents],
+      dailyQuestsByDay: {
+        ...state.dailyQuestsByDay,
+        [targetDayKey]: updatedDaily,
+      },
+      weeklyQuestsByWeek: {
+        ...state.weeklyQuestsByWeek,
+        [targetWeekKey]: updatedWeekly,
+      },
+      streakLogs: afterDaySnap.streak.updatedLogs,
+    };
+
+    return {
+      nextState,
+      preview: {
+        activityId,
+        title: target.title,
+        directXp,
+        revertedQuestXp,
+        revertedBonusXp,
+        totalXpLoss: actualDeducted,
+        oldTotalXp,
+        newTotalXp,
+        oldLevel,
+        newLevel,
+        revertedQuestTitles,
+      },
+    };
+  };
+
+  const previewDeleteActivity = (activityId: number): DeleteActivityPreview | null => {
+    const outcome = computeActivityDeleteOutcome(db, activityId, Date.now());
+    return outcome ? outcome.preview : null;
+  };
+
   const deleteActivity = (
     activityId: number
   ): { xpReverted: boolean; xpAmount: number } => {
@@ -1400,42 +1737,13 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const now = Date.now();
 
     setDb((prev) => {
-      const target = prev.activities.find((a) => a.id === activityId && !a.deletedAt);
-      if (!target) return prev;
-
-      const revert = canRevertXpOnDelete(target.createdAt, now);
-      const xpToRevert = revert ? target.xpAwarded : 0;
-      result = { xpReverted: revert && xpToRevert > 0, xpAmount: xpToRevert };
-
-      const updatedActivities = prev.activities.map((a) =>
-        a.id === activityId ? { ...a, deletedAt: now } : a
-      );
-
-      const newEvents =
-        revert && xpToRevert > 0
-          ? [
-              ...prev.xpEvents,
-              {
-                id: now,
-                amount: -xpToRevert,
-                sourceType: 'revert' as const,
-                sourceId: activityId,
-                reasonKey: 'delete_within_10m_revert',
-                configVersion: xpConfigJson.version,
-                occurredAt: now,
-              },
-            ]
-          : prev.xpEvents;
-
-      return {
-        ...prev,
-        profile: {
-          ...prev.profile,
-          totalXp: Math.max(0, prev.profile.totalXp - xpToRevert),
-        },
-        activities: updatedActivities,
-        xpEvents: newEvents,
+      const outcome = computeActivityDeleteOutcome(prev, activityId, now);
+      if (!outcome) return prev;
+      result = {
+        xpReverted: outcome.preview.totalXpLoss > 0,
+        xpAmount: outcome.preview.totalXpLoss,
       };
+      return outcome.nextState;
     });
 
     return result;
@@ -1516,11 +1824,70 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const deleteJournalEntry = (id: number) => {
-    // Deleting journal entry keeps earned XP per Principle P1 (No Punishment)
-    setDb((prev) => ({
-      ...prev,
-      journals: prev.journals.filter((j) => j.id !== id),
-    }));
+    const now = Date.now();
+    setDb((prev) => {
+      const target = prev.journals.find((j) => j.id === id);
+      if (!target) return prev;
+      const targetDayKey = target.entryDate;
+      const updatedJournals = prev.journals.filter((j) => j.id !== id);
+      const draftAfter: AwakenedDatabaseState = { ...prev, journals: updatedJournals };
+      const afterSnap = computeMetricsForState(draftAfter, targetDayKey);
+
+      let revertedXp = Math.max(0, target.xpAwarded || 0);
+      const currentDaily = prev.dailyQuestsByDay[targetDayKey] ?? [];
+      const prevAllDone =
+        currentDaily.length > 0 && currentDaily.every((q) => q.status === 'completed');
+
+      const updatedDaily = currentDaily.map((q) => {
+        if (q.template.condition.metric === 'manual') return q;
+        const resetQ: QuestInstance = {
+          ...q,
+          progress: 0,
+          status: 'available',
+          completedAt: null,
+        };
+        const reEval = evaluateQuestProgress(resetQ, afterSnap.metrics, now);
+        if (q.status === 'completed' && reEval.updated.status !== 'completed') {
+          revertedXp += q.template.reward_xp;
+        }
+        return reEval.updated;
+      });
+
+      const nowAllDone =
+        updatedDaily.length > 0 && updatedDaily.every((q) => q.status === 'completed');
+      if (prevAllDone && !nowAllDone) {
+        revertedXp += xpConfigJson.quest_bonus.all_daily_completed ?? 30;
+      }
+
+      const newTotalXp = Math.max(0, prev.profile.totalXp - revertedXp);
+      const actualLoss = prev.profile.totalXp - newTotalXp;
+
+      return {
+        ...prev,
+        profile: { ...prev.profile, totalXp: newTotalXp },
+        journals: updatedJournals,
+        dailyQuestsByDay: {
+          ...prev.dailyQuestsByDay,
+          [targetDayKey]: updatedDaily,
+        },
+        xpEvents:
+          actualLoss > 0
+            ? [
+                ...prev.xpEvents,
+                {
+                  id: now,
+                  amount: -actualLoss,
+                  sourceType: 'revert',
+                  sourceId: id,
+                  reasonKey: 'delete_journal_revert',
+                  configVersion: xpConfigJson.version,
+                  occurredAt: now,
+                  dayKey: targetDayKey,
+                },
+              ]
+            : prev.xpEvents,
+      };
+    });
   };
 
   const logMoodEntry = (moodLevel: number, note: string, tags: string[]) => {
@@ -1573,6 +1940,141 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           xpEvents: [...draft.xpEvents, ...newEvents],
         },
         directXpGained: xpRes.xpAwarded,
+      };
+    });
+  };
+
+  const deleteMoodEntry = (id: number) => {
+    const now = Date.now();
+    setDb((prev) => {
+      const target = prev.moods.find((m) => m.id === id);
+      if (!target) return prev;
+      const targetDayKey = target.dayKey;
+      const updatedMoods = prev.moods.filter((m) => m.id !== id);
+      const draftAfter: AwakenedDatabaseState = { ...prev, moods: updatedMoods };
+      const afterSnap = computeMetricsForState(draftAfter, targetDayKey);
+
+      let revertedXp = Math.max(0, target.xpAwarded || 0);
+      const currentDaily = prev.dailyQuestsByDay[targetDayKey] ?? [];
+      const prevAllDone =
+        currentDaily.length > 0 && currentDaily.every((q) => q.status === 'completed');
+
+      const updatedDaily = currentDaily.map((q) => {
+        if (q.template.condition.metric === 'manual') return q;
+        const resetQ: QuestInstance = {
+          ...q,
+          progress: 0,
+          status: 'available',
+          completedAt: null,
+        };
+        const reEval = evaluateQuestProgress(resetQ, afterSnap.metrics, now);
+        if (q.status === 'completed' && reEval.updated.status !== 'completed') {
+          revertedXp += q.template.reward_xp;
+        }
+        return reEval.updated;
+      });
+
+      const nowAllDone =
+        updatedDaily.length > 0 && updatedDaily.every((q) => q.status === 'completed');
+      if (prevAllDone && !nowAllDone) {
+        revertedXp += xpConfigJson.quest_bonus.all_daily_completed ?? 30;
+      }
+
+      const newTotalXp = Math.max(0, prev.profile.totalXp - revertedXp);
+      const actualLoss = prev.profile.totalXp - newTotalXp;
+
+      return {
+        ...prev,
+        profile: { ...prev.profile, totalXp: newTotalXp },
+        moods: updatedMoods,
+        dailyQuestsByDay: {
+          ...prev.dailyQuestsByDay,
+          [targetDayKey]: updatedDaily,
+        },
+        xpEvents:
+          actualLoss > 0
+            ? [
+                ...prev.xpEvents,
+                {
+                  id: now,
+                  amount: -actualLoss,
+                  sourceType: 'revert',
+                  sourceId: id,
+                  reasonKey: 'delete_mood_revert',
+                  configVersion: xpConfigJson.version,
+                  occurredAt: now,
+                  dayKey: targetDayKey,
+                },
+              ]
+            : prev.xpEvents,
+      };
+    });
+  };
+
+  const claimComebackQuest = (): number => {
+    let refunded = 0;
+    executeTransaction((draft) => {
+      const cq = draft.profile.activeComebackQuest;
+      if (!cq || cq.claimedAt || cq.refundableXp <= 0) {
+        return { nextState: draft, directXpGained: 0 };
+      }
+      const now = Date.now();
+      refunded = cq.refundableXp;
+      const refundEvent: XpEventRecord = {
+        id: now + Math.floor(Math.random() * 1000),
+        amount: refunded,
+        sourceType: 'adjust',
+        sourceId: cq.penaltyEventId,
+        reasonKey: 'comeback_quest_refund',
+        configVersion: xpConfigJson.version,
+        occurredAt: now,
+        idemKey: `comeback_refund:${cq.penaltyIdemKey}`,
+        dayKey: todayKey,
+      };
+      return {
+        nextState: {
+          ...draft,
+          profile: {
+            ...draft.profile,
+            activeComebackQuest: {
+              ...cq,
+              claimedAt: now,
+            },
+          },
+          xpEvents: [...draft.xpEvents, refundEvent],
+        },
+        directXpGained: refunded,
+      };
+    });
+    return refunded;
+  };
+
+  const dismissComebackQuest = () => {
+    setDb((prev) => {
+      if (!prev.profile.activeComebackQuest) return prev;
+      return {
+        ...prev,
+        profile: {
+          ...prev.profile,
+          activeComebackQuest: {
+            ...prev.profile.activeComebackQuest,
+            dismissedAt: Date.now(),
+          },
+        },
+      };
+    });
+  };
+
+  const setVacationMode = (days: number | null) => {
+    setDb((prev) => {
+      const untilKey =
+        days && days > 0 ? addDaysToDayKey(todayKey, Math.min(30, days) - 1) : null;
+      return {
+        ...prev,
+        profile: {
+          ...prev.profile,
+          vacationUntilDayKey: untilKey,
+        },
       };
     });
   };
@@ -2256,13 +2758,80 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     ]
   );
 
+  const inactivityStatus = useMemo(
+    () =>
+      settleInactivity({
+        todayKey,
+        createdAt: db.profile.createdAt,
+        totalXp: db.profile.totalXp,
+        xpEvents: db.xpEvents,
+        trainingPlan: db.trainingPlan,
+        activities: db.activities,
+        dailyQuestsByDay: db.dailyQuestsByDay,
+        streakLogs: db.streakLogs ?? {},
+        restModeToday: db.profile.restModeToday,
+        vacationUntilDayKey: db.profile.vacationUntilDayKey,
+        penaltyShields: db.profile.penaltyShields ?? 0,
+        settings: db.profile.inactivitySettings,
+      }),
+    [
+      todayKey,
+      db.profile.createdAt,
+      db.profile.totalXp,
+      db.xpEvents,
+      db.trainingPlan,
+      db.activities,
+      db.dailyQuestsByDay,
+      db.streakLogs,
+      db.profile.restModeToday,
+      db.profile.vacationUntilDayKey,
+      db.profile.penaltyShields,
+      db.profile.inactivitySettings,
+    ]
+  );
+
+  // Consume pending actions triggered from the Android Home Screen Widget (Section 7)
+  useEffect(() => {
+    if (!isLoaded) return;
+    const drainWidgetActions = async () => {
+      const actions = await consumePendingWidgetActions();
+      if (!actions || actions.length === 0) return;
+      for (const act of actions) {
+        if (act.type === 'water_250') {
+          logWater(250);
+        } else if (act.type === 'complete_quest' && typeof act.questId === 'number') {
+          completeManualDailyQuest(act.questId);
+        }
+      }
+    };
+    drainWidgetActions();
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        drainWidgetActions();
+      }
+    });
+    const evtSub = DeviceEventEmitter.addListener('AwakenedWidgetAction', () => {
+      drainWidgetActions();
+    });
+    return () => {
+      sub.remove();
+      evtSub.remove();
+    };
+  }, [isLoaded, todayKey]);
+
   // Sync Android home screen widget whenever state changes
   useEffect(() => {
     if (!isLoaded) return;
     const isRest =
       db.profile.restModeToday === todayKey ||
+      Boolean(db.profile.vacationUntilDayKey && todayKey <= db.profile.vacationUntilDayKey) ||
       db.trainingPlan.find((d) => d.weekday === getWeekdayOneBased(todayKey))?.dayType === 'rest';
     const doneQuests = todayQuests.filter((q) => q.status === 'completed').length;
+    const hasAppLock = Boolean(db.profile.appLockPinHash || db.profile.appLockPin);
+    const hideQuests = Boolean(hasAppLock && db.profile.hideQuestsOnWidgetWhenLocked);
+    const xpEarnedToday = db.xpEvents
+      .filter((e) => getLocalDayKey(e.occurredAt) === todayKey && e.amount > 0)
+      .reduce((sum, e) => sum + e.amount, 0);
     updateWidgetData({
       dayKey: todayKey,
       lang: db.profile.language,
@@ -2272,13 +2841,21 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       level: levelState.level,
       xpPct: Math.round(levelState.progress * 100),
       restDay: Boolean(isRest),
+      hideQuestsWhenLocked: hideQuests,
       questsDone: doneQuests,
       questsTotal: todayQuests.length,
-      questList: todayQuests.slice(0, 5).map((q) => ({
-        title:
-          db.profile.language === 'th'
-            ? q.template.title_th || q.template.title_en
-            : q.template.title_en,
+      xpEarnedToday,
+      questList: todayQuests.slice(0, 5).map((q, idx) => ({
+        id: q.id,
+        templateId: q.templateId,
+        rewardXp: q.template.reward_xp,
+        title: hideQuests
+          ? db.profile.language === 'th'
+            ? `ภารกิจลับ #${idx + 1} (ล็อกแอปอยู่)`
+            : `Hidden Mission #${idx + 1} (Locked)`
+          : db.profile.language === 'th'
+          ? q.template.title_th || q.template.title_en
+          : q.template.title_en,
         status: q.status,
         progress: q.progress,
         target: q.target,
@@ -2318,6 +2895,10 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     db.profile.language,
     db.profile.displayName,
     db.profile.avatarUri,
+    db.profile.appLockPin,
+    db.profile.appLockPinHash,
+    db.profile.hideQuestsOnWidgetWhenLocked,
+    db.profile.vacationUntilDayKey,
     db.profile.alarm?.enabled,
     db.profile.alarm?.time,
     db.profile.notifications?.enabled,
@@ -2444,6 +3025,7 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     thisWeekQuests,
     dailyNutrition,
     workoutPenalty,
+    inactivityStatus,
     adaptiveRecommendations,
     dailyRepeatableXpToday,
     celebrationQueue,
@@ -2457,10 +3039,15 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     logPomodoro,
     logCustomActivity,
     logRestDayCheckin,
+    previewDeleteActivity,
     deleteActivity,
     saveJournalEntry,
     deleteJournalEntry,
     logMoodEntry,
+    deleteMoodEntry,
+    claimComebackQuest,
+    dismissComebackQuest,
+    setVacationMode,
     swapDailyQuest,
     completeManualDailyQuest,
     addPersonalQuest,

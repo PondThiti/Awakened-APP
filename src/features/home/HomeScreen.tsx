@@ -39,6 +39,7 @@ export const HomeScreen: React.FC<{
     todayQuests,
     dailyNutrition,
     workoutPenalty,
+    inactivityStatus,
     adaptiveRecommendations,
     dailyRepeatableXpToday,
     logWater,
@@ -46,11 +47,15 @@ export const HomeScreen: React.FC<{
     completeManualDailyQuest,
     toggleRestModeToday,
     logRestDayCheckin,
+    claimComebackQuest,
+    dismissComebackQuest,
+    setVacationMode,
     updateProfile,
     reopenOnboarding,
   } = useAwakened();
 
   const [showCustomize, setShowCustomize] = useState(false);
+  const [showVacationPicker, setShowVacationPicker] = useState(false);
   const lang = db.profile.language;
   const strings = t(lang);
   const isTh = lang === 'th';
@@ -277,7 +282,264 @@ export const HomeScreen: React.FC<{
             </AnimatedPressable>
           )}
         </View>
+
+        {/* Penalty Shield & Vacation / Sick Mode Bar (Section 1.6) */}
+        <View
+          style={{
+            marginTop: 8,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 8,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 999,
+              backgroundColor: theme.bgSecondary,
+              borderWidth: 1,
+              borderColor: theme.border,
+            }}
+          >
+            <AppIcon name="shield" size={13} color={theme.primary} />
+            <Text style={{ color: theme.textSecondary, fontSize: 11.5, fontWeight: '800' }}>
+              {isTh
+                ? `เกราะกันหัก EXP: ${db.profile.penaltyShields ?? 0}/3`
+                : `Penalty Shield: ${db.profile.penaltyShields ?? 0}/3`}
+            </Text>
+          </View>
+
+          {db.profile.vacationUntilDayKey && db.profile.vacationUntilDayKey >= todayKey ? (
+            <AnimatedPressable
+              reduceMotion={reduceMotion}
+              onPress={() => setVacationMode(null)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 999,
+                backgroundColor: `${theme.success}22`,
+                borderWidth: 1,
+                borderColor: theme.success,
+              }}
+            >
+              <AppIcon name="leaf" size={13} color={theme.success} />
+              <Text style={{ color: theme.success, fontSize: 11.5, fontWeight: '800' }}>
+                {isTh
+                  ? `โหมดลาพัก/ป่วย ถึง ${db.profile.vacationUntilDayKey} (แตะเพื่อปิด)`
+                  : `Vacation/Sick until ${db.profile.vacationUntilDayKey} (Tap to end)`}
+              </Text>
+            </AnimatedPressable>
+          ) : (
+            <AnimatedPressable
+              reduceMotion={reduceMotion}
+              onPress={() => setShowVacationPicker((v) => !v)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 999,
+                backgroundColor: theme.bgSecondary,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+            >
+              <AppIcon name="calendar" size={13} color={theme.textSecondary} />
+              <Text style={{ color: theme.textSecondary, fontSize: 11.5, fontWeight: '700' }}>
+                {isTh ? 'โหมดลาพัก / ป่วย' : 'Vacation / Sick Mode'}
+              </Text>
+            </AnimatedPressable>
+          )}
+        </View>
+
+        {showVacationPicker &&
+          !(db.profile.vacationUntilDayKey && db.profile.vacationUntilDayKey >= todayKey) && (
+            <View
+              style={{
+                marginTop: 8,
+                padding: 10,
+                borderRadius: 12,
+                backgroundColor: theme.bgSecondary,
+                borderWidth: 1,
+                borderColor: theme.border,
+                gap: 6,
+              }}
+            >
+              <Text style={{ color: theme.textSecondary, fontSize: 11.5, fontWeight: '600' }}>
+                {isTh
+                  ? 'หยุดนับวันขาดเควสชั่วคราวเมื่อป่วยหรือเดินทาง (ไม่ถูกหัก 30% EXP):'
+                  : 'Pause inactivity penalty while sick or traveling (no 30% EXP deduction):'}
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {[1, 3, 7].map((days) => (
+                  <AnimatedPressable
+                    key={days}
+                    reduceMotion={reduceMotion}
+                    onPress={() => {
+                      setVacationMode(days);
+                      setShowVacationPicker(false);
+                    }}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 7,
+                      borderRadius: 8,
+                      backgroundColor: `${theme.primary}20`,
+                      borderWidth: 1,
+                      borderColor: theme.primary,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '800' }}>
+                      {isTh ? `ลาพัก ${days} วัน` : `${days} Day${days > 1 ? 's' : ''}`}
+                    </Text>
+                  </AnimatedPressable>
+                ))}
+              </View>
+            </View>
+          )}
       </AnimatedCard>
+
+      {/* Day-2 Inactivity Warning Banner (Section 1.6) */}
+      {inactivityStatus.warningActive && (
+        <AnimatedCard
+          index={1}
+          reduceMotion={reduceMotion}
+          style={[
+            styles.card,
+            {
+              backgroundColor: `${theme.warning}18`,
+              borderColor: theme.warning,
+              borderWidth: 1.5,
+            },
+          ]}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <AppIcon name="fire" size={18} color={theme.warning} />
+            <Text style={{ color: theme.warning, fontSize: 14, fontWeight: '900', flex: 1 }}>
+              {isTh
+                ? `คำเตือนระบบ: ขาดเควสมา ${inactivityStatus.consecutiveMissedDays} วันติด!`
+                : `System Warning: ${inactivityStatus.consecutiveMissedDays} Missed Days in a Row!`}
+            </Text>
+          </View>
+          <Text
+            style={{
+              color: theme.text,
+              fontSize: 12.5,
+              fontWeight: '700',
+              marginTop: 6,
+              lineHeight: 18,
+            }}
+          >
+            {isTh
+              ? `ถ้าวันนี้ไม่ทำเควสประจำวันให้ครบทุกข้อ เมื่อสิ้นสุดวัน EXP รวมจะถูกหัก ${
+                  db.profile.inactivitySettings?.penaltyPercent ?? 30
+                }% (≈ −${inactivityStatus.estimatedPenaltyXp} XP)`
+              : `Complete all daily quests today or lose ${
+                  db.profile.inactivitySettings?.penaltyPercent ?? 30
+                }% total EXP tonight (≈ −${inactivityStatus.estimatedPenaltyXp} XP).`}
+          </Text>
+          {(db.profile.penaltyShields ?? 0) > 0 && (
+            <Text style={{ color: theme.primary, fontSize: 11.5, fontWeight: '700', marginTop: 4 }}>
+              {isTh
+                ? `🛡️ คุณมีเกราะกันหัก EXP ${db.profile.penaltyShields} ชิ้น ซึ่งจะทำงานอัตโนมัติหากพลาดวันนี้`
+                : `🛡️ You have ${db.profile.penaltyShields} Penalty Shield(s) that will auto-protect you if needed.`}
+            </Text>
+          )}
+        </AnimatedCard>
+      )}
+
+      {/* Post-Penalty & Comeback Quest Card (Section 1.6) */}
+      {db.profile.activeComebackQuest &&
+        !db.profile.activeComebackQuest.claimedAt &&
+        !db.profile.activeComebackQuest.dismissedAt && (
+          <AnimatedCard
+            index={1}
+            reduceMotion={reduceMotion}
+            style={[
+              styles.card,
+              {
+                backgroundColor: theme.cardElevated,
+                borderColor: theme.danger,
+                borderWidth: 1.5,
+              },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                <AppIcon name="fire" size={18} color={theme.danger} />
+                <Text style={{ color: theme.danger, fontSize: 14, fontWeight: '900' }}>
+                  {isTh
+                    ? `ถูกหัก −${db.profile.activeComebackQuest.deductedXp} EXP (ขาดเควส ${db.profile.activeComebackQuest.missedDaysRun} วัน)`
+                    : `−${db.profile.activeComebackQuest.deductedXp} EXP Deducted (${db.profile.activeComebackQuest.missedDaysRun} Missed Days)`}
+                </Text>
+              </View>
+              <Pressable onPress={dismissComebackQuest} style={{ padding: 4 }}>
+                <Text style={{ color: theme.textMuted, fontSize: 15, fontWeight: '900' }}>✕</Text>
+              </Pressable>
+            </View>
+
+            <Text
+              style={{
+                color: theme.textSecondary,
+                fontSize: 12.5,
+                marginTop: 6,
+                lineHeight: 18,
+              }}
+            >
+              {isTh
+                ? `ภารกิจกู้คืนพลัง (Comeback Quest): ทำเควสประจำวันวันนี้ให้สำเร็จเพื่อรับคืน +${db.profile.activeComebackQuest.refundableXp} EXP (50% ของที่ถูกหัก)`
+                : `Comeback Quest: Complete today's daily quests to reclaim +${db.profile.activeComebackQuest.refundableXp} EXP (50% refund).`}
+            </Text>
+
+            <AnimatedPressable
+              reduceMotion={reduceMotion}
+              disabled={completedQuestsCount < 1}
+              onPress={() => claimComebackQuest()}
+              style={{
+                marginTop: 10,
+                paddingVertical: 10,
+                borderRadius: 10,
+                alignItems: 'center',
+                backgroundColor:
+                  completedQuestsCount >= 1 ? theme.success : theme.bgSecondary,
+                borderWidth: 1,
+                borderColor: completedQuestsCount >= 1 ? theme.success : theme.border,
+              }}
+            >
+              <Text
+                style={{
+                  color: completedQuestsCount >= 1 ? '#0E1220' : theme.textMuted,
+                  fontSize: 13,
+                  fontWeight: '900',
+                }}
+              >
+                {completedQuestsCount >= 1
+                  ? isTh
+                    ? `✨ รับคืน +${db.profile.activeComebackQuest.refundableXp} EXP เดี๋ยวนี้!`
+                    : `✨ Claim +${db.profile.activeComebackQuest.refundableXp} EXP Refund!`
+                  : isTh
+                  ? `รอทำเควสวันนี้ (${completedQuestsCount}/1) เพื่อปลดล็อกปุ่มรับคืน`
+                  : `Complete 1 quest today (${completedQuestsCount}/1) to unlock refund`}
+              </Text>
+            </AnimatedPressable>
+          </AnimatedCard>
+        )}
 
       {/* Dashboard Card Customizer Drawer */}
       {showCustomize && (

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Awakened",
     "slug": "awakened",
-    "version": "0.10.3",
+    "version": "0.10.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",

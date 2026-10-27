@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeLevelState, totalXpForLevel, xpToNext, applyXp } from '../src/core/engine/levelEngine';
-import { getRankForLevel } from '../src/core/engine/rankEngine';
-import { calculateActivityXp, canRevertXpOnDelete } from '../src/core/engine/xpEngine';
+import { getRankForLevel, visibleRanks, formatRankLevelRange, getRankDescriptions } from '../src/core/engine/rankEngine';
+import { calculateActivityXp, canRevertXpOnDelete, computeLedgerTotalXp, reconcileLedgerTotalXp } from '../src/core/engine/xpEngine';
 import { evaluateStreakState } from '../src/core/engine/streakEngine';
 import { clampPersonalQuestXp, evaluateQuestProgress, generateDailyQuestsForDay } from '../src/core/engine/questEngine';
 import { evaluateAdaptivePlan } from '../src/core/engine/adaptivePlanEngine';
@@ -27,8 +27,17 @@ import {
   evaluateWorkoutPenalty,
   getWorkoutPenaltyMultiplier,
   isWorkoutPenaltyExempt,
+  settleInactivity,
   WORKOUT_PENALTY_MULTIPLIER_BY_RANK,
 } from '../src/core/engine/penaltyEngine';
+import {
+  generatePinSalt,
+  generateRecoveryCode,
+  getLockoutDurationMs,
+  hashPin,
+  verifyPin,
+  verifyRecoveryCode,
+} from '../src/core/utils/pinSecurity';
 import { getDailyNutritionSummary } from '../src/core/engine/nutritionSummary';
 import {
   buildMonthGrid,
@@ -760,5 +769,246 @@ describe('Awakened Core Engines — Section 18.1 Unit Tests', () => {
     const thKeys = collectKeys(TRANSLATIONS.th).sort();
     const enKeys = collectKeys(TRANSLATIONS.en).sort();
     expect(enKeys).toEqual(thKeys);
+  });
+
+  it('19. InactivityPenalty (v0.10.5 Section 1 & 10): deducts 30% XP after 3 missed days (graceDays=2), respects scope (level vs total), shields, rest days, vacation, and idempotency', () => {
+    const makeDayQuests = (dayKey: string, completedCount: number, totalCount = 3) => {
+      const generated = generateDailyQuestsForDay({
+        dayKey,
+        isRestDay: false,
+        availableMinutesPerDay: 20,
+        waterGoalMl: 2000,
+      }).slice(0, totalCount);
+      return generated.map((q, i) => ({
+        ...q,
+        progress: i < completedCount ? q.target : 0,
+        status: (i < completedCount ? 'completed' : 'in_progress') as 'completed' | 'in_progress',
+        completedAt: i < completedCount ? 1_700_000_000_000 : undefined,
+      }));
+    };
+
+    // Acceptance Case 1: 2 missed days + quest completed on day 3 => 0 penalty
+    const twoMissThenDone = settleInactivity({
+      startDayKey: '2026-10-20',
+      todayKey: '2026-10-24',
+      createdAt: 1_700_000_000_000,
+      totalXp: 2000,
+      xpEvents: [],
+      trainingPlan: [],
+      activities: [],
+      dailyQuestsByDay: {
+        '2026-10-20': makeDayQuests('2026-10-20', 3, 3),
+        '2026-10-21': makeDayQuests('2026-10-21', 0, 3), // miss 1
+        '2026-10-22': makeDayQuests('2026-10-22', 0, 3), // miss 2
+        '2026-10-23': makeDayQuests('2026-10-23', 3, 3), // kept on day 3!
+      },
+      streakLogs: {},
+    });
+    expect(twoMissThenDone.totalDeductedXp).toBe(0);
+    expect(twoMissThenDone.newTotalXp).toBe(2000);
+
+    // 3 consecutive missed days (2026-10-21 has 2/3 quests -> still missed under missRule='all')
+    const dailyQuestsByDay = {
+      '2026-10-20': makeDayQuests('2026-10-20', 3, 3), // kept
+      '2026-10-21': makeDayQuests('2026-10-21', 2, 3), // miss 1 (partial does not count under missRule='all')
+      '2026-10-22': makeDayQuests('2026-10-22', 0, 3), // miss 2
+      '2026-10-23': makeDayQuests('2026-10-23', 0, 3), // miss 3 -> triggers 30% penalty!
+    };
+
+    // Acceptance Case 2: Scope='level' deducts 30% of xpInLevel and never drops level
+    // At 2,000 totalXp -> Level 11 (1,900 threshold) with xpInLevel = 100 -> 30% of 100 = 30 XP deducted -> 1,970 XP (still Level 11!)
+    const scopeLevel = settleInactivity({
+      startDayKey: '2026-10-20',
+      todayKey: '2026-10-24',
+      createdAt: 1_700_000_000_000,
+      totalXp: 2000,
+      penaltyShields: 0,
+      xpEvents: [],
+      trainingPlan: [],
+      activities: [],
+      dailyQuestsByDay,
+      streakLogs: {},
+      settings: { scope: 'level' },
+    });
+    expect(scopeLevel.totalDeductedXp).toBe(30);
+    expect(scopeLevel.newTotalXp).toBe(1970);
+    expect(computeLevelState(scopeLevel.newTotalXp).level).toBe(11);
+
+    // Acceptance Case 3: Scope='level' when xpInLevel = 0 (at exact level threshold 1,900) => 0 XP deducted
+    const zeroInLevel = settleInactivity({
+      startDayKey: '2026-10-20',
+      todayKey: '2026-10-24',
+      createdAt: 1_700_000_000_000,
+      totalXp: 1900,
+      penaltyShields: 0,
+      xpEvents: [],
+      trainingPlan: [],
+      activities: [],
+      dailyQuestsByDay,
+      streakLogs: {},
+      settings: { scope: 'level' },
+    });
+    expect(zeroInLevel.totalDeductedXp).toBe(0);
+    expect(zeroInLevel.newTotalXp).toBe(1900);
+
+    // Shield Case: With 1 Shield -> Shield is consumed, 0 XP deducted
+    const withShield = settleInactivity({
+      startDayKey: '2026-10-20',
+      todayKey: '2026-10-24',
+      createdAt: 1_700_000_000_000,
+      totalXp: 2000,
+      penaltyShields: 1,
+      xpEvents: [],
+      trainingPlan: [],
+      activities: [],
+      dailyQuestsByDay,
+      streakLogs: {},
+    });
+    expect(withShield.shieldsUsed).toBe(1);
+    expect(withShield.shieldsRemaining).toBe(0);
+    expect(withShield.totalDeductedXp).toBe(0);
+    expect(withShield.newTotalXp).toBe(2000);
+
+    // Scope='total' without Shield -> 30% of 2000 XP = 600 XP deducted -> 1400 XP & Comeback Quest refunds 50% (300 XP)
+    const noShield = settleInactivity({
+      startDayKey: '2026-10-20',
+      todayKey: '2026-10-24',
+      createdAt: 1_700_000_000_000,
+      totalXp: 2000,
+      penaltyShields: 0,
+      xpEvents: [],
+      trainingPlan: [],
+      activities: [],
+      dailyQuestsByDay,
+      streakLogs: {},
+      settings: { scope: 'total' },
+    });
+    expect(noShield.totalDeductedXp).toBe(600);
+    expect(noShield.newTotalXp).toBe(1400);
+    expect(noShield.comebackQuest).not.toBeNull();
+    expect(noShield.comebackQuest?.refundableXp).toBe(300);
+
+    // Acceptance Case 4: Idempotency -> Running settleInactivity 5 times with recorded newEvents never deducts again
+    let currentXp = noShield.newTotalXp;
+    let events = [...noShield.newEvents];
+    for (let i = 0; i < 5; i++) {
+      const rerun = settleInactivity({
+        startDayKey: '2026-10-20',
+        todayKey: '2026-10-24',
+        createdAt: 1_700_000_000_000,
+        totalXp: currentXp,
+        penaltyShields: 0,
+        xpEvents: events,
+        trainingPlan: [],
+        activities: [],
+        dailyQuestsByDay,
+        streakLogs: {},
+        settings: { scope: 'total' },
+      });
+      expect(rerun.totalDeductedXp).toBe(0);
+      expect(rerun.newTotalXp).toBe(1400);
+      currentXp = rerun.newTotalXp;
+      events = [...events, ...rerun.newEvents];
+    }
+
+    // Acceptance Case 5: Rest Day & Vacation Mode reset the missed run and prevent penalty
+    const onVacation = settleInactivity({
+      startDayKey: '2026-10-20',
+      todayKey: '2026-10-24',
+      createdAt: 1_700_000_000_000,
+      totalXp: 2000,
+      penaltyShields: 0,
+      xpEvents: [],
+      trainingPlan: [],
+      activities: [],
+      vacationStartDayKey: '2026-10-21',
+      vacationUntilDayKey: '2026-10-25',
+      dailyQuestsByDay,
+      streakLogs: {},
+    });
+    expect(onVacation.totalDeductedXp).toBe(0);
+    expect(onVacation.newTotalXp).toBe(2000);
+  });
+
+  it('20. RankEngine (v0.10.5 Section 5 & 6): hides Final Rank M until unlocked and provides bilingual rank lore', () => {
+    const lockedRanks = visibleRanks(160, false);
+    expect(lockedRanks.length).toBe(7);
+    expect(lockedRanks.some((r) => r.id === 'M')).toBe(false);
+
+    const ssRank = lockedRanks.find((r) => r.id === 'SS')!;
+    expect(formatRankLevelRange(ssRank, false)).toBe('Lv. 151+');
+    expect(formatRankLevelRange(ssRank, true)).toBe('Lv. 151 – 220');
+
+    // When Rank M is locked, getRankForLevel at Lv 160 hides nextRank (returns null)
+    const ssInfo = getRankForLevel(160, {
+      totalActiveDays: 100,
+      unlockedBadgeCategoriesCount: 3,
+    });
+    expect(ssInfo.currentRank.id).toBe('SS');
+    expect(ssInfo.nextRank).toBeNull();
+
+    // When Rank M is unlocked, visibleRanks returns all 8 ranks
+    const unlockedRanks = visibleRanks(225, true);
+    expect(unlockedRanks.length).toBe(8);
+    expect(unlockedRanks[7].id).toBe('M');
+
+    for (const r of unlockedRanks) {
+      const thDesc = getRankDescriptions(r, 'th');
+      const enDesc = getRankDescriptions(r, 'en');
+      expect(thDesc.game.length).toBeGreaterThan(10);
+      expect(thDesc.real.length).toBeGreaterThan(10);
+      expect(enDesc.game.length).toBeGreaterThan(10);
+      expect(enDesc.real.length).toBeGreaterThan(10);
+    }
+  });
+
+  it('21. PinSecurity & XpLedger (v0.10.5 Section 2 & 4): salted SHA-256 PIN verification, recovery code, lockout, and ledger reconciliation', () => {
+    const salt = generatePinSalt();
+    const hashed = hashPin('2580', salt);
+    expect(hashed).not.toBe('2580');
+    expect(
+      verifyPin('2580', { appLockPin: null, appLockPinHash: hashed, appLockSalt: salt })
+    ).toBe(true);
+    expect(
+      verifyPin('0000', { appLockPin: null, appLockPinHash: hashed, appLockSalt: salt })
+    ).toBe(false);
+
+    const recovery = generateRecoveryCode();
+    expect(recovery.startsWith('AWK-')).toBe(true);
+    expect(verifyRecoveryCode(recovery.toLowerCase(), recovery)).toBe(true);
+    expect(verifyRecoveryCode('AWK-0000-0000', recovery)).toBe(false);
+
+    expect(getLockoutDurationMs(4)).toBe(0);
+    expect(getLockoutDurationMs(5)).toBe(30_000);
+    expect(getLockoutDurationMs(6)).toBe(60_000);
+    expect(getLockoutDurationMs(7)).toBe(300_000);
+    expect(getLockoutDurationMs(8)).toBe(900_000);
+
+    const reconciled = reconcileLedgerTotalXp(
+      120,
+      [
+        {
+          id: 1,
+          amount: 100,
+          sourceType: 'activity',
+          sourceId: 10,
+          reasonKey: 'workout',
+          configVersion: 1,
+          occurredAt: 1000,
+        },
+        {
+          id: 2,
+          amount: -30,
+          sourceType: 'penalty',
+          sourceId: '2026-10-23',
+          reasonKey: 'inactivity_3d',
+          configVersion: 1,
+          occurredAt: 2000,
+        },
+      ],
+      3000
+    );
+    expect(reconciled.addedOpeningEvent?.amount).toBe(50);
+    expect(computeLedgerTotalXp(reconciled.events)).toBe(120);
   });
 });

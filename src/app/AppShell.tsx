@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  AppState,
   Image,
   Pressable,
   SafeAreaView,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import { getTheme } from './theme';
 import { useAwakened } from '../data/repository';
+import { isAppLockEnabled } from '../core/utils/pinSecurity';
 import { t } from '../l10n/translations';
 import { HomeScreen } from '../features/home/HomeScreen';
 import { TrackScreen } from '../features/track/TrackScreen';
@@ -51,19 +53,47 @@ export const AppShell: React.FC = () => {
     updateProfile,
     updateOnboardingDraft,
     completeOnboarding,
+    resetAllData,
   } = useAwakened();
 
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const backgroundedAtRef = useRef<number | null>(null);
+
+  const lockConfigured = isAppLockEnabled(db.profile);
 
   useEffect(() => {
-    if (!db.profile.appLockPin) {
+    if (!lockConfigured) {
       setIsUnlocked(true);
     }
-  }, [db.profile.appLockPin]);
+  }, [lockConfigured]);
 
-  const isAppLocked = isLoaded && Boolean(db.profile.appLockPin) && !isUnlocked;
+  useEffect(() => {
+    if (!lockConfigured) return;
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        backgroundedAtRef.current = Date.now();
+        if ((db.profile.appLockTimeoutSec ?? 30) <= 0) {
+          setIsUnlocked(false);
+        }
+      } else if (nextState === 'active') {
+        const bgAt = backgroundedAtRef.current;
+        backgroundedAtRef.current = null;
+        if (bgAt !== null) {
+          const timeoutMs = Math.max(0, (db.profile.appLockTimeoutSec ?? 30) * 1000);
+          if (Date.now() - bgAt >= timeoutMs) {
+            setIsUnlocked(false);
+          }
+        }
+      }
+    });
+    return () => {
+      sub.remove();
+    };
+  }, [lockConfigured, db.profile.appLockTimeoutSec]);
+
+  const isAppLocked = isLoaded && lockConfigured && !isUnlocked;
 
   const handleSelectTab = (tab: NavTab) => {
     setActiveTab(tab);
@@ -335,11 +365,14 @@ export const AppShell: React.FC = () => {
       />
 
       {/* Full-screen RPG System Security Lock */}
-      {isAppLocked && db.profile.appLockPin && (
+      {isAppLocked && (
         <AppLockScreen
+          profile={db.profile}
           correctPin={db.profile.appLockPin}
           biometricEnabled={db.profile.appLockBiometricEnabled ?? true}
           onUnlock={() => setIsUnlocked(true)}
+          onUpdateProfile={updateProfile}
+          onResetAllData={resetAllData}
           theme={theme}
           lang={lang}
           displayName={db.profile.displayName}

@@ -1,5 +1,5 @@
 import xpConfigJson from '../../../assets/config/xp_config.json';
-import { CustomIntensity } from './types';
+import { CustomIntensity, XpEventRecord } from './types';
 
 export type XpActivityKey =
   | 'water_log'
@@ -208,4 +208,47 @@ export function canRevertXpOnDelete(
 ): boolean {
   const windowMs = (config.delete_revert_window_sec ?? 600) * 1000;
   return Math.max(0, nowMs - createdAtMs) <= windowMs;
+}
+
+/**
+ * Computes total XP directly from the immutable XP event ledger (clamped >= 0).
+ */
+export function computeLedgerTotalXp(xpEvents: XpEventRecord[]): number {
+  const sum = xpEvents.reduce((acc, e) => acc + (Number.isFinite(e.amount) ? e.amount : 0), 0);
+  return Math.max(0, sum);
+}
+
+/**
+ * Ensures the XP ledger sum matches `profileTotalXp` on startup (one-time opening reconciliation
+ * for legacy profiles where activities or quests were mutated without ledger entries).
+ */
+export function reconcileLedgerTotalXp(
+  profileTotalXp: number,
+  xpEvents: XpEventRecord[],
+  nowMs: number = Date.now()
+): { events: XpEventRecord[]; addedOpeningEvent: XpEventRecord | null; totalXp: number } {
+  const currentSum = xpEvents.reduce(
+    (acc, e) => acc + (Number.isFinite(e.amount) ? e.amount : 0),
+    0
+  );
+  const targetXp = Math.max(0, profileTotalXp);
+  const diff = targetXp - currentSum;
+  if (diff === 0) {
+    return { events: xpEvents, addedOpeningEvent: null, totalXp: targetXp };
+  }
+  const nextId = xpEvents.reduce((max, e) => (e.id > max ? e.id : max), 0) + 1;
+  const openingEvent: XpEventRecord = {
+    id: nextId,
+    amount: diff,
+    sourceType: 'opening',
+    reasonKey: 'ledger_opening_balance',
+    configVersion: 1,
+    occurredAt: nowMs,
+    idemKey: `opening:${nowMs}`,
+  };
+  return {
+    events: [openingEvent, ...xpEvents],
+    addedOpeningEvent: openingEvent,
+    totalXp: targetXp,
+  };
 }

@@ -1,5 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
+  BackHandler,
+  Dimensions,
+  FlatList,
   Image,
   Modal,
   Pressable,
@@ -9,6 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import {
   copyToClipboard,
   getDeviceRegion,
@@ -40,7 +45,20 @@ import {
   getSecretHint,
   isAchievementVisibleForUser,
 } from '../../core/engine/achievementEngine';
-import { RankBadge, XpBar } from '../components/SystemSharedComponents';
+import {
+  formatRankLevelRange,
+  getRankDescriptions,
+  visibleRanks,
+} from '../../core/engine/rankEngine';
+import { resolveInactivitySettings } from '../../core/engine/penaltyEngine';
+import {
+  generatePinSalt,
+  generateRecoveryCode,
+  hashPin,
+  isAppLockEnabled,
+  verifyPin,
+} from '../../core/utils/pinSecurity';
+import { RankBadge, ScreenHeader, XpBar } from '../components/SystemSharedComponents';
 import { AppIcon } from '../components/AppIcons';
 import {
   AnimatedCard,
@@ -59,6 +77,8 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
     thisWeekQuests,
     dailyRepeatableXpToday,
     achievementMetrics,
+    inactivityStatus,
+    setVacationMode,
     addPersonalQuest,
     completePersonalQuest,
     deletePersonalQuest,
@@ -92,15 +112,25 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
   const [widgetFeedback, setWidgetFeedback] = useState<string | null>(null);
   const [notifGranted, setNotifGranted] = useState(false);
 
-  // Navigation Horizontal Tabs below Profile
-  type ProfileMainTab =
+  // Sub-Window Navigation for Profile
+  type ProfileWindow =
     | 'personal_quests'
     | 'trophies'
     | 'all_ranks'
     | 'support'
     | 'settings'
-    | 'footer';
-  const [profileTab, setProfileTab] = useState<ProfileMainTab>('personal_quests');
+    | 'more';
+  const [activeWindow, setActiveWindow] = useState<ProfileWindow | null>(null);
+
+  // Hardware back press handler on Android to return from sub-window to profile menu
+  useEffect(() => {
+    if (!activeWindow) return;
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      setActiveWindow(null);
+      return true;
+    });
+    return () => backHandler.remove();
+  }, [activeWindow]);
 
   type SettingsSubTab = 'privacy' | 'personal_data' | 'notifications' | 'widgets';
   const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>('notifications');
@@ -117,8 +147,15 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
   const [appLockModalOpen, setAppLockModalOpen] = useState(false);
   const [appLockInputPin, setAppLockInputPin] = useState('');
   const [appLockConfirmPin, setAppLockConfirmPin] = useState('');
+  const [appLockPinLenChoice, setAppLockPinLenChoice] = useState<4 | 6>(
+    db.profile.appLockPinLength ?? 4
+  );
   const [appLockBiometricOpt, setAppLockBiometricOpt] = useState(true);
-  const [appLockStep, setAppLockStep] = useState<'enter_pin' | 'confirm_pin' | 'manage'>('enter_pin');
+  const [appLockStep, setAppLockStep] = useState<
+    'enter_pin' | 'confirm_pin' | 'show_recovery' | 'manage'
+  >('enter_pin');
+  const [generatedRecoveryCode, setGeneratedRecoveryCode] = useState<string | null>(null);
+  const [copiedRecoveryCode, setCopiedRecoveryCode] = useState(false);
   const [appLockError, setAppLockError] = useState<string | null>(null);
   const [appLockSuccessMsg, setAppLockSuccessMsg] = useState<string | null>(null);
   const [verifyCurrentPin, setVerifyCurrentPin] = useState('');
@@ -155,6 +192,40 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
   const [vowReviewedBanner, setVowReviewedBanner] = useState(false);
 
   const allRanks = xpConfigJson.ranks as RankDef[];
+  const monarchUnlocked = monarchEligibility.eligible || currentRank.id === 'M';
+  const ranksToShow = visibleRanks(levelState.level, monarchUnlocked, allRanks);
+  const currentRankCarouselIdx = Math.max(
+    0,
+    ranksToShow.findIndex((r) => r.id === currentRank.id)
+  );
+  const [carouselRankIdx, setCarouselRankIdx] = useState<number>(currentRankCarouselIdx);
+  const rankScrollX = useRef(new Animated.Value(0)).current;
+  const rankFlatListRef = useRef<FlatList<RankDef> | null>(null);
+
+  const screenWidth = Dimensions.get('window').width || 360;
+  const RANK_CARD_WIDTH = Math.min(320, Math.max(260, Math.round(screenWidth * 0.78)));
+  const RANK_CARD_GAP = 14;
+  const RANK_SNAP_INTERVAL = RANK_CARD_WIDTH + RANK_CARD_GAP;
+  const RANK_SIDE_SPACER = Math.max(12, Math.floor((screenWidth - 62 - RANK_CARD_WIDTH) / 2));
+
+  useEffect(() => {
+    if (activeWindow === 'all_ranks') {
+      const idx = Math.max(
+        0,
+        ranksToShow.findIndex((r) => r.id === currentRank.id)
+      );
+      setCarouselRankIdx(idx);
+      setTimeout(() => {
+        rankFlatListRef.current?.scrollToOffset({
+          offset: idx * RANK_SNAP_INTERVAL,
+          animated: !reduceMotion,
+        });
+      }, 60);
+    }
+  }, [activeWindow, currentRank.id, ranksToShow.length]);
+
+  const inactivityCfg = resolveInactivitySettings(db.profile.inactivitySettings);
+  const lockEnabled = isAppLockEnabled(db.profile);
   const allCategories = ACHIEVEMENT_CATEGORIES;
   const unlockedSet = new Set(db.achievementsUnlocked.map((u) => u.achievementId));
   const unlockedAtMap = new Map(
@@ -248,13 +319,98 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
     }
   };
 
+  const menuItems: Array<{
+    id: ProfileWindow;
+    title: string;
+    subtitle: string;
+    icon: any;
+    iconColor: string;
+    badgeText?: string;
+  }> = [
+    {
+      id: 'personal_quests',
+      title: isTh ? 'ภารกิจส่วนตัว' : 'Personal Quests',
+      subtitle: isTh
+        ? 'เควสต์ที่กำหนดเอง และ เควสต์ประจำสัปดาห์ (Max 50 XP/วัน)'
+        : 'Custom quests & weekly milestone tracker',
+      icon: 'quest',
+      iconColor: theme.primary,
+      badgeText: `${db.personalQuestTemplates.length} ${isTh ? 'เควสต์' : 'quests'}`,
+    },
+    {
+      id: 'trophies',
+      title: isTh ? 'ห้องถ้วยรางวัล' : 'Trophy Room',
+      subtitle: isTh
+        ? `${visibleUnlockedCount} / ${visibleAchievements.length} ถ้วยรางวัล (${overallAchPct}%)`
+        : `${visibleUnlockedCount} / ${visibleAchievements.length} Trophies (${overallAchPct}%)`,
+      icon: 'trophy',
+      iconColor: theme.warning,
+      badgeText: `${overallAchPct}%`,
+    },
+    {
+      id: 'all_ranks',
+      title: 'All Rank',
+      subtitle: isTh
+        ? `ทำเนียบแรงค์ทั้งหมด ${ranksToShow.length} ระดับ (เลื่อนการ์ดซ้าย-ขวา)`
+        : `All ${ranksToShow.length} Hunter Ranks (Horizontal Carousel)`,
+      icon: 'shield',
+      iconColor: currentRank.id === 'M' ? '#FFFFFF' : currentRank.id === 'SS' ? '#00F5D4' : theme.primary,
+      badgeText: currentRank.id === 'M' ? 'Rank M' : `${ranksToShow.length} Ranks`,
+    },
+    {
+      id: 'support',
+      title: isTh ? 'สนับสนุนผู้พัฒนา' : 'Support Developer',
+      subtitle: isTh
+        ? 'ร่วมสนับสนุนนักพัฒนาชาวไทย (พร้อมเพย์ / QR Code)'
+        : 'Support Thai solo developer (PromptPay / QR)',
+      icon: 'heart',
+      iconColor: '#138F46',
+      badgeText: 'Donation',
+    },
+    {
+      id: 'settings',
+      title: isTh ? 'การตั้งค่า' : 'Settings',
+      subtitle: isTh
+        ? 'ความเป็นส่วนตัว · กฎหัก EXP · ข้อมูลส่วนตัว · การแจ้งเตือน · วิดเจ็ต'
+        : 'Privacy · EXP Penalty · Personal Data · Notifications · Widgets',
+      icon: 'settings',
+      iconColor: theme.primary,
+      badgeText: 'Config',
+    },
+    {
+      id: 'more',
+      title: isTh ? 'เพิ่มเติม' : 'More',
+      subtitle: isTh
+        ? 'ข้อจำกัดความรับผิดชอบ และ ข้อมูลแอป v0.10.5'
+        : 'Health Disclaimer & Open Source (v0.10.5)',
+      icon: 'brain',
+      iconColor: theme.textSecondary,
+      badgeText: 'v0.10.5',
+    },
+  ];
+
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.bg }]}
-      contentContainerStyle={styles.content}
-    >
-      {/* 1. Player Profile & Rank Card */}
-      <AnimatedCard
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      {/* Sub-Window Header Bar with Mathematically Centered Title (Section 5) */}
+      {activeWindow !== null && (
+        <ScreenHeader
+          title={menuItems.find((m) => m.id === activeWindow)?.title ?? ''}
+          onBack={() => setActiveWindow(null)}
+          backLabel={isTh ? 'ย้อนกลับ' : 'Back'}
+          theme={theme}
+          reduceMotion={reduceMotion}
+        />
+      )}
+
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Main Profile Screen: Player Card & Vertical Menu List */}
+        {activeWindow === null && (
+          <>
+            <AnimatedCard
         index={0}
         reduceMotion={reduceMotion}
         style={[
@@ -457,28 +613,33 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
           reduceMotion={reduceMotion}
         />
 
-        {nextRank && (
+        {nextRank ? (
           <View style={[styles.inlineIconRow, { marginTop: 10 }]}>
             <AppIcon name="quest" size={14} color={theme.primary} />
             <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
-              {strings.profile.rankProgress}: Rank {nextRank.id} – {nextRank.name} (Lv.
-              {nextRank.min_level} / {nextRank.min_total_xp.toLocaleString()} XP)
+              {`${strings.profile.rankProgress}: Rank ${nextRank.id} – ${nextRank.name} (Lv. ${nextRank.min_level} / ${nextRank.min_total_xp.toLocaleString()} XP)`}
+            </Text>
+          </View>
+        ) : (
+          <View style={[styles.inlineIconRow, { marginTop: 10 }]}>
+            <AppIcon name="crown" size={14} color={currentRank.color} />
+            <Text style={{ color: currentRank.color, fontSize: 12, fontWeight: '800' }}>
+              {`MAX RANK · ${currentRank.id} – ${currentRank.name}`}
             </Text>
           </View>
         )}
 
-        {/* Monarch Special Unlock Trials (Section 7.5) */}
-        {/* Only show when currentRank is SS or Monarch (M) as requested: "เงื่อนไขปลดล็อกแรงค์สูงสุด ให้ซ่อนไว้ก่อน ค่อยแสดงตอนอยู่แรงค์ SS" */}
-        {(currentRank.id === 'SS' || currentRank.id === 'M') && (
+        {/* Monarch Special Unlock Trials — only visible once Monarch is unveiled */}
+        {monarchUnlocked && (
           <View
             style={[
               styles.subBox,
-              { backgroundColor: theme.bgSecondary, borderColor: theme.border, marginTop: 12 },
+              { backgroundColor: theme.bgSecondary, borderColor: '#BD00FF55', marginTop: 12 },
             ]}
           >
             <View style={styles.inlineIconRow}>
-              <AppIcon name="crown" size={14} color={theme.warning} />
-              <Text style={{ color: theme.warning, fontWeight: '800', fontSize: 12 }}>
+              <AppIcon name="crown" size={14} color="#FFFFFF" />
+              <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 12 }}>
                 {strings.profile.monarchTrials}:
               </Text>
             </View>
@@ -514,54 +675,67 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
         )}
       </AnimatedCard>
 
-      {/* Horizontal Navigation Tab Bar underneath Player Profile */}
-      <View style={{ marginVertical: 8 }}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 8, paddingHorizontal: 2, paddingVertical: 4 }}
-        >
-          {[
-            { id: 'personal_quests', label: isTh ? 'ภารกิจส่วนตัว' : 'Personal Quests', icon: 'quest' as const },
-            { id: 'trophies', label: isTh ? 'ห้องถ้วยรางวัล' : 'Trophy Room', icon: 'trophy' as const },
-            { id: 'all_ranks', label: 'All Rank', icon: 'shield' as const },
-            { id: 'support', label: isTh ? 'สนับสนุนผู้พัฒนา' : 'Support Developer', icon: 'heart' as const },
-            { id: 'settings', label: isTh ? 'การตั้งค่า' : 'Settings', icon: 'gear' as const },
-            { id: 'footer', label: isTh ? 'ส่วนท้ายของโปรไฟล์' : 'Profile Footer', icon: 'info' as const },
-          ].map((tab) => {
-            const active = profileTab === tab.id;
-            return (
-              <AnimatedPressable
-                key={tab.id}
-                reduceMotion={reduceMotion}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: active ? `${theme.primary}25` : theme.card,
-                    borderColor: active ? theme.primary : theme.border,
-                    paddingVertical: 7,
-                    paddingHorizontal: 14,
-                  },
-                ]}
-                onPress={() => setProfileTab(tab.id as ProfileMainTab)}
-              >
-                <Text
-                  style={{
-                    color: active ? theme.primary : theme.textSecondary,
-                    fontWeight: '800',
-                    fontSize: 12,
-                  }}
-                >
-                  {tab.label}
+      {/* 2. Vertical Menu List ("เป็นชื่อไล่เรียงลงมา ให้เข้าหน้าต่างใหม่") */}
+      <View style={styles.menuListContainer}>
+        {menuItems.map((item) => (
+          <AnimatedPressable
+            key={item.id}
+            reduceMotion={reduceMotion}
+            style={[
+              styles.menuCard,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.border,
+              },
+            ]}
+            onPress={() => setActiveWindow(item.id)}
+            accessibilityRole="button"
+            accessibilityLabel={item.title}
+          >
+            <View style={[styles.menuIconCircle, { backgroundColor: `${item.iconColor}18` }]}>
+              <AppIcon name={item.icon} size={20} color={item.iconColor} />
+            </View>
+
+            <View style={{ flex: 1, justifyContent: 'center' }}>
+              <View style={styles.inlineIconRow}>
+                <Text style={[styles.menuTitle, { color: theme.text }]}>
+                  {item.title}
                 </Text>
-              </AnimatedPressable>
-            );
-          })}
-        </ScrollView>
+                {item.badgeText && (
+                  <View
+                    style={[
+                      styles.menuBadge,
+                      {
+                        backgroundColor: `${item.iconColor}20`,
+                        borderColor: `${item.iconColor}40`,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.menuBadgeText, { color: item.iconColor }]}>
+                      {item.badgeText}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Text
+                style={[styles.menuSubtitle, { color: theme.textSecondary }]}
+                numberOfLines={1}
+              >
+                {item.subtitle}
+              </Text>
+            </View>
+
+            <View style={styles.menuChevron}>
+              <Text style={{ color: theme.textMuted, fontSize: 20, fontWeight: '800' }}>›</Text>
+            </View>
+          </AnimatedPressable>
+        ))}
       </View>
+      </>
+      )}
 
       {/* 2. Personal Quest Manager (Section 8.4) */}
-      {profileTab === 'personal_quests' && (
+      {activeWindow === 'personal_quests' && (
       <AnimatedCard
         index={1}
         reduceMotion={reduceMotion}
@@ -721,7 +895,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
       )}
 
       {/* 3. Trophy Room — ห้องถ้วยรางวัล (199 Achievements, Section 5 & 7) */}
-      {profileTab === 'trophies' && (
+      {activeWindow === 'trophies' && (
       <AnimatedCard
         index={2}
         reduceMotion={reduceMotion}
@@ -1249,50 +1423,349 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
       </AnimatedCard>
       )}
 
-      {/* 4. All 8 Ranks Reference Table */}
-      {profileTab === 'all_ranks' && (
-      <AnimatedCard
-        index={3}
-        reduceMotion={reduceMotion}
-        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
-      >
-        <View style={[styles.inlineIconRow, { marginBottom: 8 }]}>
-          <AppIcon name="shield" size={18} color={theme.primary} />
-          <Text style={[styles.cardTitle, { color: theme.text }]}>
-            {isTh ? 'ทำเนียบ Rank ทั้ง 8 ระดับ' : 'All 8 Awakened Ranks'}
-          </Text>
-        </View>
-        {allRanks.map((r) => (
+      {/* 4. All Ranks Horizontal Snap Carousel (Section 2 & 3) */}
+      {activeWindow === 'all_ranks' && (
+        <AnimatedCard
+          index={0}
+          reduceMotion={reduceMotion}
+          style={[
+            styles.card,
+            { backgroundColor: theme.card, borderColor: theme.border, paddingHorizontal: 0 },
+          ]}
+        >
           <View
-            key={r.id}
-            style={[
-              styles.rankRow,
-              {
-                borderColor: r.id === currentRank.id ? r.color : theme.border,
-                backgroundColor: r.id === currentRank.id ? `${r.color}18` : theme.bgSecondary,
-              },
-            ]}
+            style={{
+              paddingHorizontal: 15,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 4,
+            }}
           >
             <View style={styles.inlineIconRow}>
-              <AppIcon
-                name={r.id === 'Monarch' || r.id === 'SS' || r.id === 'S' ? 'crown' : 'shield'}
-                size={14}
-                color={r.color}
-              />
-              <Text style={{ color: r.color, fontWeight: '900', fontSize: 13 }}>
-                {r.id} – {r.name} ({isTh ? r.title_th : r.title_en})
+              <AppIcon name="shield" size={18} color={theme.primary} />
+              <Text style={[styles.cardTitle, { color: theme.text }]}>
+                {isTh
+                  ? `ทำเนียบแรงค์ (${ranksToShow.length} ระดับ)`
+                  : `Hunter Ranks (${ranksToShow.length} Tiers)`}
               </Text>
             </View>
-            <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
-              Lv.{r.min_level}+ · {r.min_total_xp.toLocaleString()} XP
+            <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700' }}>
+              {isTh ? '← เลื่อนซ้าย-ขวา →' : '← Swipe →'}
             </Text>
           </View>
-        ))}
-      </AnimatedCard>
+
+          <Animated.FlatList
+            ref={(ref) => {
+              rankFlatListRef.current = ref as unknown as FlatList<RankDef> | null;
+            }}
+            data={ranksToShow}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={RANK_SNAP_INTERVAL}
+            decelerationRate="fast"
+            bounces={false}
+            contentContainerStyle={{
+              paddingHorizontal: RANK_SIDE_SPACER,
+              paddingVertical: 10,
+            }}
+            getItemLayout={(_, index) => ({
+              length: RANK_SNAP_INTERVAL,
+              offset: RANK_SNAP_INTERVAL * index,
+              index,
+            })}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { x: rankScrollX } } }],
+              { useNativeDriver: true }
+            )}
+            scrollEventThrottle={16}
+            onMomentumScrollEnd={(e) => {
+              const idx = Math.round(e.nativeEvent.contentOffset.x / RANK_SNAP_INTERVAL);
+              const clamped = Math.max(0, Math.min(ranksToShow.length - 1, idx));
+              if (clamped !== carouselRankIdx) {
+                setCarouselRankIdx(clamped);
+                Haptics.selectionAsync().catch(() => {});
+              }
+            }}
+            renderItem={({ item: r, index }) => {
+              const inputRange = [
+                (index - 1) * RANK_SNAP_INTERVAL,
+                index * RANK_SNAP_INTERVAL,
+                (index + 1) * RANK_SNAP_INTERVAL,
+              ];
+              const scale = reduceMotion
+                ? 1
+                : rankScrollX.interpolate({
+                    inputRange,
+                    outputRange: [0.91, 1, 0.91],
+                    extrapolate: 'clamp',
+                  });
+              const opacity = reduceMotion
+                ? 1
+                : rankScrollX.interpolate({
+                    inputRange,
+                    outputRange: [0.62, 1, 0.62],
+                    extrapolate: 'clamp',
+                  });
+
+              const isCurrent = r.id === currentRank.id;
+              const isCleared = !isCurrent && levelState.level >= r.min_level;
+              const desc = getRankDescriptions(r, lang);
+              const levelRangeText = formatRankLevelRange(r, monarchUnlocked);
+
+              return (
+                <Animated.View
+                  style={{
+                    width: RANK_CARD_WIDTH,
+                    marginRight: index === ranksToShow.length - 1 ? 0 : RANK_CARD_GAP,
+                    transform: [{ scale }],
+                    opacity,
+                  }}
+                >
+                  <View
+                    style={{
+                      borderRadius: 18,
+                      borderWidth: isCurrent ? 2 : 1.2,
+                      borderColor: isCurrent ? r.color : `${r.color}55`,
+                      backgroundColor: isCurrent ? `${r.color}14` : theme.bgSecondary,
+                      padding: 16,
+                      gap: 10,
+                    }}
+                  >
+                    {/* Top Status Badge & Emblem */}
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 22,
+                          backgroundColor: `${r.color}24`,
+                          borderWidth: 2,
+                          borderColor: r.color,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <AppIcon
+                          name={r.id === 'M' || r.id === 'SS' || r.id === 'S' ? 'crown' : 'shield'}
+                          size={20}
+                          color={r.color}
+                        />
+                      </View>
+
+                      <View
+                        style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                          borderRadius: 999,
+                          backgroundColor: isCurrent
+                            ? r.color
+                            : isCleared
+                            ? `${theme.success}22`
+                            : `${theme.border}44`,
+                          borderWidth: 1,
+                          borderColor: isCurrent
+                            ? r.color
+                            : isCleared
+                            ? theme.success
+                            : theme.border,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: isCurrent
+                              ? '#0E1220'
+                              : isCleared
+                              ? theme.success
+                              : theme.textMuted,
+                            fontSize: 11,
+                            fontWeight: '900',
+                          }}
+                        >
+                          {isCurrent
+                            ? isTh
+                              ? '● คุณอยู่ตรงนี้'
+                              : '● YOU ARE HERE'
+                            : isCleared
+                            ? isTh
+                              ? '✓ ผ่านระดับนี้แล้ว'
+                              : '✓ CLEARED'
+                            : isTh
+                            ? '🔒 ยังไม่ถึงระดับ'
+                            : '🔒 LOCKED'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Part 1: Rank Name, Title & Level/XP Range */}
+                    <View>
+                      <Text
+                        style={{
+                          color: r.color,
+                          fontSize: 22,
+                          fontWeight: '900',
+                          letterSpacing: 0.5,
+                        }}
+                      >
+                        Rank {r.id} — {r.name}
+                      </Text>
+                      <Text
+                        style={{
+                          color: theme.text,
+                          fontSize: 14,
+                          fontWeight: '800',
+                          marginTop: 2,
+                        }}
+                      >
+                        “{isTh ? r.title_th : r.title_en}”
+                      </Text>
+
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          gap: 8,
+                          marginTop: 8,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <View
+                          style={{
+                            paddingHorizontal: 9,
+                            paddingVertical: 4,
+                            borderRadius: 8,
+                            backgroundColor: theme.card,
+                            borderWidth: 1,
+                            borderColor: theme.border,
+                          }}
+                        >
+                          <Text style={{ color: theme.text, fontSize: 11.5, fontWeight: '800' }}>
+                            {levelRangeText}
+                          </Text>
+                        </View>
+                        <View
+                          style={{
+                            paddingHorizontal: 9,
+                            paddingVertical: 4,
+                            borderRadius: 8,
+                            backgroundColor: theme.card,
+                            borderWidth: 1,
+                            borderColor: theme.border,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: theme.textSecondary,
+                              fontSize: 11.5,
+                              fontWeight: '700',
+                            }}
+                          >
+                            {r.min_total_xp.toLocaleString()} XP+
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Part 2: In-Game Meaning */}
+                    <View
+                      style={{
+                        padding: 10,
+                        borderRadius: 12,
+                        backgroundColor: theme.card,
+                        borderWidth: 1,
+                        borderColor: theme.border,
+                        gap: 3,
+                      }}
+                    >
+                      <Text style={{ color: r.color, fontSize: 11, fontWeight: '900' }}>
+                        {isTh ? '⚔️ ความหมายในระบบเกม' : '⚔️ In-Game Lore'}
+                      </Text>
+                      <Text
+                        style={{
+                          color: theme.textSecondary,
+                          fontSize: 12,
+                          lineHeight: 17,
+                        }}
+                      >
+                        {desc.game}
+                      </Text>
+                    </View>
+
+                    {/* Part 3: Real-Life Meaning */}
+                    <View
+                      style={{
+                        padding: 10,
+                        borderRadius: 12,
+                        backgroundColor: theme.card,
+                        borderWidth: 1,
+                        borderColor: theme.border,
+                        gap: 3,
+                      }}
+                    >
+                      <Text style={{ color: theme.success, fontSize: 11, fontWeight: '900' }}>
+                        {isTh ? '🌱 ความหมายในชีวิตจริง' : '🌱 Real-Life Meaning'}
+                      </Text>
+                      <Text
+                        style={{
+                          color: theme.textSecondary,
+                          fontSize: 12,
+                          lineHeight: 17,
+                        }}
+                      >
+                        {desc.real}
+                      </Text>
+                    </View>
+                  </View>
+                </Animated.View>
+              );
+            }}
+          />
+
+          {/* Interactive Pagination Dots */}
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 8,
+              marginTop: 8,
+              paddingHorizontal: 15,
+            }}
+          >
+            {ranksToShow.map((r, idx) => {
+              const active = idx === carouselRankIdx;
+              return (
+                <Pressable
+                  key={r.id}
+                  onPress={() => {
+                    setCarouselRankIdx(idx);
+                    Haptics.selectionAsync().catch(() => {});
+                    rankFlatListRef.current?.scrollToOffset({
+                      offset: idx * RANK_SNAP_INTERVAL,
+                      animated: !reduceMotion,
+                    });
+                  }}
+                  style={{
+                    height: 8,
+                    width: active ? 24 : 8,
+                    borderRadius: 4,
+                    backgroundColor: active ? r.color : theme.border,
+                  }}
+                />
+              );
+            })}
+          </View>
+        </AnimatedCard>
       )}
 
       {/* 4C. Developer Support & Donation (Thailand Only) */}
-      {profileTab === 'support' && (
+      {activeWindow === 'support' && (
         <AnimatedCard
           index={4}
           reduceMotion={reduceMotion}
@@ -1402,7 +1875,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
       )}
 
       {/* 5. Settings, Preferences & Privacy with 4 Sub-Tabs */}
-      {profileTab === 'settings' && (
+      {activeWindow === 'settings' && (
         <AnimatedCard
           index={4}
           reduceMotion={reduceMotion}
@@ -1471,10 +1944,10 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                 style={[
                   styles.chip,
                   {
-                    backgroundColor: Boolean(db.profile.appLockPin)
+                    backgroundColor: lockEnabled
                       ? `${theme.success}18`
                       : theme.bgSecondary,
-                    borderColor: Boolean(db.profile.appLockPin) ? theme.success : theme.border,
+                    borderColor: lockEnabled ? theme.success : theme.border,
                     marginBottom: 8,
                     paddingVertical: 10,
                   },
@@ -1486,7 +1959,9 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                   setPinVerified(false);
                   setAppLockError(null);
                   setAppLockSuccessMsg(null);
-                  setAppLockStep(db.profile.appLockPin ? 'manage' : 'enter_pin');
+                  setGeneratedRecoveryCode(null);
+                  setAppLockPinLenChoice(db.profile.appLockPinLength ?? 4);
+                  setAppLockStep(lockEnabled ? 'manage' : 'enter_pin');
                   setAppLockModalOpen(true);
                 }}
               >
@@ -1494,19 +1969,356 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                   <AppIcon
                     name="lock"
                     size={14}
-                    color={Boolean(db.profile.appLockPin) ? theme.success : theme.textSecondary}
+                    color={lockEnabled ? theme.success : theme.textSecondary}
                   />
                   <Text style={{ color: theme.text, fontWeight: '700', fontSize: 12 }}>
-                    {Boolean(db.profile.appLockPin)
+                    {lockEnabled
                       ? isTh
-                        ? 'ล็อกแอปด้วย PIN: เปิดแล้ว ✓ (แตะเพื่อจัดการ)'
-                        : 'App Lock PIN: Enabled ✓ (Tap to manage)'
+                        ? `ล็อกแอปด้วย PIN (${db.profile.appLockPinLength ?? 4} หลัก): เปิดแล้ว ✓ (แตะเพื่อจัดการ)`
+                        : `App Lock PIN (${db.profile.appLockPinLength ?? 4} digits): Enabled ✓ (Tap to manage)`
                       : isTh
-                      ? 'เปิดใช้งานล็อกแอป (App Lock)'
-                      : 'Enable App Lock'}
+                      ? 'เปิดใช้งานล็อกแอปด้วยรหัส PIN (App Lock)'
+                      : 'Enable App Lock (4 or 6 digit PIN)'}
                   </Text>
                 </View>
               </AnimatedPressable>
+
+              {/* Auto-Lock Timeout & Widget Privacy when App Lock is Enabled */}
+              {lockEnabled && (
+                <View
+                  style={{
+                    backgroundColor: theme.bgSecondary,
+                    borderColor: theme.border,
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    padding: 12,
+                    marginBottom: 10,
+                    gap: 8,
+                  }}
+                >
+                  <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800' }}>
+                    {isTh
+                      ? '⏱ ล็อกอัตโนมัติเมื่อพับแอปไปพื้นหลัง:'
+                      : '⏱ Auto-lock timeout when backgrounded:'}
+                  </Text>
+                  <View style={styles.chipRow}>
+                    {(
+                      [
+                        { sec: 0, th: 'ทันที', en: 'Immediately' },
+                        { sec: 30, th: '30 วินาที', en: '30 sec' },
+                        { sec: 60, th: '1 นาที', en: '1 min' },
+                        { sec: 300, th: '5 นาที', en: '5 min' },
+                      ] as const
+                    ).map((opt) => {
+                      const active = (db.profile.appLockTimeoutSec ?? 0) === opt.sec;
+                      return (
+                        <AnimatedPressable
+                          key={opt.sec}
+                          reduceMotion={reduceMotion}
+                          style={[
+                            styles.chip,
+                            {
+                              backgroundColor: active ? `${theme.primary}25` : theme.card,
+                              borderColor: active ? theme.primary : theme.border,
+                              paddingVertical: 5,
+                            },
+                          ]}
+                          onPress={() => updateProfile({ appLockTimeoutSec: opt.sec })}
+                        >
+                          <Text
+                            style={{
+                              color: active ? theme.primary : theme.textSecondary,
+                              fontSize: 11,
+                              fontWeight: active ? '900' : '700',
+                            }}
+                          >
+                            {isTh ? opt.th : opt.en}
+                          </Text>
+                        </AnimatedPressable>
+                      );
+                    })}
+                  </View>
+
+                  <Pressable
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingTop: 6,
+                      borderTopWidth: 1,
+                      borderTopColor: `${theme.border}55`,
+                    }}
+                    onPress={() =>
+                      updateProfile({
+                        hideQuestsOnWidgetWhenLocked: !db.profile.hideQuestsOnWidgetWhenLocked,
+                      })
+                    }
+                  >
+                    <Text style={{ color: theme.textSecondary, fontSize: 11.5, fontWeight: '700', flex: 1 }}>
+                      {isTh
+                        ? '🙈 ซ่อนชื่อเควสบนวิดเจ็ตหน้าจอหลักเมื่อเปิดล็อกแอป'
+                        : '🙈 Hide quest titles on home-screen widget when locked'}
+                    </Text>
+                    <Text
+                      style={{
+                        color: db.profile.hideQuestsOnWidgetWhenLocked ? theme.success : theme.textMuted,
+                        fontWeight: '900',
+                        fontSize: 12,
+                      }}
+                    >
+                      {db.profile.hideQuestsOnWidgetWhenLocked ? (isTh ? 'เปิด' : 'ON') : (isTh ? 'ปิด' : 'OFF')}
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
+
+              {/* Inactivity EXP Penalty & Vacation Mode Settings (Section 1) */}
+              {(() => {
+                const penCfg = resolveInactivitySettings(db.profile.inactivitySettings);
+                const updatePenCfg = (patch: Partial<typeof penCfg>) => {
+                  updateProfile({
+                    inactivitySettings: {
+                      ...penCfg,
+                      ...patch,
+                    },
+                  });
+                };
+                return (
+                  <View
+                    style={{
+                      backgroundColor: theme.bgSecondary,
+                      borderColor: penCfg.enabled ? `${theme.warning}66` : theme.border,
+                      borderWidth: 1,
+                      borderRadius: 12,
+                      padding: 12,
+                      marginBottom: 10,
+                      gap: 8,
+                    }}
+                  >
+                    <View style={styles.headerRowBetween}>
+                      <View style={styles.inlineIconRow}>
+                        <AppIcon name="shield" size={15} color={theme.primary} />
+                        <Text style={{ color: theme.text, fontSize: 12.5, fontWeight: '800' }}>
+                          {isTh ? 'กฎหัก EXP 30% เมื่อขาดเควส 3 วันติด' : '3-Day Inactivity 30% EXP Penalty'}
+                        </Text>
+                      </View>
+                      <View style={styles.inlineIconRow}>
+                        <Text style={{ color: theme.primary, fontSize: 11, fontWeight: '900' }}>
+                          {`🛡️ ${db.profile.penaltyShields ?? 1}/3`}
+                        </Text>
+                        <Pressable
+                          style={[
+                            styles.chip,
+                            {
+                              backgroundColor: penCfg.enabled ? theme.warning : theme.card,
+                              borderColor: penCfg.enabled ? theme.warning : theme.border,
+                              paddingVertical: 4,
+                              paddingHorizontal: 8,
+                            },
+                          ]}
+                          onPress={() => updatePenCfg({ enabled: !penCfg.enabled })}
+                        >
+                          <Text
+                            style={{
+                              color: penCfg.enabled ? '#0E1220' : theme.textMuted,
+                              fontSize: 10.5,
+                              fontWeight: '900',
+                            }}
+                          >
+                            {penCfg.enabled ? (isTh ? 'เปิด' : 'ON') : (isTh ? 'ปิด' : 'OFF')}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+
+                    <Text style={{ color: theme.textSecondary, fontSize: 11, lineHeight: 16 }}>
+                      {isTh
+                        ? '• มีระยะผ่อนผัน 2 วันแรก หากขาดครบ 3 วันติดต่อกันจะใช้โล่กันโทษ 1 ชิ้น หรือหัก 30% EXP\n• วันพักประจำสัปดาห์และโหมดลาพัก/ป่วยจะไม่ถูกนับเป็นวันขาด'
+                        : '• 2-day grace period. Missing 3 consecutive days consumes 1 Shield or deducts 30% EXP.\n• Rest days & Vacation/Sick mode are exempt.'}
+                    </Text>
+
+                    {penCfg.enabled && (
+                      <>
+                        <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '700' }}>
+                          {isTh ? 'ฐานการคำนวณ 30%:' : '30% Calculation Base:'}
+                        </Text>
+                        <View style={styles.chipRow}>
+                          {(
+                            [
+                              {
+                                id: 'level' as const,
+                                th: 'เฉพาะ EXP ในเลเวลปัจจุบัน (เลเวลไม่ลด)',
+                                en: 'Current Level XP (Never de-levels)',
+                              },
+                              {
+                                id: 'total' as const,
+                                th: 'โหมดโหด: หักจาก EXP สะสมทั้งหมด',
+                                en: 'Hardcore: 30% of Total XP',
+                              },
+                            ]
+                          ).map((opt) => {
+                            const active = penCfg.scope === opt.id;
+                            return (
+                              <Pressable
+                                key={opt.id}
+                                style={[
+                                  styles.chip,
+                                  {
+                                    backgroundColor: active ? `${theme.primary}22` : theme.card,
+                                    borderColor: active ? theme.primary : theme.border,
+                                    paddingVertical: 5,
+                                  },
+                                ]}
+                                onPress={() => updatePenCfg({ scope: opt.id })}
+                              >
+                                <Text
+                                  style={{
+                                    color: active ? theme.primary : theme.textSecondary,
+                                    fontSize: 11,
+                                    fontWeight: active ? '900' : '600',
+                                  }}
+                                >
+                                  {isTh ? opt.th : opt.en}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+
+                        <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '700' }}>
+                          {isTh ? 'เกณฑ์การรักษาสถิติรายวัน:' : 'Daily Completion Rule:'}
+                        </Text>
+                        <View style={styles.chipRow}>
+                          {(
+                            [
+                              {
+                                id: 'any' as const,
+                                th: 'ทำอย่างน้อย 1 เควส หรือโหมดวันรอด',
+                                en: 'At least 1 daily quest or Bad Day Mode',
+                              },
+                              {
+                                id: 'all' as const,
+                                th: 'ต้องทำครบทุกเควสประจำวัน',
+                                en: 'Must complete ALL daily quests',
+                              },
+                            ]
+                          ).map((opt) => {
+                            const active = penCfg.missRule === opt.id;
+                            return (
+                              <Pressable
+                                key={opt.id}
+                                style={[
+                                  styles.chip,
+                                  {
+                                    backgroundColor: active ? `${theme.primary}22` : theme.card,
+                                    borderColor: active ? theme.primary : theme.border,
+                                    paddingVertical: 5,
+                                  },
+                                ]}
+                                onPress={() => updatePenCfg({ missRule: opt.id })}
+                              >
+                                <Text
+                                  style={{
+                                    color: active ? theme.primary : theme.textSecondary,
+                                    fontSize: 11,
+                                    fontWeight: active ? '900' : '600',
+                                  }}
+                                >
+                                  {isTh ? opt.th : opt.en}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+
+                        <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '700' }}>
+                          {isTh ? 'ความถี่เมื่อหายไปนาน:' : 'Repeat Behavior:'}
+                        </Text>
+                        <View style={styles.chipRow}>
+                          {(
+                            [
+                              {
+                                id: 'every3days' as const,
+                                th: 'หักซ้ำทุกๆ 3 วันที่ขาด (วันที่ 3, 6, 9...)',
+                                en: 'Every 3 missed days (Day 3, 6, 9...)',
+                              },
+                              {
+                                id: 'once' as const,
+                                th: 'หักครั้งเดียวต่อรอบที่หายไป',
+                                en: 'Once per missed streak',
+                              },
+                            ]
+                          ).map((opt) => {
+                            const active = penCfg.repeat === opt.id;
+                            return (
+                              <Pressable
+                                key={opt.id}
+                                style={[
+                                  styles.chip,
+                                  {
+                                    backgroundColor: active ? `${theme.primary}22` : theme.card,
+                                    borderColor: active ? theme.primary : theme.border,
+                                    paddingVertical: 5,
+                                  },
+                                ]}
+                                onPress={() => updatePenCfg({ repeat: opt.id })}
+                              >
+                                <Text
+                                  style={{
+                                    color: active ? theme.primary : theme.textSecondary,
+                                    fontSize: 11,
+                                    fontWeight: active ? '900' : '600',
+                                  }}
+                                >
+                                  {isTh ? opt.th : opt.en}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </>
+                    )}
+
+                    <View style={[styles.chipRow, { marginTop: 2 }]}>
+                      {Boolean(
+                        db.profile.vacationUntilDayKey &&
+                          db.profile.vacationUntilDayKey >= todayKey
+                      ) ? (
+                        <AnimatedPressable
+                          reduceMotion={reduceMotion}
+                          style={[
+                            styles.chip,
+                            { backgroundColor: `${theme.success}22`, borderColor: theme.success },
+                          ]}
+                          onPress={() => setVacationMode(null)}
+                        >
+                          <Text style={{ color: theme.success, fontSize: 11, fontWeight: '800' }}>
+                            {isTh
+                              ? `🏖️ โหมดลาพักถึง ${db.profile.vacationUntilDayKey} (แตะเพื่อปิด)`
+                              : `🏖️ Vacation until ${db.profile.vacationUntilDayKey} (Tap to end)`}
+                          </Text>
+                        </AnimatedPressable>
+                      ) : (
+                        ([1, 3, 7] as const).map((days) => (
+                          <AnimatedPressable
+                            key={days}
+                            reduceMotion={reduceMotion}
+                            style={[
+                              styles.chip,
+                              { backgroundColor: theme.card, borderColor: theme.border, paddingVertical: 5 },
+                            ]}
+                            onPress={() => setVacationMode(days)}
+                          >
+                            <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '700' }}>
+                              {isTh ? `🏖️ พัก/ป่วย ${days} วัน` : `🏖️ Pause ${days}d`}
+                            </Text>
+                          </AnimatedPressable>
+                        ))
+                      )}
+                    </View>
+                  </View>
+                );
+              })()}
 
               <View style={styles.chipRow}>
                 {/* Sound Effects */}
@@ -2598,10 +3410,10 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
         </AnimatedCard>
       )}
 
-      {/* 6. Health Disclaimer & Open-Source Credits (Profile Footer) */}
-      {profileTab === 'footer' && (
+      {/* 6. Health Disclaimer & Open-Source Credits (Profile Footer / More) */}
+      {activeWindow === 'more' && (
         <AnimatedCard
-          index={5}
+          index={0}
           reduceMotion={reduceMotion}
           style={[
             styles.card,
@@ -2615,9 +3427,9 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
         >
           <View style={styles.headerRowBetween}>
             <View style={[styles.inlineIconRow, { flexShrink: 1, marginRight: 8 }]}>
-              <AppIcon name="shield" size={18} color={theme.primary} />
+              <AppIcon name="brain" size={18} color={theme.primary} />
               <Text style={[styles.cardTitle, { color: theme.text, flexShrink: 1 }]}>
-                {strings.profile.disclaimerTitle}
+                {isTh ? 'เพิ่มเติม (ข้อจำกัดความรับผิดชอบ)' : 'More & Health Disclaimer'}
               </Text>
             </View>
             <AnimatedPressable
@@ -2673,11 +3485,13 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                 flexWrap: 'wrap',
               }}
             >
-              Awakened v0.10.3 · Open-Source Licenses: React Native & Expo (MIT), AsyncStorage & SQLite (MIT), React Native SVG (MIT), Vector Icons sourced from FreeIcons.io (Iconly Essential & Free Vector Sets), Thai Food Nutrition Reference (Public Domain / DOH Estimation).
+              Awakened v0.10.5 · Open-Source Licenses: React Native & Expo (MIT), AsyncStorage & SQLite (MIT), React Native SVG (MIT), Vector Icons sourced from FreeIcons.io (Iconly Essential & Free Vector Sets), Thai Food Nutrition Reference (Public Domain / DOH Estimation).
             </Text>
           </View>
         </AnimatedCard>
       )}
+
+      </ScrollView>
 
       {/* Profile Avatar Selection Modal */}
       <Modal
@@ -3189,7 +4003,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             </View>
 
             {/* Mode 1: Already Set -> Manage / Turn Off / Change PIN */}
-            {db.profile.appLockPin && appLockStep === 'manage' ? (
+            {lockEnabled && appLockStep === 'manage' ? (
               <View style={{ marginTop: 12 }}>
                 <View
                   style={{
@@ -3203,13 +4017,13 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                 >
                   <Text style={{ color: theme.success, fontSize: 12, fontWeight: '800' }}>
                     {isTh
-                      ? '✓ กำลังเปิดใช้งานการล็อกแอปด้วยรหัส PIN'
-                      : '✓ App Lock is currently ENABLED'}
+                      ? `✓ กำลังเปิดใช้งานการล็อกแอปด้วยรหัส PIN (${db.profile.appLockPinLength ?? 4} หลัก)`
+                      : `✓ App Lock is currently ENABLED (${db.profile.appLockPinLength ?? 4}-digit PIN)`}
                   </Text>
                   <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>
                     {isTh
-                      ? 'ระบบจะถามรหัส PIN ทุกครั้งที่เปิดแอปเพื่อความปลอดภัย'
-                      : 'App requires PIN upon cold launch to secure your data.'}
+                      ? 'ระบบเก็บรหัสแบบ Salted SHA-256 และมีรหัสกู้คืน (Recovery Code) สำหรับกรณีลืมรหัส'
+                      : 'Secured with Salted SHA-256 and offline Recovery Code.'}
                   </Text>
                 </View>
 
@@ -3217,13 +4031,13 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                   <View>
                     <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 8 }}>
                       {isTh
-                        ? 'กรุณากรอกรหัส PIN ปัจจุบัน 4 หลักเพื่อดำเนินการ:'
-                        : 'Enter your current 4-digit PIN to manage:'}
+                        ? `กรุณากรอกรหัส PIN ปัจจุบัน (${db.profile.appLockPinLength ?? 4} หลัก) เพื่อดำเนินการ:`
+                        : `Enter your current ${db.profile.appLockPinLength ?? 4}-digit PIN to manage:`}
                     </Text>
 
                     {/* PIN Dots */}
                     <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'center', marginVertical: 10 }}>
-                      {[0, 1, 2, 3].map((idx) => (
+                      {Array.from({ length: db.profile.appLockPinLength ?? 4 }).map((_, idx) => (
                         <View
                           key={idx}
                           style={{
@@ -3246,45 +4060,48 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
 
                     {/* Compact keypad */}
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginVertical: 8 }}>
-                      {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map((k) => (
-                        <Pressable
-                          key={k}
-                          style={{
-                            width: 58,
-                            height: 44,
-                            borderRadius: 8,
-                            backgroundColor: theme.bgSecondary,
-                            borderWidth: 1,
-                            borderColor: theme.border,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                          onPress={() => {
-                            setAppLockError(null);
-                            if (k === 'C') {
-                              setVerifyCurrentPin('');
-                            } else if (k === '⌫') {
-                              setVerifyCurrentPin((p) => p.slice(0, -1));
-                            } else {
-                              const next = verifyCurrentPin + k;
-                              if (next.length <= 4) {
-                                setVerifyCurrentPin(next);
-                                if (next.length === 4) {
-                                  if (next === db.profile.appLockPin) {
-                                    setPinVerified(true);
-                                    setVerifyCurrentPin('');
-                                  } else {
-                                    setAppLockError(isTh ? 'รหัส PIN ไม่ถูกต้อง' : 'Incorrect PIN');
-                                    setTimeout(() => setVerifyCurrentPin(''), 500);
+                      {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map((k) => {
+                        const targetLen = db.profile.appLockPinLength ?? 4;
+                        return (
+                          <Pressable
+                            key={k}
+                            style={{
+                              width: 58,
+                              height: 44,
+                              borderRadius: 8,
+                              backgroundColor: theme.bgSecondary,
+                              borderWidth: 1,
+                              borderColor: theme.border,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            onPress={() => {
+                              setAppLockError(null);
+                              if (k === 'C') {
+                                setVerifyCurrentPin('');
+                              } else if (k === '⌫') {
+                                setVerifyCurrentPin((p) => p.slice(0, -1));
+                              } else {
+                                const next = verifyCurrentPin + k;
+                                if (next.length <= targetLen) {
+                                  setVerifyCurrentPin(next);
+                                  if (next.length === targetLen) {
+                                    if (verifyPin(next, db.profile)) {
+                                      setPinVerified(true);
+                                      setVerifyCurrentPin('');
+                                    } else {
+                                      setAppLockError(isTh ? 'รหัส PIN ไม่ถูกต้อง' : 'Incorrect PIN');
+                                      setTimeout(() => setVerifyCurrentPin(''), 500);
+                                    }
                                   }
                                 }
                               }
-                            }
-                          }}
-                        >
-                          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>{k}</Text>
-                        </Pressable>
-                      ))}
+                            }}
+                          >
+                            <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>{k}</Text>
+                          </Pressable>
+                        );
+                      })}
                     </View>
                   </View>
                 ) : (
@@ -3302,7 +4119,15 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                         },
                       ]}
                       onPress={() => {
-                        updateProfile({ appLockPin: null, appLockBiometricEnabled: false });
+                        updateProfile({
+                          appLockPin: null,
+                          appLockPinHash: null,
+                          appLockSalt: null,
+                          appLockRecoveryCode: null,
+                          appLockBiometricEnabled: false,
+                          appLockFailedAttempts: 0,
+                          appLockLockedUntilMs: null,
+                        });
                         setAppLockSuccessMsg(isTh ? '✓ ปิดใช้งานการล็อกแอปแล้ว' : '✓ App lock disabled');
                         setTimeout(() => {
                           setAppLockModalOpen(false);
@@ -3330,7 +4155,36 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                       }}
                     >
                       <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 13 }}>
-                        {isTh ? '🔑 เปลี่ยนรหัส PIN ใหม่' : '🔑 Change PIN'}
+                        {isTh ? '🔑 เปลี่ยนรหัส PIN ใหม่ (4 หรือ 6 หลัก)' : '🔑 Change PIN (4 or 6 digits)'}
+                      </Text>
+                    </AnimatedPressable>
+
+                    {/* Generate New Recovery Code Button */}
+                    <AnimatedPressable
+                      reduceMotion={reduceMotion}
+                      style={[
+                        styles.primaryBtn,
+                        {
+                          backgroundColor: `${theme.warning}20`,
+                          borderColor: theme.warning,
+                          borderWidth: 1,
+                          alignItems: 'center',
+                        },
+                      ]}
+                      onPress={() => {
+                        const newRecovery = generateRecoveryCode();
+                        updateProfile({
+                          appLockRecoveryCode: newRecovery,
+                        });
+                        setGeneratedRecoveryCode(newRecovery);
+                        setCopiedRecoveryCode(false);
+                        setAppLockStep('show_recovery');
+                      }}
+                    >
+                      <Text style={{ color: theme.warning, fontWeight: '900', fontSize: 12 }}>
+                        {isTh
+                          ? '🛡️ ออกรหัสกู้คืนใหม่ (Generate Recovery Code)'
+                          : '🛡️ Generate New Recovery Code'}
                       </Text>
                     </AnimatedPressable>
 
@@ -3374,22 +4228,159 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                   </View>
                 )}
               </View>
+            ) : appLockStep === 'show_recovery' && generatedRecoveryCode ? (
+              /* Mode 2: Display Recovery Code */
+              <View style={{ marginTop: 14, gap: 10 }}>
+                <View
+                  style={{
+                    backgroundColor: `${theme.warning}16`,
+                    borderColor: theme.warning,
+                    borderWidth: 1.5,
+                    borderRadius: 12,
+                    padding: 14,
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <Text style={{ color: theme.warning, fontSize: 12, fontWeight: '900' }}>
+                    {isTh
+                      ? '🛡️ รหัสกู้คืนกรณีลืม PIN (Recovery Code)'
+                      : '🛡️ Emergency Recovery Code'}
+                  </Text>
+                  <Text
+                    style={{
+                      color: theme.text,
+                      fontSize: 20,
+                      fontWeight: '900',
+                      letterSpacing: 1.5,
+                      marginVertical: 4,
+                    }}
+                  >
+                    {generatedRecoveryCode}
+                  </Text>
+                  <Text
+                    style={{
+                      color: theme.textSecondary,
+                      fontSize: 11,
+                      textAlign: 'center',
+                      lineHeight: 16,
+                    }}
+                  >
+                    {isTh
+                      ? 'โปรดคัดลอกหรือจดรหัสนี้เก็บไว้ในที่ปลอดภัย! หากคุณลืมรหัส PIN คุณสามารถใช้รหัสนี้ปลดล็อกแอปได้โดยที่ข้อมูลและเลเวลไม่หาย'
+                      : 'Save this code in a safe place! If you forget your PIN, you can use this code to unlock the app without losing your data.'}
+                  </Text>
+                </View>
+
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[
+                    styles.primaryBtn,
+                    {
+                      backgroundColor: copiedRecoveryCode ? theme.success : theme.bgSecondary,
+                      borderColor: copiedRecoveryCode ? theme.success : theme.primary,
+                      borderWidth: 1,
+                      alignItems: 'center',
+                    },
+                  ]}
+                  onPress={() => {
+                    copyToClipboard(generatedRecoveryCode);
+                    setCopiedRecoveryCode(true);
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: copiedRecoveryCode ? '#0E1220' : theme.primary,
+                      fontWeight: '900',
+                      fontSize: 12,
+                    }}
+                  >
+                    {copiedRecoveryCode
+                      ? isTh
+                        ? '✓ คัดลอกรหัสกู้คืนแล้ว'
+                        : '✓ Recovery Code Copied'
+                      : isTh
+                      ? '📋 คัดลอกรหัสกู้คืน (Copy Recovery Code)'
+                      : '📋 Copy Recovery Code'}
+                  </Text>
+                </AnimatedPressable>
+
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  style={[
+                    styles.primaryBtn,
+                    { backgroundColor: theme.primary, alignItems: 'center' },
+                  ]}
+                  onPress={() => {
+                    setAppLockModalOpen(false);
+                    setGeneratedRecoveryCode(null);
+                  }}
+                >
+                  <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 13 }}>
+                    {isTh ? '✓ จดบันทึกแล้ว เสร็จสิ้น' : '✓ I Saved It — Done'}
+                  </Text>
+                </AnimatedPressable>
+              </View>
             ) : (
-              /* Mode 2: Setup New PIN */
+              /* Mode 3: Setup New PIN (4 or 6 digits) */
               <View style={{ marginTop: 12 }}>
+                {appLockStep === 'enter_pin' && (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'center',
+                      gap: 8,
+                      marginBottom: 10,
+                    }}
+                  >
+                    {([4, 6] as const).map((len) => {
+                      const active = appLockPinLenChoice === len;
+                      return (
+                        <Pressable
+                          key={len}
+                          style={[
+                            styles.chip,
+                            {
+                              backgroundColor: active ? `${theme.primary}25` : theme.bgSecondary,
+                              borderColor: active ? theme.primary : theme.border,
+                              paddingVertical: 5,
+                              paddingHorizontal: 14,
+                            },
+                          ]}
+                          onPress={() => {
+                            setAppLockPinLenChoice(len);
+                            setAppLockInputPin('');
+                            setAppLockConfirmPin('');
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: active ? theme.primary : theme.textSecondary,
+                              fontSize: 11.5,
+                              fontWeight: active ? '900' : '700',
+                            }}
+                          >
+                            {isTh ? `รหัส ${len} หลัก` : `${len}-Digit PIN`}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+
                 <Text style={{ color: theme.textSecondary, fontSize: 12, textAlign: 'center' }}>
                   {appLockStep === 'enter_pin'
                     ? isTh
-                      ? 'กำหนดรหัส PIN 4 หลักใหม่:'
-                      : 'Enter new 4-digit PIN:'
+                      ? `กำหนดรหัส PIN ${appLockPinLenChoice} หลักใหม่:`
+                      : `Enter new ${appLockPinLenChoice}-digit PIN:`
                     : isTh
-                    ? 'ยืนยันรหัส PIN 4 หลักอีกครั้ง:'
-                    : 'Confirm new 4-digit PIN:'}
+                    ? `ยืนยันรหัส PIN ${appLockPinLenChoice} หลักอีกครั้ง:`
+                    : `Confirm new ${appLockPinLenChoice}-digit PIN:`}
                 </Text>
 
                 {/* PIN Dots */}
                 <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'center', marginVertical: 14 }}>
-                  {[0, 1, 2, 3].map((idx) => {
+                  {Array.from({ length: appLockPinLenChoice }).map((_, idx) => {
                     const currentPinStr = appLockStep === 'enter_pin' ? appLockInputPin : appLockConfirmPin;
                     return (
                       <View
@@ -3443,9 +4434,9 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                             setAppLockInputPin((p) => p.slice(0, -1));
                           } else {
                             const next = appLockInputPin + k;
-                            if (next.length <= 4) {
+                            if (next.length <= appLockPinLenChoice) {
                               setAppLockInputPin(next);
-                              if (next.length === 4) {
+                              if (next.length === appLockPinLenChoice) {
                                 setTimeout(() => setAppLockStep('confirm_pin'), 150);
                               }
                             }
@@ -3458,21 +4449,29 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                             setAppLockConfirmPin((p) => p.slice(0, -1));
                           } else {
                             const next = appLockConfirmPin + k;
-                            if (next.length <= 4) {
+                            if (next.length <= appLockPinLenChoice) {
                               setAppLockConfirmPin(next);
-                              if (next.length === 4) {
+                              if (next.length === appLockPinLenChoice) {
                                 if (next === appLockInputPin) {
+                                  const salt = generatePinSalt();
+                                  const pinHash = hashPin(appLockInputPin, salt);
+                                  const recoveryCode = generateRecoveryCode();
                                   updateProfile({
-                                    appLockPin: appLockInputPin,
+                                    appLockPin: null,
+                                    appLockPinHash: pinHash,
+                                    appLockSalt: salt,
+                                    appLockPinLength: appLockPinLenChoice,
+                                    appLockRecoveryCode: recoveryCode,
                                     appLockBiometricEnabled: appLockBiometricOpt,
+                                    appLockFailedAttempts: 0,
+                                    appLockLockedUntilMs: null,
                                   });
                                   recordAppEvent('event:applock_set', 1);
-                                  setAppLockSuccessMsg(isTh ? '✓ เปิดใช้งานการล็อกแอปสำเร็จ' : '✓ App lock enabled successfully');
-                                  setTimeout(() => {
-                                    setAppLockModalOpen(false);
-                                    setAppLockInputPin('');
-                                    setAppLockConfirmPin('');
-                                  }, 700);
+                                  setGeneratedRecoveryCode(recoveryCode);
+                                  setCopiedRecoveryCode(false);
+                                  setAppLockInputPin('');
+                                  setAppLockConfirmPin('');
+                                  setAppLockStep('show_recovery');
                                 } else {
                                   setAppLockError(isTh ? 'รหัส PIN ไม่ตรงกัน กรุณากรอกใหม่' : 'PINs do not match, try again');
                                   setTimeout(() => setAppLockConfirmPin(''), 500);
@@ -3509,7 +4508,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 };
 
@@ -3728,5 +4727,67 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: 16,
     borderWidth: 1,
+  },
+  menuListContainer: {
+    gap: 10,
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  menuCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    gap: 12,
+  },
+  menuIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  menuSubtitle: {
+    fontSize: 12,
+    marginTop: 3,
+  },
+  menuBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginLeft: 6,
+  },
+  menuBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  menuChevron: {
+    paddingLeft: 4,
+  },
+  subWindowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  subWindowTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    marginLeft: 6,
   },
 });

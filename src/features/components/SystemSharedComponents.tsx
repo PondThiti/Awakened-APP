@@ -11,7 +11,7 @@ import {
 import { AppTheme } from '../../app/theme';
 import { CelebrationEvent, LanguageCode, LevelState, RankDef } from '../../core/engine/types';
 import { TIER_METADATA } from '../../core/engine/achievementEngine';
-import { AppIcon } from './AppIcons';
+import { AppIcon, AppIconName } from './AppIcons';
 import {
   AnimatedNumberText,
   AnimatedPressable,
@@ -28,7 +28,7 @@ export const RankBadge: React.FC<{
   const isLg = size === 'lg';
   const isSm = size === 'sm';
   const title = lang === 'th' ? rank.title_th : rank.title_en;
-  const isHighRank = rank.id === 'S' || rank.id === 'SS' || rank.id === 'Monarch';
+  const isHighRank = rank.id === 'S' || rank.id === 'SS' || rank.id === 'M' || rank.id === 'Monarch';
 
   return (
     <AnimatedPulseView
@@ -502,6 +502,83 @@ export const QuickAddFabModal: React.FC<{
   );
 };
 
+// ============================================================================
+// 5. ScreenHeader (Section 5: Mathematically Centered Sub-Window Header)
+// ============================================================================
+export const ScreenHeader: React.FC<{
+  title: string;
+  icon?: AppIconName;
+  iconColor?: string;
+  onBack?: () => void;
+  backLabel?: string;
+  rightSlot?: React.ReactNode;
+  theme: AppTheme;
+  reduceMotion?: boolean;
+}> = ({
+  title,
+  icon,
+  iconColor,
+  onBack,
+  backLabel = 'ย้อนกลับ',
+  rightSlot,
+  theme,
+  reduceMotion,
+}) => {
+  return (
+    <View
+      style={[
+        styles.screenHeaderBar,
+        { backgroundColor: theme.card, borderBottomColor: theme.border },
+      ]}
+    >
+      <View style={styles.screenHeaderSide}>
+        {onBack ? (
+          <AnimatedPressable
+            reduceMotion={reduceMotion}
+            onPress={onBack}
+            style={styles.screenHeaderBackBtn}
+            accessibilityRole="button"
+            accessibilityLabel={backLabel}
+          >
+            <Text
+              style={{
+                color: theme.primary,
+                fontSize: 22,
+                fontWeight: '900',
+                lineHeight: 22,
+              }}
+            >
+              ‹
+            </Text>
+            <Text
+              numberOfLines={1}
+              style={{ color: theme.primary, fontSize: 14, fontWeight: '800' }}
+            >
+              {backLabel}
+            </Text>
+          </AnimatedPressable>
+        ) : null}
+      </View>
+
+      <View style={styles.screenHeaderCenter}>
+        {icon ? (
+          <AppIcon name={icon} size={16} color={iconColor ?? theme.primary} />
+        ) : null}
+        <Text
+          numberOfLines={1}
+          style={[styles.screenHeaderTitle, { color: theme.text }]}
+        >
+          {title}
+        </Text>
+      </View>
+
+      <View style={[styles.screenHeaderSide, { alignItems: 'flex-end' }]}>
+        {rightSlot ?? null}
+      </View>
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
   rankBadge: {
     flexDirection: 'row',
@@ -693,5 +770,36 @@ const styles = StyleSheet.create({
   tileTitle: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  screenHeaderBar: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+  },
+  screenHeaderSide: {
+    width: 88,
+    justifyContent: 'center',
+  },
+  screenHeaderBackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+  },
+  screenHeaderCenter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  screenHeaderTitle: {
+    textAlign: 'center',
+    fontSize: 17,
+    lineHeight: 26,
+    fontWeight: '900',
+    includeFontPadding: false,
   },
 });

@@ -32,10 +32,12 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableArray
+import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.facebook.react.modules.core.PermissionAwareActivity
 import com.facebook.react.modules.core.PermissionListener
 import com.facebook.react.ReactPackage
 import com.facebook.react.uimanager.ViewManager
+import java.lang.ref.WeakReference
 import java.util.Locale
 
 class AwakenedNativeModule(private val reactContext: ReactApplicationContext) :
@@ -48,6 +50,7 @@ class AwakenedNativeModule(private val reactContext: ReactApplicationContext) :
   private val POST_NOTIFICATIONS_REQUEST = 49104
 
   init {
+    activeReactContext = WeakReference(reactContext)
     reactContext.addActivityEventListener(object : BaseActivityEventListener() {
       override fun onActivityResult(
         activity: Activity?,
@@ -497,6 +500,34 @@ class AwakenedNativeModule(private val reactContext: ReactApplicationContext) :
       }
     } else {
       promise.resolve(false)
+    }
+  }
+
+  @ReactMethod
+  fun consumePendingWidgetActions(promise: Promise) {
+    try {
+      val prefs = reactContext.getSharedPreferences(AwakenedWidgetProvider.PREFS, Context.MODE_PRIVATE)
+      val raw = prefs.getString(AwakenedWidgetProvider.KEY_PENDING_ACTIONS, "[]") ?: "[]"
+      prefs.edit().putString(AwakenedWidgetProvider.KEY_PENDING_ACTIONS, "[]").apply()
+      promise.resolve(raw)
+    } catch (_: Throwable) {
+      promise.resolve("[]")
+    }
+  }
+
+  companion object {
+    private var activeReactContext: WeakReference<ReactApplicationContext>? = null
+
+    @JvmStatic
+    fun notifyWidgetAction() {
+      try {
+        val ctx = activeReactContext?.get() ?: return
+        if (ctx.hasActiveReactInstance()) {
+          ctx.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+            .emit("AwakenedWidgetAction", null)
+        }
+      } catch (_: Throwable) {
+      }
     }
   }
 }

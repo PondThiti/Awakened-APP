@@ -130,6 +130,30 @@ export interface AlarmSettings {
   days: number[]; // ISO weekdays 1 (Mon) .. 7 (Sun); empty = every day
 }
 
+/** 30% Inactivity EXP Penalty settings (customizable in Settings). */
+export interface InactivityPenaltySettings {
+  enabled: boolean;
+  graceDays: number; // default 2 -> 3 consecutive missed days triggers penalty
+  penaltyPercent: number; // default 30 (30%)
+  scope: 'level' | 'total'; // 'level' deducts from xpInLevel (never drops level); 'total' deducts from totalXp
+  repeat: 'every3days' | 'once'; // 'every3days' triggers on day 3, 6, 9...; 'once' triggers once per absent streak
+  missRule: 'any' | 'all'; // 'any' = >= 1 daily quest completed counts as kept; 'all' = all daily quests required
+  restDayCountsAsKept: boolean; // default true
+  comebackRefundPercent: number; // default 50 (refunds 50% of last penalty when comeback quest completed)
+}
+
+/** Tracks an active Comeback Quest triggered after an inactivity penalty. */
+export interface ComebackQuestState {
+  penaltyEventId: number;
+  penaltyIdemKey: string;
+  penaltyDayKey: string;
+  missedDaysRun: number;
+  deductedXp: number;
+  refundableXp: number;
+  claimedAt?: number | null;
+  dismissedAt?: number | null;
+}
+
 export interface UserProfile {
   id: 1;
   displayName: string;
@@ -158,7 +182,21 @@ export interface UserProfile {
   selectedTitleId?: string | null;
   featuredBadgeIds?: string[];
   appLockPin: string | null;
+  appLockPinLength?: 4 | 6;
+  appLockPinHash?: string | null;
+  appLockSalt?: string | null;
+  appLockRecoveryCode?: string | null;
+  appLockTimeoutSec?: number; // 0 = immediate, 30, 60, 300
+  appLockFailedAttempts?: number;
+  appLockLockedUntilMs?: number | null;
+  hideQuestsOnWidgetWhenLocked?: boolean;
   appLockBiometricEnabled?: boolean;
+  inactivitySettings?: Partial<InactivityPenaltySettings>;
+  vacationStartDayKey?: string | null; // YYYY-MM-DD inclusive
+  vacationUntilDayKey?: string | null; // YYYY-MM-DD inclusive
+  penaltyShields?: number; // 0..3
+  lastShieldGrantMonth?: string | null; // YYYY-MM
+  activeComebackQuest?: ComebackQuestState | null;
   createdAt: number;
 }
 
@@ -222,11 +260,22 @@ export interface ActivityRecord {
 export interface XpEventRecord {
   id: number;
   amount: number;
-  sourceType: 'activity' | 'quest' | 'milestone' | 'achievement' | 'bonus' | 'revert';
+  sourceType:
+    | 'activity'
+    | 'quest'
+    | 'milestone'
+    | 'achievement'
+    | 'bonus'
+    | 'revert'
+    | 'penalty'
+    | 'adjust'
+    | 'opening';
   sourceId?: number | string;
   reasonKey: string;
   configVersion: number;
   occurredAt: number;
+  idemKey?: string;
+  dayKey?: string;
 }
 
 export interface QuestCondition {
@@ -373,6 +422,13 @@ export interface LevelState {
   totalXp: number;
 }
 
+export interface RankDescriptions {
+  game_th: string;
+  game_en: string;
+  real_th: string;
+  real_en: string;
+}
+
 export interface RankDef {
   id: string;
   name: string;
@@ -382,10 +438,12 @@ export interface RankDef {
   max_level: number;
   min_total_xp: number;
   color: string;
+  hidden?: boolean;
   requires_special?: {
     min_active_days: number;
     min_badge_categories: number;
   };
+  descriptions?: RankDescriptions;
 }
 
 export interface CelebrationEvent {

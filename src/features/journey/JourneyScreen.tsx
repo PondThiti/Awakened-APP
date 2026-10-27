@@ -161,6 +161,7 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
     saveJournalEntry,
     deleteJournalEntry,
     logMoodEntry,
+    deleteMoodEntry,
     recordAppEvent,
   } = useAwakened();
 
@@ -484,7 +485,13 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                       >
                         <AppIcon name="trash" size={13} color={theme.danger} />
                         <Text style={{ color: theme.danger, fontSize: 12, fontWeight: '700' }}>
-                          {isTh ? 'ลบ' : 'Delete'}
+                          {j.xpAwarded > 0
+                            ? isTh
+                              ? `ลบ (-${j.xpAwarded} XP)`
+                              : `Delete (-${j.xpAwarded} XP)`
+                            : isTh
+                            ? 'ลบ'
+                            : 'Delete'}
                         </Text>
                       </Pressable>
                     </View>
@@ -1091,17 +1098,39 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                               </Text>
                             </View>
                           </View>
-                          {entry.xpAwarded > 0 && (
-                            <Text
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            {entry.xpAwarded > 0 && (
+                              <Text
+                                style={{
+                                  color: theme.success,
+                                  fontSize: 11,
+                                  fontWeight: '800',
+                                }}
+                              >
+                                +{entry.xpAwarded} XP
+                              </Text>
+                            )}
+                            <Pressable
+                              onPress={() => deleteMoodEntry(entry.id)}
                               style={{
-                                color: theme.success,
-                                fontSize: 11,
-                                fontWeight: '800',
+                                paddingHorizontal: 6,
+                                paddingVertical: 3,
+                                borderRadius: 6,
+                                borderWidth: 1,
+                                borderColor: theme.danger,
                               }}
                             >
-                              +{entry.xpAwarded} XP
-                            </Text>
-                          )}
+                              <Text style={{ color: theme.danger, fontSize: 10, fontWeight: '800' }}>
+                                {entry.xpAwarded > 0
+                                  ? isTh
+                                    ? `ลบ (-${entry.xpAwarded} XP)`
+                                    : `Del (-${entry.xpAwarded} XP)`
+                                  : isTh
+                                  ? 'ลบ'
+                                  : 'Del'}
+                              </Text>
+                            </Pressable>
+                          </View>
                         </View>
 
                         {entry.tags.length > 0 && (

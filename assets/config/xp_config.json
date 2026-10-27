@@ -34,6 +34,16 @@
     "all_daily_completed": 30,
     "weekly_consistency_met": 50
   },
+  "inactivity_penalty": {
+    "enabled": true,
+    "grace_days": 2,
+    "penalty_percent": 30,
+    "scope": "total",
+    "repeat": "every3days",
+    "miss_rule": "all",
+    "rest_day_counts_as_kept": true,
+    "comeback_refund_percent": 50
+  },
   "ranks": [
     {
       "id": "E",
@@ -43,7 +53,13 @@
       "min_level": 1,
       "max_level": 10,
       "min_total_xp": 0,
-      "color": "#8A94A6"
+      "color": "#8A94A6",
+      "descriptions": {
+        "game_th": "เพิ่งถูกปลุกจากความเฉื่อยชา ระบบเพิ่งเริ่มวัดค่าพลัง",
+        "game_en": "Newly awakened from inertia. The System has just begun measuring your stats.",
+        "real_th": "ช่วง 1–2 สัปดาห์แรกของการเริ่มนิสัยใหม่ สมองยังต่อต้าน ต้องพึ่งเควสเล็กๆ ที่ทำง่าย",
+        "real_en": "The first 1–2 weeks of building a habit. Overcome friction with small, easy daily wins."
+      }
     },
     {
       "id": "D",
@@ -53,7 +69,13 @@
       "min_level": 11,
       "max_level": 25,
       "min_total_xp": 1900,
-      "color": "#4DA6FF"
+      "color": "#4DA6FF",
+      "descriptions": {
+        "game_th": "เริ่มรับรู้จังหวะเควสประจำวัน ค่าสถานะพื้นฐานขยับขึ้น",
+        "game_en": "Tuning into the rhythm of daily quests. Base stats are beginning to rise.",
+        "real_th": "เริ่มทำซ้ำได้หลายวันติด รู้ว่าตัวเองชอบเวลาไหน ไม่ต้องฝืนเท่าวันแรก",
+        "real_en": "Stringing together consistent days and discovering your optimal daily routine."
+      }
     },
     {
       "id": "C",
@@ -63,7 +85,13 @@
       "min_level": 26,
       "max_level": 45,
       "min_total_xp": 8500,
-      "color": "#3DDC97"
+      "color": "#3DDC97",
+      "descriptions": {
+        "game_th": "ผ่านด่านแรงต้านระยะแรก มีสกิลกลับมาทำต่อแม้หลุดไป 1 วัน",
+        "game_en": "Broken through early resistance. Capable of bouncing back even after a missed day.",
+        "real_th": "ผ่านช่วง ~3–6 สัปดาห์ กิจกรรมเริ่มเป็นกิจวัตร ร่างกายและสมาธิเริ่มเห็นผลชัด",
+        "real_en": "Around weeks 3–6: actions become routine and physical/mental gains become noticeable."
+      }
     },
     {
       "id": "B",
@@ -73,7 +101,13 @@
       "min_level": 46,
       "max_level": 70,
       "min_total_xp": 24300,
-      "color": "#A76DFF"
+      "color": "#A76DFF",
+      "descriptions": {
+        "game_th": "นักล่าแถวหน้าที่เสถียร จัดการทั้งกาย สมาธิ และการพักผ่อนได้สมดุล",
+        "game_en": "A stable frontline hunter balancing body, focus, and recovery with precision.",
+        "real_th": "นิสัยค่อนข้างอัตโนมัติ (2–3 เดือน) แม้ยุ่งหรือเหนื่อยก็ยังมีขั้นต่ำที่ทำได้เสมอ",
+        "real_en": "Habits are largely automatic (2–3 months). Even on busy days, you maintain your baseline."
+      }
     },
     {
       "id": "A",
@@ -83,7 +117,13 @@
       "min_level": 71,
       "max_level": 100,
       "min_total_xp": 55300,
-      "color": "#FFB84D"
+      "color": "#FFB84D",
+      "descriptions": {
+        "game_th": "ควบคุมระบบวินัยของตัวเองได้เต็มรูปแบบ ปรับแผนตามสถานการณ์จริง",
+        "game_en": "Full mastery over personal discipline, adapting seamlessly to any situation.",
+        "real_th": "ระดับครึ่งปีขึ้นไป สุขภาพ การโฟกัส และการทบทวนตัวเองกลายเป็นตัวตน ไม่ใช่แค่เป้าหมาย",
+        "real_en": "Six+ months in: health, focus, and reflection are now part of your identity, not just goals."
+      }
     },
     {
       "id": "S",
@@ -93,7 +133,13 @@
       "min_level": 101,
       "max_level": 150,
       "min_total_xp": 109000,
-      "color": "#FF5C77"
+      "color": "#FF5C77",
+      "descriptions": {
+        "game_th": "ผู้พิชิตระดับท็อปของระบบ ข้ามขีดจำกัดเดิมซ้ำแล้วซ้ำเล่า",
+        "game_en": "Top-tier conqueror of the System, repeatedly surpassing former limits.",
+        "real_th": "ความสม่ำเสมอระดับเกือบปี เป็นแรงบันดาลใจให้คนรอบข้างโดยไม่ต้องพูดเยอะ",
+        "real_en": "Nearly a year of relentless consistency—inspiring others through action alone."
+      }
     },
     {
       "id": "SS",
@@ -103,7 +149,13 @@
       "min_level": 151,
       "max_level": 220,
       "min_total_xp": 238500,
-      "color": "#00F5D4"
+      "color": "#00F5D4",
+      "descriptions": {
+        "game_th": "ตำนานที่มีชีวิต พลังวินัยเทียบเท่าระดับประเทศ",
+        "game_en": "A Living Legend whose discipline rivals national-level hunters.",
+        "real_th": "รักษามาตรฐานตัวเองข้ามปี ผ่านทั้งช่วงงานหนัก ป่วย เดินทาง แล้วกลับมาได้ทุกครั้ง",
+        "real_en": "Multi-season mastery: surviving workload spikes, illness, and travel while always returning stronger."
+      }
     },
     {
       "id": "M",
@@ -114,9 +166,16 @@
       "max_level": 9999,
       "min_total_xp": 503800,
       "color": "#FFFFFF",
+      "hidden": true,
       "requires_special": {
         "min_active_days": 365,
         "min_badge_categories": 5
+      },
+      "descriptions": {
+        "game_th": "ผู้ก้าวข้ามระบบ ไม่ได้ทำตามเควสอีกต่อไป แต่เป็นผู้กำหนดระบบของตัวเอง",
+        "game_en": "Transcended the System itself—no longer merely following quests, but authoring your own reality.",
+        "real_th": "ความสำเร็จสูงสุดในชีวิตจริง: วินัยมากกว่า 365 วัน ครบทุกมิติของชีวิต",
+        "real_en": "Ultimate real-life mastery: 365+ active days balanced across every dimension of life."
       }
     }
   ]

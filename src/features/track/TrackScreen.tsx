@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Modal,
   NativeModules,
   Pressable,
   ScrollView,
@@ -9,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { AppTheme } from '../../app/theme';
-import { useAwakened } from '../../data/repository';
+import { DeleteActivityPreview, useAwakened } from '../../data/repository';
 import { t } from '../../l10n/translations';
 import {
   ActivityType,
@@ -49,12 +50,16 @@ export const TrackScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
     logMeal,
     addCustomFoodTemplate,
     logCustomActivity,
+    previewDeleteActivity,
     deleteActivity,
     updateProfile,
     recordAppEvent,
   } = useAwakened();
 
   const [subTab, setSubTab] = useState<'water' | 'food' | 'custom' | 'timeline'>('water');
+  const [pendingDeletePreview, setPendingDeletePreview] =
+    useState<DeleteActivityPreview | null>(null);
+  const [showLedgerView, setShowLedgerView] = useState(false);
   const lang = db.profile.language;
   const strings = t(lang);
   const isTh = lang === 'th';
@@ -1137,18 +1142,64 @@ export const TrackScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             </AnimatedCard>
           )}
 
-          {/* 4. TIMELINE (ACTIVITY LOG) */}
+          {/* 4. TIMELINE (ACTIVITY LOG & XP LEDGER) */}
           {subTab === 'timeline' && (
             <AnimatedCard
               index={0}
               reduceMotion={reduceMotion}
               style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
             >
-              <View style={[styles.inlineIconRow, { marginBottom: 8 }]}>
-                <AppIcon name="clock" size={18} color={theme.primary} />
-                <Text style={[styles.cardTitle, { color: theme.text }]}>
-                  {isTh ? 'Timeline กิจกรรมทั้งหมด' : 'Activity Log Timeline'}
-                </Text>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 8,
+                }}
+              >
+                <View style={styles.inlineIconRow}>
+                  <AppIcon name="clock" size={18} color={theme.primary} />
+                  <Text style={[styles.cardTitle, { color: theme.text }]}>
+                    {showLedgerView
+                      ? isTh
+                        ? 'สมุดบัญชี EXP (XP Ledger)'
+                        : 'XP Event Ledger'
+                      : isTh
+                      ? 'Timeline กิจกรรมทั้งหมด'
+                      : 'Activity Log Timeline'}
+                  </Text>
+                </View>
+
+                <AnimatedPressable
+                  reduceMotion={reduceMotion}
+                  onPress={() => setShowLedgerView((v) => !v)}
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: 999,
+                    backgroundColor: showLedgerView
+                      ? `${theme.primary}25`
+                      : theme.bgSecondary,
+                    borderWidth: 1,
+                    borderColor: showLedgerView ? theme.primary : theme.border,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: showLedgerView ? theme.primary : theme.textSecondary,
+                      fontSize: 11,
+                      fontWeight: '800',
+                    }}
+                  >
+                    {showLedgerView
+                      ? isTh
+                        ? 'ดูรายการกิจกรรม'
+                        : 'Activity View'
+                      : isTh
+                      ? 'ดูบัญชี EXP'
+                      : 'XP Ledger'}
+                  </Text>
+                </AnimatedPressable>
               </View>
 
               {deleteBanner && (
@@ -1164,106 +1215,284 @@ export const TrackScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                 </View>
               )}
 
-              <View style={[styles.chipRow, { marginBottom: 12 }]}>
-                {(['all', 'water', 'meal', 'workout', 'focus', 'custom', 'rest'] as const).map(
-                  (f) => {
-                    const active = timelineFilter === f;
-                    return (
-                      <AnimatedPressable
-                        key={f}
-                        reduceMotion={reduceMotion}
-                        style={[
-                          styles.chip,
-                          {
-                            backgroundColor: active ? `${theme.primary}25` : theme.bgSecondary,
-                            borderColor: active ? theme.primary : theme.border,
-                          },
-                        ]}
-                        onPress={() => setTimelineFilter(f)}
-                      >
-                        <Text
-                          style={{
-                            color: active ? theme.primary : theme.textSecondary,
-                            fontSize: 11,
-                            fontWeight: '700',
-                          }}
+              {showLedgerView ? (
+                <View style={{ gap: 8 }}>
+                  {db.xpEvents
+                    .slice()
+                    .reverse()
+                    .slice(0, 60)
+                    .map((ev) => {
+                      const isPositive = ev.amount >= 0;
+                      const isPenalty = ev.sourceType === 'penalty';
+                      return (
+                        <View
+                          key={`${ev.id}_${ev.occurredAt}`}
+                          style={[
+                            styles.timelineItem,
+                            {
+                              backgroundColor: theme.bgSecondary,
+                              borderColor: isPenalty ? `${theme.danger}66` : theme.border,
+                            },
+                          ]}
                         >
-                          {f.toUpperCase()}
-                        </Text>
-                      </AnimatedPressable>
-                    );
-                  }
-                )}
-              </View>
-
-              {db.activities
-                .filter(
-                  (a) =>
-                    !a.deletedAt && (timelineFilter === 'all' || a.type === timelineFilter)
-                )
-                .map((act) => {
-                  const within10m = canRevertXpOnDelete(act.createdAt);
-                  return (
-                    <View
-                      key={act.id}
-                      style={[
-                        styles.timelineItem,
-                        { backgroundColor: theme.bgSecondary, borderColor: theme.border },
-                      ]}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: theme.text, fontWeight: '800', fontSize: 14 }}>
-                          {act.title}
-                        </Text>
-                        <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>
-                          {getLocalDayKey(act.occurredAt, act.tzOffsetMin)}{' '}
-                          {formatTimeHHMM(act.occurredAt)} · {act.value} {act.unit}
-                          {act.mealDetail?.isEstimate ? ` (${strings.track.estimateBadge})` : ''}
-                          {act.isBackfilled ? ' · [Backfilled 50% XP]' : ''}
-                        </Text>
-                      </View>
-
-                      <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                        <Text style={{ color: theme.success, fontWeight: '800', fontSize: 13 }}>
-                          +{act.xpAwarded} XP
-                        </Text>
-                        <AnimatedPressable
-                          reduceMotion={reduceMotion}
-                          style={[styles.deleteMiniBtn, { borderColor: theme.danger }]}
-                          onPress={() => {
-                            const res = deleteActivity(act.id);
-                            setDeleteBanner(
-                              res.xpReverted
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: theme.text, fontWeight: '800', fontSize: 13 }}>
+                              {ev.reasonKey} ({ev.sourceType.toUpperCase()})
+                            </Text>
+                            <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>
+                              {ev.dayKey ?? getLocalDayKey(ev.occurredAt)} ·{' '}
+                              {formatTimeHHMM(ev.occurredAt)}
+                              {isPenalty
                                 ? isTh
-                                  ? `ลบรายการที่เพิ่งบันทึก (<10 นาที): ยกเลิก ${res.xpAmount} XP เรียบร้อย`
-                                  : `Deleted recent log (<10m): Reverted ${res.xpAmount} XP.`
-                                : isTh
-                                ? 'ลบรายการออกจาก Timeline แล้ว (XP สะสมคงเดิมตามหลักไม่ลงโทษ P1)'
-                                : 'Removed from Timeline (XP preserved per No-Punishment Rule P1).'
-                            );
-                          }}
-                        >
-                          <View style={styles.inlineIconRow}>
-                            <AppIcon name="trash" size={11} color={theme.danger} />
-                            <Text style={{ color: theme.danger, fontSize: 10, fontWeight: '700' }}>
-                              {within10m ? (isTh ? 'ลบ (<10น.)' : 'Undo') : isTh ? 'ลบ' : 'Del'}
+                                  ? ' · [รายการระบบ ลบไม่ได้]'
+                                  : ' · [Locked System Entry]'
+                                : ''}
                             </Text>
                           </View>
-                        </AnimatedPressable>
-                      </View>
-                    </View>
-                  );
-                })}
+                          <Text
+                            style={{
+                              color: isPositive ? theme.success : theme.danger,
+                              fontWeight: '900',
+                              fontSize: 13,
+                            }}
+                          >
+                            {isPositive ? `+${ev.amount}` : `${ev.amount}`} XP
+                          </Text>
+                        </View>
+                      );
+                    })}
+                </View>
+              ) : (
+                <>
+                  <View style={[styles.chipRow, { marginBottom: 12 }]}>
+                    {(['all', 'water', 'meal', 'workout', 'focus', 'custom', 'rest'] as const).map(
+                      (f) => {
+                        const active = timelineFilter === f;
+                        return (
+                          <AnimatedPressable
+                            key={f}
+                            reduceMotion={reduceMotion}
+                            style={[
+                              styles.chip,
+                              {
+                                backgroundColor: active
+                                  ? `${theme.primary}25`
+                                  : theme.bgSecondary,
+                                borderColor: active ? theme.primary : theme.border,
+                              },
+                            ]}
+                            onPress={() => setTimelineFilter(f)}
+                          >
+                            <Text
+                              style={{
+                                color: active ? theme.primary : theme.textSecondary,
+                                fontSize: 11,
+                                fontWeight: '700',
+                              }}
+                            >
+                              {f.toUpperCase()}
+                            </Text>
+                          </AnimatedPressable>
+                        );
+                      }
+                    )}
+                  </View>
 
-              {db.activities.filter((a) => !a.deletedAt).length === 0 && (
-                <Text style={{ color: theme.textMuted, textAlign: 'center', padding: 20 }}>
-                  {isTh ? 'ยังไม่มีรายการบันทึกวันนี้ เริ่มกดดื่มน้ำหรือบันทึกอาหารได้เลย!' : 'No activities logged yet today.'}
-                </Text>
+                  {db.activities
+                    .filter(
+                      (a) =>
+                        !a.deletedAt && (timelineFilter === 'all' || a.type === timelineFilter)
+                    )
+                    .map((act) => {
+                      return (
+                        <View
+                          key={act.id}
+                          style={[
+                            styles.timelineItem,
+                            { backgroundColor: theme.bgSecondary, borderColor: theme.border },
+                          ]}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: theme.text, fontWeight: '800', fontSize: 14 }}>
+                              {act.title}
+                            </Text>
+                            <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>
+                              {getLocalDayKey(act.occurredAt, act.tzOffsetMin)}{' '}
+                              {formatTimeHHMM(act.occurredAt)} · {act.value} {act.unit}
+                              {act.mealDetail?.isEstimate ? ` (${strings.track.estimateBadge})` : ''}
+                              {act.isBackfilled ? ' · [Backfilled 50% XP]' : ''}
+                            </Text>
+                          </View>
+
+                          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                            <Text style={{ color: theme.success, fontWeight: '800', fontSize: 13 }}>
+                              +{act.xpAwarded} XP
+                            </Text>
+                            <AnimatedPressable
+                              reduceMotion={reduceMotion}
+                              style={[styles.deleteMiniBtn, { borderColor: theme.danger }]}
+                              onPress={() => {
+                                const preview = previewDeleteActivity(act.id);
+                                if (preview) {
+                                  setPendingDeletePreview(preview);
+                                }
+                              }}
+                            >
+                              <View style={styles.inlineIconRow}>
+                                <AppIcon name="trash" size={11} color={theme.danger} />
+                                <Text
+                                  style={{ color: theme.danger, fontSize: 10, fontWeight: '700' }}
+                                >
+                                  {isTh ? 'ลบ' : 'Del'}
+                                </Text>
+                              </View>
+                            </AnimatedPressable>
+                          </View>
+                        </View>
+                      );
+                    })}
+
+                  {db.activities.filter((a) => !a.deletedAt).length === 0 && (
+                    <Text style={{ color: theme.textMuted, textAlign: 'center', padding: 20 }}>
+                      {isTh
+                        ? 'ยังไม่มีรายการบันทึกวันนี้ เริ่มกดดื่มน้ำหรือบันทึกอาหารได้เลย!'
+                        : 'No activities logged yet today.'}
+                    </Text>
+                  )}
+                </>
               )}
             </AnimatedCard>
           )}
         </ScrollView>
       </AnimatedScreenWrapper>
+
+      {/* Delete Confirmation Modal with Exact EXP & Level Impact (Section 6.5) */}
+      <Modal
+        visible={Boolean(pendingDeletePreview)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPendingDeletePreview(null)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(6, 9, 18, 0.82)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+          }}
+        >
+          {pendingDeletePreview && (
+            <View
+              style={{
+                width: '100%',
+                maxWidth: 380,
+                backgroundColor: theme.card,
+                borderColor: theme.danger,
+                borderWidth: 1.5,
+                borderRadius: 18,
+                padding: 20,
+                gap: 10,
+              }}
+            >
+              <View style={styles.inlineIconRow}>
+                <AppIcon name="trash" size={18} color={theme.danger} />
+                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900' }}>
+                  {isTh ? 'ยืนยันการลบรายการ' : 'Confirm Activity Deletion'}
+                </Text>
+              </View>
+
+              <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '700' }}>
+                “{pendingDeletePreview.title}”
+              </Text>
+
+              <View
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  backgroundColor: theme.bgSecondary,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  gap: 4,
+                }}
+              >
+                <Text style={{ color: theme.danger, fontSize: 14, fontWeight: '900' }}>
+                  {isTh
+                    ? `ลบรายการนี้จะ −${pendingDeletePreview.totalXpLoss} EXP (เลเวล ${pendingDeletePreview.oldLevel} → ${pendingDeletePreview.newLevel}) ยืนยันหรือไม่?`
+                    : `Deleting this item will deduct −${pendingDeletePreview.totalXpLoss} EXP (Lv.${pendingDeletePreview.oldLevel} → Lv.${pendingDeletePreview.newLevel}). Confirm?`}
+                </Text>
+
+                <Text style={{ color: theme.textMuted, fontSize: 11.5, marginTop: 2 }}>
+                  {isTh
+                    ? `• EXP จากรายการโดยตรง: −${pendingDeletePreview.directXp} XP`
+                    : `• Direct activity XP: −${pendingDeletePreview.directXp} XP`}
+                </Text>
+
+                {pendingDeletePreview.revertedQuestXp > 0 && (
+                  <Text style={{ color: theme.warning, fontSize: 11.5, fontWeight: '700' }}>
+                    {isTh
+                      ? `• ยกเลิกเควสที่เคยสำเร็จ: −${pendingDeletePreview.revertedQuestXp} XP (${pendingDeletePreview.revertedQuestTitles.join(', ')})`
+                      : `• Reverted quest XP: −${pendingDeletePreview.revertedQuestXp} XP (${pendingDeletePreview.revertedQuestTitles.join(', ')})`}
+                  </Text>
+                )}
+
+                {pendingDeletePreview.revertedBonusXp > 0 && (
+                  <Text style={{ color: theme.warning, fontSize: 11.5, fontWeight: '700' }}>
+                    {isTh
+                      ? `• ยกเลิกโบนัสครบทุกเควสรายวัน: −${pendingDeletePreview.revertedBonusXp} XP`
+                      : `• Reverted all-daily quest bonus: −${pendingDeletePreview.revertedBonusXp} XP`}
+                  </Text>
+                )}
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                <Pressable
+                  onPress={() => setPendingDeletePreview(null)}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 11,
+                    borderRadius: 10,
+                    backgroundColor: theme.bgSecondary,
+                    borderWidth: 1,
+                    borderColor: theme.border,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: theme.textSecondary, fontWeight: '800', fontSize: 13 }}>
+                    {isTh ? 'ยกเลิก' : 'Cancel'}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => {
+                    const targetId = pendingDeletePreview.activityId;
+                    const oldLv = pendingDeletePreview.oldLevel;
+                    const newLv = pendingDeletePreview.newLevel;
+                    const res = deleteActivity(targetId);
+                    setPendingDeletePreview(null);
+                    setDeleteBanner(
+                      isTh
+                        ? `ลบรายการและหักคืน −${res.xpAmount} EXP เรียบร้อย (Lv.${oldLv} → Lv.${newLv})`
+                        : `Deleted item and reverted −${res.xpAmount} EXP (Lv.${oldLv} → Lv.${newLv}).`
+                    );
+                  }}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 11,
+                    borderRadius: 10,
+                    backgroundColor: theme.danger,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 13 }}>
+                    {isTh ? 'ยืนยันลบรายการ' : 'Confirm Delete'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 };

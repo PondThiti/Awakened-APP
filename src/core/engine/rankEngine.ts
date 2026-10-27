@@ -1,5 +1,5 @@
 import xpConfigJson from '../../../assets/config/xp_config.json';
-import { RankDef } from './types';
+import { LanguageCode, RankDef, RankDescriptions } from './types';
 
 export interface MonarchEligibility {
   eligible: boolean;
@@ -26,6 +26,50 @@ export interface MonarchEligibility {
 }
 
 const defaultRanks: RankDef[] = xpConfigJson.ranks as RankDef[];
+
+/**
+ * Returns only the ranks that should be visible in the UI/data layer.
+ * Hidden final rank (Rank M) is completely excluded until unlocked, preventing any spoiler leaks.
+ */
+export function visibleRanks(
+  level: number,
+  monarchUnlocked = false,
+  ranks: RankDef[] = defaultRanks
+): RankDef[] {
+  return ranks.filter((r) => !r.hidden || monarchUnlocked);
+}
+
+/**
+ * Formats the level range for a rank card without leaking the hidden final rank's threshold.
+ * When Rank M is still hidden, Rank SS displays "Lv. 151+" instead of "Lv. 151 – 220".
+ */
+export function formatRankLevelRange(rank: RankDef, monarchUnlocked = false): string {
+  if (rank.id === 'SS' && !monarchUnlocked) {
+    return `Lv. ${rank.min_level}+`;
+  }
+  if (rank.id === 'M' || rank.max_level >= 9999) {
+    return `Lv. ${rank.min_level}+`;
+  }
+  return `Lv. ${rank.min_level} – ${rank.max_level}`;
+}
+
+/**
+ * Returns the localized in-game and real-life descriptions for a given rank.
+ */
+export function getRankDescriptions(
+  rank: RankDef,
+  lang: LanguageCode = 'th'
+): { game: string; real: string } {
+  const desc: RankDescriptions | undefined =
+    rank.descriptions ?? defaultRanks.find((r) => r.id === rank.id)?.descriptions;
+  if (!desc) {
+    return { game: '', real: '' };
+  }
+  return {
+    game: lang === 'th' ? desc.game_th : desc.game_en,
+    real: lang === 'th' ? desc.real_th : desc.real_en,
+  };
+}
 
 export interface RankTrophiesCount {
   bronze: number;
@@ -129,7 +173,8 @@ export function getRankForLevel(
   }
 
   const currentRank = ranks[matchedIndex];
-  const nextRank = matchedIndex + 1 < ranks.length ? ranks[matchedIndex + 1] : null;
+  const candidateNext = matchedIndex + 1 < ranks.length ? ranks[matchedIndex + 1] : null;
+  const nextRank = candidateNext && candidateNext.hidden && !monarchEligible ? null : candidateNext;
 
   return {
     currentRank,

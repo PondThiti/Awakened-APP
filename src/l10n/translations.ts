@@ -75,7 +75,7 @@ export const TRANSLATIONS = {
     },
     profile: {
       rankProgress: 'เส้นทางสู่แรงค์ถัดไป',
-      monarchTrials: 'เงื่อนไขปลดล็อกแรงค์ Monarch',
+      monarchTrials: 'ภารกิจปลดล็อกแรงค์ลึกลับ (Mysterious Rank Trials)',
       personalQuests: 'ภารกิจส่วนตัว (Personal Quests)',
       achievements: 'เหรียญตราความสำเร็จ (Badges)',
       adaptivePlan: 'แผนปรับตัวอัจฉริยะ (Adaptive Plan)',
@@ -161,7 +161,7 @@ export const TRANSLATIONS = {
     },
     profile: {
       rankProgress: 'Rank Progression',
-      monarchTrials: 'Monarch Unlock Requirements',
+      monarchTrials: 'Mysterious Rank Unlock Trials',
       personalQuests: 'Personal Quests',
       achievements: 'Achievements & Badges',
       adaptivePlan: 'Adaptive Personal Plan',

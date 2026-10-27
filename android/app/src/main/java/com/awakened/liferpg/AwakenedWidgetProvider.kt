@@ -44,6 +44,7 @@ class AwakenedWidgetProvider : AppWidgetProvider() {
   companion object {
     const val PREFS = "awakened_widget"
     const val KEY_DATA = "data"
+    const val KEY_PENDING_ACTIONS = "pending_actions"
 
     private const val COLOR_PRIMARY = "#5B8CFF"
     private const val COLOR_SUCCESS = "#3DDC97"
@@ -204,8 +205,17 @@ class AwakenedWidgetProvider : AppWidgetProvider() {
 
       // 1. เควสประจำวัน (Daily Quests)
       if (restDay) {
-        views.setTextViewText(R.id.widget_quests_value, if (th) "พัก" else "Rest")
-        views.setTextColor(R.id.widget_quests_value, Color.parseColor(COLOR_MUTED))
+        val restText = if (questsTotal > 0) {
+          if (th) "พัก $questsDone/$questsTotal" else "Rest $questsDone/$questsTotal"
+        } else {
+          if (th) "พัก" else "Rest"
+        }
+        views.setTextViewText(R.id.widget_quests_value, restText)
+        val complete = questsTotal > 0 && questsDone >= questsTotal
+        views.setTextColor(
+          R.id.widget_quests_value,
+          Color.parseColor(if (complete) COLOR_SUCCESS else COLOR_MUTED)
+        )
       } else {
         views.setTextViewText(R.id.widget_quests_value, "$questsDone/$questsTotal")
         val complete = questsTotal > 0 && questsDone >= questsTotal

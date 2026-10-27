@@ -37,6 +37,14 @@ interface AwakenedNativeApi {
   getDeviceRegion(): Promise<string>;
   canAuthenticateBiometric(): Promise<boolean>;
   authenticateBiometric(title: string, subtitle: string): Promise<boolean>;
+  consumePendingWidgetActions(): Promise<string>;
+}
+
+export interface PendingWidgetAction {
+  type: 'complete_quest' | 'water_250';
+  questId?: number;
+  templateId?: string;
+  occurredAt?: number;
 }
 
 function getNative(): Partial<AwakenedNativeApi> | null {
@@ -186,4 +194,16 @@ export async function authenticateBiometric(
   const n = getNative();
   if (!n?.authenticateBiometric) return false;
   return safe(() => n.authenticateBiometric!(title, subtitle), false);
+}
+
+export async function consumePendingWidgetActions(): Promise<PendingWidgetAction[]> {
+  const n = getNative();
+  if (!n?.consumePendingWidgetActions) return [];
+  const raw = await safe(n.consumePendingWidgetActions.bind(n), '[]');
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as PendingWidgetAction[]) : [];
+  } catch {
+    return [];
+  }
 }
