@@ -13,7 +13,7 @@
 
 ### สถานะตอนนี้
 
-**เวอร์ชัน `0.10.5` — มีโค้ดแอปและไฟล์ติดตั้ง Android APK พร้อมใช้งานแล้ว**
+**เวอร์ชัน `0.10.6` — มีโค้ดแอปและไฟล์ติดตั้ง Android APK พร้อมใช้งานแล้ว (ปรับโฉม GUI ธีมหมึก–ครีม–พีช + มาสคอต Awaken + ระบบกู้ PIN ด้วยรหัสเครื่องโดยข้อมูลไม่หาย)**
 
 📖 **อ่านเอกสารออกแบบแบบจัดหมวดหมู่ได้ที่ [Wiki](../../wiki)**
 
@@ -83,7 +83,7 @@ A mobile app that brings RPG mechanics into everyday life. Work out, drink water
 
 ### Current status
 
-**Version `0.10.5` — Full React Native + Expo + Native Kotlin Android application with installable Release APK.**
+**Version `0.10.6` — Full React Native + Expo + Native Kotlin Android application with installable Release APK (Ink / Cream / Peach GUI, evolving Awaken Mascot, non-destructive PIN recovery, Light Day Mode, and Collectible Weekly Ink Cards).**
 
 📖 **The design docs are also split into browsable pages in the [Wiki](../../wiki)** (the Wiki is written in Thai).
 

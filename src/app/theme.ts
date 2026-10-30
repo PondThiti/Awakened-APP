@@ -1,7 +1,32 @@
 import { ThemeMode } from '../core/engine/types';
 
+/**
+ * Awakened v0.10.6 Design System — Ink / Cream / Peach Palette
+ * Strictly 3 core color families: Ink (#16142B), Cream (#FBF8F3 / #FFFFFF), Peach (#FFB88A / #FFE3CC)
+ * with thick 2.5px ink outlines, full pill chips, and hard offset shadows.
+ */
+export const colors = {
+  ink: '#16142B',
+  cream: '#FBF8F3',
+  white: '#FFFFFF',
+  peach: '#FFB88A',
+  peachSoft: '#FFE3CC',
+  line: '#D9D6DE',
+};
+
+export const stroke = 2.5; // ความหนาเส้นขอบทุกชิ้น
+export const radius = { chip: 999, card: 20, input: 14 };
+export const hardShadow = { offset: 3, color: colors.ink }; // เงาแข็ง ไม่เบลอ
+
 export interface AppTheme {
   mode: ThemeMode;
+  ink: string;
+  cream: string;
+  white: string;
+  peach: string;
+  peachSoft: string;
+  line: string;
+  stroke: number;
   bg: string;
   bgSecondary: string;
   card: string;
@@ -23,52 +48,69 @@ export interface AppTheme {
 }
 
 /**
- * Section 15.2 UI/UX Theme Palette:
- * Dark RPG / System Window (#0E1220 bg, #171C2E card, #5B8CFF primary, #3DDC97 success, #FFB84D warning)
- * + WCAG AA accessible Light Mode
+ * Dark Mode (Ink / Peach / Cream):
+ * Deep Ink (#16142B) canvas with Peach (#FFB88A) primary accents and Cream (#FBF8F3) typography.
  */
 export const DARK_THEME: AppTheme = {
   mode: 'dark',
-  bg: '#0E1220',
-  bgSecondary: '#121829',
-  card: '#171C2E',
-  cardElevated: '#1F263D',
-  border: '#283252',
-  primary: '#5B8CFF',
-  primaryGlow: 'rgba(91, 140, 255, 0.25)',
-  success: '#3DDC97',
-  warning: '#FFB84D',
-  danger: '#FF5C77',
-  text: '#F3F6FF',
-  textSecondary: '#B4C0E0',
-  textMuted: '#7884A8',
-  water: '#38BDF8',
-  meal: '#FB923C',
-  workout: '#F43F5E',
-  focus: '#A78BFA',
-  mind: '#34D399',
+  ink: colors.ink,
+  cream: colors.cream,
+  white: colors.white,
+  peach: colors.peach,
+  peachSoft: colors.peachSoft,
+  line: colors.line,
+  stroke,
+  bg: '#16142B',
+  bgSecondary: '#211E3A',
+  card: '#1D1A36',
+  cardElevated: '#262344',
+  border: '#FFB88A',
+  primary: '#FFB88A',
+  primaryGlow: 'rgba(255, 184, 138, 0.25)',
+  success: '#FFB88A',
+  warning: '#FFE3CC',
+  danger: '#FF9E8A',
+  text: '#FBF8F3',
+  textSecondary: '#D9D6DE',
+  textMuted: '#9B96B0',
+  water: '#FFB88A',
+  meal: '#FFB88A',
+  workout: '#FFB88A',
+  focus: '#FFB88A',
+  mind: '#FFB88A',
 };
 
+/**
+ * Light Mode (Cream / White / Ink / Peach — Mockup Default Look):
+ * Warm Cream (#FBF8F3) & White (#FFFFFF) cards with thick Ink (#16142B) borders and Peach (#FFB88A) highlights.
+ */
 export const LIGHT_THEME: AppTheme = {
   mode: 'light',
-  bg: '#F4F7FE',
-  bgSecondary: '#E9EFFD',
+  ink: colors.ink,
+  cream: colors.cream,
+  white: colors.white,
+  peach: colors.peach,
+  peachSoft: colors.peachSoft,
+  line: colors.line,
+  stroke,
+  bg: '#FBF8F3',
+  bgSecondary: '#F3EFE6',
   card: '#FFFFFF',
-  cardElevated: '#F8FAFF',
-  border: '#D6E0F5',
-  primary: '#3B6EF6',
-  primaryGlow: 'rgba(59, 110, 246, 0.16)',
-  success: '#10B981',
-  warning: '#F59E0B',
-  danger: '#EF4444',
-  text: '#111827',
-  textSecondary: '#374151',
-  textMuted: '#6B7280',
-  water: '#0284C7',
-  meal: '#EA580C',
-  workout: '#E11D48',
-  focus: '#7C3AED',
-  mind: '#059669',
+  cardElevated: '#FBF8F3',
+  border: '#16142B',
+  primary: '#FFB88A',
+  primaryGlow: 'rgba(255, 184, 138, 0.35)',
+  success: '#16142B',
+  warning: '#E07A38',
+  danger: '#C94A38',
+  text: '#16142B',
+  textSecondary: '#3A3752',
+  textMuted: '#726E86',
+  water: '#16142B',
+  meal: '#16142B',
+  workout: '#16142B',
+  focus: '#16142B',
+  mind: '#16142B',
 };
 
 export function getTheme(mode: ThemeMode): AppTheme {

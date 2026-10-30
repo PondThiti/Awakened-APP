@@ -7,7 +7,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { AppTheme } from '../../app/theme';
+import { AppTheme, colors, radius, stroke } from '../../app/theme';
+import {
+  SegmentedTabs,
+  WeeklyCollectibleCardData,
+  WeeklyInkCardShowcase,
+} from '../components/InkComponents';
 import { useAwakened } from '../../data/repository';
 import { t } from '../../l10n/translations';
 import { addDaysToDayKey, getLocalDayKey } from '../../core/utils/dateUtils';
@@ -44,7 +49,7 @@ const MOOD_LEVELS: ReadonlyArray<{
 }> = [
   {
     level: 1,
-    color: '#EF4444',
+    color: '#FFB88A',
     th: 'ล้ามาก',
     en: 'Exhausted',
     symbol: '🌧️',
@@ -56,7 +61,7 @@ const MOOD_LEVELS: ReadonlyArray<{
   },
   {
     level: 2,
-    color: '#F97316',
+    color: '#FFB88A',
     th: 'เหนื่อย',
     en: 'Drained',
     symbol: '🌥️',
@@ -68,7 +73,7 @@ const MOOD_LEVELS: ReadonlyArray<{
   },
   {
     level: 3,
-    color: '#EAB308',
+    color: '#FFB88A',
     th: 'เฉย ๆ',
     en: 'Neutral',
     symbol: '⛅',
@@ -80,7 +85,7 @@ const MOOD_LEVELS: ReadonlyArray<{
   },
   {
     level: 4,
-    color: '#38BDF8',
+    color: '#FFB88A',
     th: 'สงบ',
     en: 'Calm',
     symbol: '🌊',
@@ -92,7 +97,7 @@ const MOOD_LEVELS: ReadonlyArray<{
   },
   {
     level: 5,
-    color: '#10B981',
+    color: '#FFB88A',
     th: 'ดี',
     en: 'Good',
     symbol: '🌿',
@@ -104,7 +109,7 @@ const MOOD_LEVELS: ReadonlyArray<{
   },
   {
     level: 6,
-    color: '#8B5CF6',
+    color: '#FFB88A',
     th: 'สดชื่น',
     en: 'Energetic',
     symbol: '⚡',
@@ -116,7 +121,7 @@ const MOOD_LEVELS: ReadonlyArray<{
   },
   {
     level: 7,
-    color: '#EC4899',
+    color: '#FFB88A',
     th: 'ยอดเยี่ยม',
     en: 'Inspired',
     symbol: '✨',
@@ -156,6 +161,8 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
   const {
     db,
     todayKey,
+    levelState,
+    currentRank,
     todayMetrics,
     streakState,
     saveJournalEntry,
@@ -231,53 +238,71 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
     { id: 'recap', icon: 'activity', label: strings.journey.recapTab },
   ];
 
+  const weeklyCards: WeeklyCollectibleCardData[] = [
+    {
+      id: 'wk_hydration',
+      weekLabel: 'CARD #01',
+      titleTh: 'ผู้พิทักษ์หยดน้ำ',
+      titleEn: 'Keeper of the Ink Drop',
+      captionTh: `ดื่มน้ำวันนี้ ${todayMetrics.water_ml.toLocaleString()} ml เติมความสดชื่น`,
+      captionEn: `${todayMetrics.water_ml.toLocaleString()} ml logged — steady hydration`,
+      badgeText: 'VIT ✦',
+      mood: 'happy',
+      seed: 1,
+      unlocked: todayMetrics.water_ml > 0 || db.activities.some((a) => !a.deletedAt && a.type === 'water'),
+    },
+    {
+      id: 'wk_rest',
+      weekLabel: 'CARD #02',
+      titleTh: 'พักก็คือแผนอย่างหนึ่ง',
+      titleEn: 'Rest Is Part of the Plan',
+      captionTh: 'รู้จักพักในวันที่ร่างกายต้องการ',
+      captionEn: 'Honoring recovery days without guilt',
+      badgeText: 'REST ✦',
+      mood: 'sleep',
+      seed: 2,
+      unlocked: true,
+    },
+    {
+      id: 'wk_focus',
+      weekLabel: 'CARD #03',
+      titleTh: 'นักรบสมาธิเงียบ',
+      titleEn: 'Silent Focus Weaver',
+      captionTh: `สะสมเวลาโฟกัส ${todayMetrics.weekly_focus_min} นาทีในสัปดาห์นี้`,
+      captionEn: `${todayMetrics.weekly_focus_min} focus minutes this week`,
+      badgeText: 'INT ✦',
+      mood: 'calm',
+      seed: 3,
+      unlocked: todayMetrics.weekly_focus_min > 0 || db.journals.length > 0,
+    },
+    {
+      id: 'wk_consistency',
+      weekLabel: 'CARD #04',
+      titleTh: 'ก้าวเล็ก ๆ ที่ไม่หยุดเดิน',
+      titleEn: 'Unbroken Small Steps',
+      captionTh: `ต่อเนื่อง ${streakState.currentStreak} วัน · ทำตามจังหวะตัวเอง`,
+      captionEn: `${streakState.currentStreak}-day rhythm at your own pace`,
+      badgeText: 'STR/WIL',
+      mood: 'proud',
+      seed: 4,
+      unlocked: streakState.currentStreak > 0 || db.activities.length > 0,
+    },
+  ];
+
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View
-        style={[
-          styles.subTabBar,
-          { backgroundColor: theme.card, borderBottomColor: theme.border },
-        ]}
-      >
-        {subTabs.map((tab) => {
-          const active = subTab === tab.id;
-          return (
-            <Pressable
-              key={tab.id}
-              style={[
-                styles.subTabBtn,
-                active && {
-                  backgroundColor: `${theme.primary}22`,
-                  borderColor: theme.primary,
-                },
-              ]}
-              onPress={() => {
-                setSubTab(tab.id);
-                if (tab.id === 'recap') {
-                  recordAppEvent('recap_viewed_total', 1);
-                }
-              }}
-            >
-              <View style={styles.inlineIconRow}>
-                <AppIcon
-                  name={tab.icon}
-                  size={14}
-                  color={active ? theme.primary : theme.textSecondary}
-                />
-                <Text
-                  style={{
-                    color: active ? theme.primary : theme.textSecondary,
-                    fontWeight: '800',
-                    fontSize: 12,
-                  }}
-                >
-                  {tab.label}
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
+      <SegmentedTabs
+        tabs={subTabs}
+        activeId={subTab}
+        onSelect={(id) => {
+          setSubTab(id);
+          if (id === 'recap') {
+            recordAppEvent('recap_viewed_total', 1);
+          }
+        }}
+        theme={theme}
+        style={{ marginHorizontal: 16, marginTop: 10 }}
+      />
 
       <AnimatedScreenWrapper triggerKey={subTab} reduceMotion={reduceMotion}>
         <ScrollView contentContainerStyle={styles.content}>
@@ -1333,7 +1358,7 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                   ))}
                 </View>
 
-                {/* Month Weeks Grid */}
+                {/* Month Weeks Grid — Peach Circle for Active Day, Bordered White Circle with Special Mark for Rest Day */}
                 <View style={styles.monthCalendarGrid}>
                   {monthWeeks.map((week, wIdx) => (
                     <View key={wIdx} style={styles.monthCalendarRow}>
@@ -1348,6 +1373,16 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                         const hasJournal = db.journals.some((j) => j.entryDate === dk);
                         const hasMood = db.moods.some((m) => m.dayKey === dk);
                         const hasActivity = db.activities.some((a) => !a.deletedAt && getLocalDayKey(a.occurredAt, a.tzOffsetMin) === dk);
+                        const isActiveDay = st === 'active' || hasActivity || hasJournal || hasMood;
+                        const isRestDay = st === 'rest' || (isToday && db.profile.restModeToday === todayKey);
+
+                        const circleBg = isActiveDay
+                          ? colors.peach
+                          : isRestDay
+                          ? colors.peachSoft
+                          : isSelected
+                          ? `${colors.peach}45`
+                          : theme.bgSecondary;
 
                         return (
                           <Pressable
@@ -1355,41 +1390,58 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                             style={[
                               styles.monthCalendarCell,
                               {
-                                backgroundColor: isSelected
-                                  ? `${theme.primary}30`
-                                  : isToday
-                                  ? `${theme.primary}12`
-                                  : theme.bgSecondary,
-                                borderColor: isSelected
-                                  ? theme.primary
-                                  : isToday
-                                  ? `${theme.primary}88`
-                                  : theme.border,
-                                borderWidth: isSelected ? 2 : isToday ? 1.5 : 1,
+                                backgroundColor: circleBg,
+                                borderColor:
+                                  isSelected || isToday || isActiveDay || isRestDay
+                                    ? colors.ink
+                                    : theme.border,
+                                borderWidth:
+                                  isSelected || isToday || isActiveDay || isRestDay
+                                    ? stroke
+                                    : 1.5,
+                                borderStyle: isRestDay && !isActiveDay ? 'dashed' : 'solid',
                               },
                             ]}
                             onPress={() => setSelectedDayKey(dk)}
                           >
                             <Text
                               style={{
-                                color: isSelected
-                                  ? theme.primary
-                                  : isToday
-                                  ? theme.primary
-                                  : theme.text,
+                                color:
+                                  isActiveDay || isRestDay
+                                    ? colors.ink
+                                    : theme.text,
                                 fontSize: 12,
-                                fontWeight: isSelected || isToday ? '900' : '700',
+                                fontWeight:
+                                  isSelected || isToday || isActiveDay || isRestDay
+                                    ? '900'
+                                    : '700',
                               }}
                             >
                               {parsed.day}
                             </Text>
-                            <View style={styles.calendarDotRow}>
-                              {st === 'active' && <View style={[styles.calDot, { backgroundColor: theme.success }]} />}
-                              {st === 'rest' && <View style={[styles.calDot, { backgroundColor: theme.primary }]} />}
-                              {hasJournal && <View style={[styles.calDot, { backgroundColor: theme.mind }]} />}
-                              {hasMood && <View style={[styles.calDot, { backgroundColor: theme.warning }]} />}
-                              {hasActivity && st !== 'active' && <View style={[styles.calDot, { backgroundColor: theme.workout }]} />}
-                            </View>
+                            {isRestDay && !isActiveDay ? (
+                              <Text
+                                style={{
+                                  color: colors.ink,
+                                  fontSize: 7.5,
+                                  fontWeight: '900',
+                                  marginTop: -2,
+                                }}
+                              >
+                                พัก✦
+                              </Text>
+                            ) : isActiveDay ? (
+                              <Text
+                                style={{
+                                  color: colors.ink,
+                                  fontSize: 7.5,
+                                  fontWeight: '900',
+                                  marginTop: -2,
+                                }}
+                              >
+                                ●
+                              </Text>
+                            ) : null}
                           </Pressable>
                         );
                       })}
@@ -1397,23 +1449,37 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                   ))}
                 </View>
 
-                {/* Dot Indicators Legend */}
+                {/* Circle Indicators Legend (Section 3: วันที่ทำเควสต์ = วงกลมพีช, วันพัก = วงกลมขอบดำพื้นพีชอ่อนมีเครื่องหมายพิเศษ) */}
                 <View style={styles.calendarLegendRow}>
                   <View style={styles.legendItem}>
-                    <View style={[styles.calDot, { backgroundColor: theme.success }]} />
-                    <Text style={{ color: theme.textMuted, fontSize: 10 }}>{isTh ? 'ออกกำลัง' : 'Workout'}</Text>
+                    <View
+                      style={{
+                        width: 14,
+                        height: 14,
+                        borderRadius: 7,
+                        backgroundColor: colors.peach,
+                        borderWidth: 2,
+                        borderColor: colors.ink,
+                      }}
+                    />
+                    <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>
+                      {isTh ? 'วันที่มีกิจกรรม / ทำเควสต์' : 'Active / Quest Done'}
+                    </Text>
                   </View>
                   <View style={styles.legendItem}>
-                    <View style={[styles.calDot, { backgroundColor: theme.primary }]} />
-                    <Text style={{ color: theme.textMuted, fontSize: 10 }}>{isTh ? 'พัก' : 'Rest'}</Text>
-                  </View>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.calDot, { backgroundColor: theme.mind }]} />
-                    <Text style={{ color: theme.textMuted, fontSize: 10 }}>{isTh ? 'ไดอารี่' : 'Journal'}</Text>
-                  </View>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.calDot, { backgroundColor: theme.warning }]} />
-                    <Text style={{ color: theme.textMuted, fontSize: 10 }}>{isTh ? 'อารมณ์' : 'Mood'}</Text>
+                    <View
+                      style={{
+                        width: 14,
+                        height: 14,
+                        borderRadius: 7,
+                        backgroundColor: colors.peachSoft,
+                        borderWidth: 2,
+                        borderColor: colors.ink,
+                      }}
+                    />
+                    <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>
+                      {isTh ? 'วันพัก (พัก✦ ไม่นับเป็นวันขาด)' : 'Rest Day (Counts for Streak)'}
+                    </Text>
                   </View>
                 </View>
 
@@ -1579,6 +1645,17 @@ export const JourneyScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                   </Text>
                 </View>
               ))}
+
+              {/* Section 4.4: สรุปรายสัปดาห์แบบการ์ดสะสม (Weekly Collectible Ink Cards) */}
+              <View style={{ marginTop: 16, paddingTop: 14, borderTopWidth: 2, borderTopColor: colors.line }}>
+                <WeeklyInkCardShowcase
+                  cards={weeklyCards}
+                  rankId={currentRank.id}
+                  level={levelState.level}
+                  isTh={isTh}
+                  theme={theme}
+                />
+              </View>
             </AnimatedCard>
           )}
         </ScrollView>
@@ -1615,8 +1692,10 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   card: {
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: radius.card,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 2.5,
+    borderRightWidth: stroke + 2.5,
     padding: 15,
   },
   headerRow: {
@@ -1626,7 +1705,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   chipRow: {
     flexDirection: 'row',
@@ -1634,42 +1713,50 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 11,
     paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
+    borderRadius: radius.chip,
+    borderWidth: 2,
   },
   input: {
     paddingHorizontal: 12,
     paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: radius.input,
+    borderWidth: stroke,
     fontSize: 14,
+    fontWeight: '700',
   },
   textArea: {
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: radius.input,
+    borderWidth: stroke,
     fontSize: 14,
+    fontWeight: '700',
     minHeight: 96,
     textAlignVertical: 'top',
   },
   primaryBtn: {
     paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+    paddingHorizontal: 16,
+    borderRadius: radius.chip,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 2,
+    borderRightWidth: stroke + 2,
+    borderColor: colors.ink,
     alignItems: 'center',
   },
   primaryBtnText: {
-    color: '#0E1220',
+    color: colors.ink,
     fontWeight: '900',
     fontSize: 13,
   },
   journalCard: {
     padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 2,
+    borderRightWidth: stroke + 2,
     marginBottom: 8,
   },
   moodQuotaBadge: {
@@ -1921,7 +2008,7 @@ const styles = StyleSheet.create({
   monthCalendarCell: {
     flex: 1,
     height: 44,
-    borderRadius: 8,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 2,

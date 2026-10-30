@@ -12,7 +12,8 @@ import {
   Vibration,
   View,
 } from 'react-native';
-import { AppTheme } from '../../app/theme';
+import { AppTheme, colors, radius, stroke } from '../../app/theme';
+import { AwakenMascot, DripEdge } from '../components/InkComponents';
 import {
   ActivityPreference,
   AgeBand,
@@ -318,14 +319,14 @@ export const OnboardingQuestionnaireScreen: React.FC<{
     [previewFinalized]
   );
 
-  // Ambient brightness progression per phase (Section 4.2)
+  // Ambient brightness progression per phase (Section 4.2 — Ink palette)
   const bgByPhase = [
-    '#090D1C',
-    '#0C1226',
-    '#101833',
-    '#131D3B',
-    '#162244',
-    '#141C3D',
+    colors.ink,
+    '#16142B',
+    '#1A1833',
+    '#1D1B38',
+    '#201D3D',
+    '#16142B',
   ][currentPhase];
 
   // Phase 1..4 ring segments
@@ -347,70 +348,72 @@ export const OnboardingQuestionnaireScreen: React.FC<{
     ];
 
     return (
-      <View style={styles.topHeader}>
-        <View style={styles.headerRow}>
-          <Pressable onPress={goBack} style={styles.backBtn}>
-            <Text style={{ color: '#94A3B8', fontWeight: '800', fontSize: 13 }}>
-              ← {isTh ? 'ย้อนกลับ' : 'Back'}
-            </Text>
-          </Pressable>
-
-          {/* Awakening XP Ring Indicator (Section 4.2 — No "x/21" numbers) */}
-          <View style={styles.ringCenterWrap}>
-            <View style={styles.ringSegmentsRow}>
-              {[1, 2, 3, 4].map((p) => {
-                const active = currentPhase >= p;
-                const current = currentPhase === p;
-                return (
-                  <View
-                    key={p}
-                    style={[
-                      styles.ringSegmentPill,
-                      {
-                        backgroundColor: active
-                          ? p === 4
-                            ? '#3DDC97'
-                            : '#5B8CFF'
-                          : 'rgba(255,255,255,0.14)',
-                        width: current ? 28 : 18,
-                      },
-                    ]}
-                  />
-                );
-              })}
-            </View>
-            <Text style={styles.phaseLabel}>
-              {isTh ? phaseTitlesTh[currentPhase] : phaseTitlesEn[currentPhase]}
-            </Text>
-          </View>
-
-          <View style={styles.rightHeaderBtns}>
-            <Pressable onPress={onToggleLanguage} style={styles.langMiniChip}>
-              <Text style={{ color: '#5B8CFF', fontWeight: '800', fontSize: 11 }}>
-                {lang.toUpperCase()}
+      <View>
+        <View style={styles.topHeader}>
+          <View style={styles.headerRow}>
+            <Pressable onPress={goBack} style={styles.backBtn}>
+              <Text style={{ color: colors.cream, fontWeight: '800', fontSize: 13 }}>
+                ← {isTh ? 'ย้อนกลับ' : 'Back'}
               </Text>
             </Pressable>
-            {canSkip && (
-              <Pressable onPress={goNext} style={styles.skipBtn}>
-                <Text style={{ color: '#94A3B8', fontWeight: '700', fontSize: 13 }}>
-                  {isTh ? 'ข้าม' : 'Skip'}
+
+            {/* Awakening XP Ring Indicator (Section 4.2 — No "x/21" numbers) */}
+            <View style={styles.ringCenterWrap}>
+              <View style={styles.ringSegmentsRow}>
+                {[1, 2, 3, 4].map((p) => {
+                  const active = currentPhase >= p;
+                  const current = currentPhase === p;
+                  return (
+                    <View
+                      key={p}
+                      style={[
+                        styles.ringSegmentPill,
+                        {
+                          backgroundColor: active
+                            ? colors.peach
+                            : 'rgba(255,255,255,0.18)',
+                          width: current ? 28 : 18,
+                        },
+                      ]}
+                    />
+                  );
+                })}
+              </View>
+              <Text style={styles.phaseLabel}>
+                {isTh ? phaseTitlesTh[currentPhase] : phaseTitlesEn[currentPhase]}
+              </Text>
+            </View>
+
+            <View style={styles.rightHeaderBtns}>
+              <Pressable onPress={onToggleLanguage} style={styles.langMiniChip}>
+                <Text style={{ color: colors.peach, fontWeight: '800', fontSize: 11 }}>
+                  {lang.toUpperCase()}
                 </Text>
               </Pressable>
-            )}
+              {canSkip && (
+                <Pressable onPress={goNext} style={styles.skipBtn}>
+                  <Text style={{ color: colors.peachSoft, fontWeight: '700', fontSize: 13 }}>
+                    {isTh ? 'ข้าม' : 'Skip'}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
           </View>
         </View>
+        <DripEdge color="#110F22" height={16} seed={currentPhase + 3} />
       </View>
     );
   };
 
-  // 4.1 Welcome Screen
+  // 4.1 Welcome Screen (Large Mascot Illustration + Bold Quote + Dots + Peach CTA)
   if (currentStep === 'welcome') {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: '#090D1C' }]}>
-        <StatusBar barStyle="light-content" backgroundColor="#090D1C" />
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.ink }]}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.ink} />
+        <DripEdge color="#0E0C1D" height={22} seed={11} />
         <View style={styles.welcomeTopBar}>
           <Pressable onPress={onToggleLanguage} style={styles.langMiniChip}>
-            <Text style={{ color: '#5B8CFF', fontWeight: '800', fontSize: 12 }}>
+            <Text style={{ color: colors.peach, fontWeight: '800', fontSize: 12 }}>
               {isTh ? 'ภาษา: TH' : 'Lang: EN'}
             </Text>
           </Pressable>
@@ -425,11 +428,11 @@ export const OnboardingQuestionnaireScreen: React.FC<{
             duration={2200}
           >
             <View style={styles.welcomeGlowCircle}>
-              <AwakenedBrandIcon size={108} />
+              <AwakenMascot rankId="E" mood="happy" size={116} reduceMotion={reduceMotion} />
             </View>
           </AnimatedPulseView>
 
-          <Text style={styles.welcomeSystemBadge}>✦ AWAKENED SYSTEM ✦</Text>
+          <Text style={styles.welcomeSystemBadge}>✦ AWAKENED · INK & PEACH ✦</Text>
 
           <Text style={styles.welcomeQuoteMain}>
             {isTh
@@ -445,7 +448,7 @@ export const OnboardingQuestionnaireScreen: React.FC<{
 
           {/* Mandatory Medical Disclaimer at Start (Section 8.2) */}
           <View style={styles.disclaimerBox}>
-            <AppIcon name="shield" size={16} color="#3DDC97" />
+            <AppIcon name="shield" size={16} color={colors.peach} />
             <Text style={styles.disclaimerText}>
               {isTh
                 ? 'Awakened ไม่ใช่เครื่องมือทางการแพทย์ หากมีโรคประจำตัวหรืออาการผิดปกติ ควรปรึกษาแพทย์ก่อนเริ่มออกกำลังกาย'
@@ -462,7 +465,7 @@ export const OnboardingQuestionnaireScreen: React.FC<{
             }}
           >
             <Text style={styles.welcomePrimaryBtnText}>
-              {isTh ? '[ เริ่มปลุก ]' : '[ Begin Awakening ]'}
+              {isTh ? '[ เริ่มปลุก ] →' : '[ Begin Awakening ] →'}
             </Text>
           </AnimatedPressable>
 
@@ -1904,21 +1907,46 @@ export const OnboardingQuestionnaireScreen: React.FC<{
         )}
       </ScrollView>
 
-      {/* Bottom Next Button for Q1..Q20 */}
+      {/* Bottom Next Bar for Q1..Q20 (Page Dots + Circular Peach Button at Bottom-Right per Section 2.2) */}
       {currentStep !== 'Q21' && (
         <View style={styles.bottomBar}>
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[
-              styles.nextPrimaryBtn,
-              draft.ageBand === 'under_13' && currentStep === 'Q2' && { backgroundColor: '#F59E0B' },
-            ]}
-            onPress={goNext}
-          >
-            <Text style={styles.nextPrimaryBtnText}>
-              {isTh ? 'ต่อไป →' : 'Continue →'}
-            </Text>
-          </AnimatedPressable>
+          <View style={styles.bottomBarRow}>
+            <View style={styles.pageDotsRow}>
+              {[1, 2, 3, 4].map((p) => {
+                const active = currentPhase === p;
+                const passed = currentPhase > p;
+                return (
+                  <View
+                    key={p}
+                    style={{
+                      width: active ? 22 : 9,
+                      height: 9,
+                      borderRadius: 5,
+                      backgroundColor: active || passed ? colors.peach : 'rgba(255,255,255,0.22)',
+                      borderWidth: 1.5,
+                      borderColor: colors.ink,
+                    }}
+                  />
+                );
+              })}
+              <Text style={{ color: colors.peachSoft, fontSize: 12, fontWeight: '800', marginLeft: 6 }}>
+                {isTh ? 'แตะปุ่มกลมสีพีชเพื่อไปต่อ' : 'Tap the peach circle to continue'}
+              </Text>
+            </View>
+
+            <AnimatedPressable
+              reduceMotion={reduceMotion}
+              style={[
+                styles.nextCirclePeachBtn,
+                draft.ageBand === 'under_13' && currentStep === 'Q2' && { backgroundColor: '#F59E0B' },
+              ]}
+              onPress={goNext}
+              accessibilityRole="button"
+              accessibilityLabel={isTh ? 'ต่อไป' : 'Next'}
+            >
+              <Text style={styles.nextCirclePeachBtnText}>→</Text>
+            </AnimatedPressable>
+          </View>
         </View>
       )}
     </SafeAreaView>
@@ -1942,25 +1970,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 26,
   },
   welcomeGlowCircle: {
-    width: 136,
-    height: 136,
-    borderRadius: 68,
-    backgroundColor: 'rgba(91, 140, 255, 0.12)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(61, 220, 151, 0.35)',
+    width: 146,
+    height: 146,
+    borderRadius: 73,
+    backgroundColor: colors.cream,
+    borderWidth: stroke,
+    borderColor: colors.peach,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 0,
+    elevation: 4,
   },
   welcomeSystemBadge: {
-    color: '#3DDC97',
+    color: colors.peach,
     fontWeight: '900',
     fontSize: 12,
     letterSpacing: 2,
     marginBottom: 14,
   },
   welcomeQuoteMain: {
-    color: '#F8FAFC',
+    color: colors.cream,
     fontSize: 22,
     fontWeight: '900',
     textAlign: 'center',
@@ -1968,7 +2001,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   welcomeSubDesc: {
-    color: '#94A3B8',
+    color: colors.peachSoft,
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 21,
@@ -1978,31 +2011,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: 'rgba(20, 28, 61, 0.85)',
-    borderColor: '#243156',
-    borderWidth: 1,
-    borderRadius: 12,
+    backgroundColor: '#211E3A',
+    borderColor: colors.peach,
+    borderWidth: 2,
+    borderRadius: radius.input,
     padding: 12,
     marginBottom: 24,
   },
   disclaimerText: {
     flex: 1,
-    color: '#CBD5E1',
+    color: colors.cream,
     fontSize: 11.5,
     lineHeight: 17,
   },
   welcomePrimaryBtn: {
-    backgroundColor: '#3DDC97',
+    backgroundColor: colors.peach,
     paddingVertical: 15,
     paddingHorizontal: 36,
-    borderRadius: 14,
+    borderRadius: radius.chip,
+    borderWidth: stroke,
+    borderColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
     maxWidth: 360,
   },
   welcomePrimaryBtnText: {
-    color: '#090D1C',
+    color: colors.ink,
     fontWeight: '900',
     fontSize: 16,
     letterSpacing: 0.5,
@@ -2316,17 +2351,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#110F22',
+  },
+  bottomBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  pageDotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  nextCirclePeachBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.peach,
+    borderWidth: stroke,
+    borderColor: colors.cream,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.5,
+    shadowRadius: 0,
+    elevation: 4,
+  },
+  nextCirclePeachBtnText: {
+    color: colors.ink,
+    fontWeight: '900',
+    fontSize: 24,
   },
   nextPrimaryBtn: {
-    backgroundColor: '#5B8CFF',
+    backgroundColor: colors.peach,
     paddingVertical: 15,
-    borderRadius: 14,
+    borderRadius: radius.chip,
+    borderWidth: stroke,
+    borderColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
   nextPrimaryBtnText: {
-    color: '#090D1C',
+    color: colors.ink,
     fontWeight: '900',
     fontSize: 16,
   },

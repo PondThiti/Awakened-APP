@@ -6,24 +6,68 @@ import {
   Text,
   View,
 } from 'react-native';
-import { AppTheme } from '../../app/theme';
+import { AppTheme, colors, radius, stroke } from '../../app/theme';
 import { useAwakened } from '../../data/repository';
 import { t } from '../../l10n/translations';
+import { PlayerStatKey } from '../../core/engine/types';
 import { RankBadge, XpBar } from '../components/SystemSharedComponents';
 import { AppIcon, AppIconName } from '../components/AppIcons';
+import {
+  AvatarChip,
+  AwakenMascot,
+  DateDot,
+  DripEdge,
+  InkCard,
+  InkDifficultyDrops,
+  PillButton,
+  StatMiniCard,
+} from '../components/InkComponents';
 import {
   AnimatedCard,
   AnimatedNumberText,
   AnimatedPressable,
   AnimatedProgressBar,
-  AnimatedPulseView,
 } from '../components/AnimatedComponents';
-import { getDaysInWeekRange, getWeekdayOneBased } from '../../core/utils/dateUtils';
+import {
+  addDaysToDayKey,
+  getDaysInWeekRange,
+  getLocalDayKey,
+  getWeekdayOneBased,
+} from '../../core/utils/dateUtils';
 import {
   getNarratorMessages,
   getPathLabel,
   getStarterClassLabel,
 } from '../../core/engine/onboardingEngine';
+
+const HUMAN_TIPS: ReadonlyArray<{
+  id: string;
+  tagTh: string;
+  tagEn: string;
+  titleTh: string;
+  titleEn: string;
+  bodyTh: string;
+  bodyEn: string;
+}> = [
+  {
+    id: 'tip_rest',
+    tagTh: 'มุมคิดวันพัก',
+    tagEn: 'Rest Philosophy',
+    titleTh: 'ทำไมวันพักก็สำคัญไม่แพ้วันลุย',
+    titleEn: 'Why rest days count just as much',
+    bodyTh: 'กล้ามเนื้อและสมาธิเติบโตตอนที่เราพัก วันไหนเหนื่อยมาก กด "วันนี้พัก" หรือ "วันนี้ขอเบา ๆ" ได้เลย ความต่อเนื่องไม่หายนะ',
+    bodyEn: 'Strength and focus grow during recovery. Tap "Rest Today" or "Light Day" whenever you need—your streak stays safe.',
+  },
+  {
+    id: 'tip_small',
+    tagTh: 'ก้าวเล็ก ๆ',
+    tagEn: 'Small Wins',
+    titleTh: 'ดื่มน้ำอีกสองแก้ว ก็ถือว่าดูแลตัวเองแล้ว',
+    titleEn: 'Two more glasses of water is already a win',
+    bodyTh: 'วันที่ยุ่งจนไม่มีเวลาออกกำลังกาย แค่ดื่มน้ำให้พอกับยืดเส้น 2 นาที ก็ช่วยให้ร่างกายไม่ล้าสะสมแล้ว',
+    bodyEn: 'On busy days, staying hydrated and stretching for 2 minutes keeps your momentum alive without burnout.',
+  },
+];
 
 export const HomeScreen: React.FC<{
   theme: AppTheme;
@@ -46,6 +90,7 @@ export const HomeScreen: React.FC<{
     swapDailyQuest,
     completeManualDailyQuest,
     toggleRestModeToday,
+    toggleLightModeToday,
     logRestDayCheckin,
     claimComebackQuest,
     dismissComebackQuest,
@@ -56,16 +101,21 @@ export const HomeScreen: React.FC<{
 
   const [showCustomize, setShowCustomize] = useState(false);
   const [showVacationPicker, setShowVacationPicker] = useState(false);
+  const [selectedStatFilter, setSelectedStatFilter] = useState<'ALL' | PlayerStatKey>('ALL');
+  const [activeTipIdx, setActiveTipIdx] = useState(0);
+
   const lang = db.profile.language;
   const strings = t(lang);
   const isTh = lang === 'th';
   const reduceMotion = db.profile.reduceEffects;
+  const isDark = theme.mode === 'dark';
 
   const completedQuestsCount = todayQuests.filter((q) => q.status === 'completed').length;
   const swapAlreadyUsed = db.profile.dailyQuestSwapUsedDay === todayKey;
   const isRestToday =
     db.profile.restModeToday === todayKey ||
     db.trainingPlan.find((d) => d.weekday === getWeekdayOneBased(todayKey))?.dayType === 'rest';
+  const isLightToday = db.profile.lightModeToday === todayKey;
 
   const weekDays = getDaysInWeekRange(todayKey, db.profile.weekStartDay);
   const dayNamesTh = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.'];
@@ -79,361 +129,414 @@ export const HomeScreen: React.FC<{
     updateProfile({ hiddenDashboardCards: Array.from(next) });
   };
 
-  // Calculate today's estimated calories range
-  const todayMeals = db.activities.filter(
-    (a) => !a.deletedAt && a.type === 'meal' && a.occurredAt >= new Date(todayKey).getTime() - 86400000
-  );
-  const totalEstKcal = todayMeals.reduce((s, m) => s + (m.mealDetail?.caloriesEst ?? m.value ?? 0), 0);
   const waterPct = Math.min(
     100,
     Math.round((todayMetrics.water_ml / Math.max(1, db.profile.waterGoalMl)) * 100)
   );
+
+  // Filter today's quests by selected circular stat chip (STR / VIT / INT / WIL)
+  const filteredQuests = todayQuests.filter((q) => {
+    if (selectedStatFilter === 'ALL') return true;
+    const st = q.template.stat;
+    if (Array.isArray(st)) return st.includes(selectedStatFilter);
+    if (st) return st === selectedStatFilter;
+    // Fallback mapping by slot
+    if (selectedStatFilter === 'STR' && q.template.slot === 'body') return true;
+    if (selectedStatFilter === 'VIT' && q.template.slot === 'body') return true;
+    if (selectedStatFilter === 'INT' && q.template.slot === 'mind') return true;
+    if (selectedStatFilter === 'WIL' && (q.template.slot === 'mind' || q.template.slot === 'bonus')) return true;
+    return false;
+  });
+
+  // Compute 7-day sparkline series for StatMiniCards
+  const last7DayKeys = Array.from({ length: 7 }, (_, i) =>
+    addDaysToDayKey(todayKey, -(6 - i))
+  );
+  const activeActs = db.activities.filter((a) => !a.deletedAt);
+  const water7Series = last7DayKeys.map((dk) =>
+    activeActs
+      .filter((a) => a.type === 'water' && getLocalDayKey(a.occurredAt, a.tzOffsetMin) === dk)
+      .reduce((s, a) => s + (a.value || 0), 0)
+  );
+  const focus7Series = last7DayKeys.map((dk) =>
+    activeActs
+      .filter((a) => a.type === 'focus' && getLocalDayKey(a.occurredAt, a.tzOffsetMin) === dk)
+      .reduce((s, a) => s + (a.value || 0), 0)
+  );
+  const workout7Series = last7DayKeys.map((dk) =>
+    activeActs
+      .filter((a) => a.type === 'workout' && getLocalDayKey(a.occurredAt, a.tzOffsetMin) === dk)
+      .reduce((s, a) => s + (a.value || 0), 0)
+  );
+  const meal7Series = last7DayKeys.map((dk) =>
+    activeActs.filter((a) => a.type === 'meal' && getLocalDayKey(a.occurredAt, a.tzOffsetMin) === dk)
+      .length
+  );
+
+  const currentTip = HUMAN_TIPS[activeTipIdx % HUMAN_TIPS.length];
 
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.bg }]}
       contentContainerStyle={styles.content}
     >
-      {/* Top RPG System Window Card */}
-      <AnimatedCard
-        index={0}
-        reduceMotion={reduceMotion}
-        style={[
-          styles.systemWindow,
-          {
-            backgroundColor: theme.card,
-            borderColor: currentRank.color,
-          },
-        ]}
-      >
-        <View style={styles.systemTopRow}>
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <View style={styles.inlineIconRow}>
-              <AppIcon name="bolt" size={14} color={theme.primary} />
-              <Text style={[styles.systemLabel, { color: theme.primary, flexShrink: 1 }]} numberOfLines={1}>
-                {strings.home.systemStatus}
+      {/* 0. Circular Avatar Chips Row (Mockup "Мои питомцы" → STR / VIT / INT / WIL Filter) */}
+      <View>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionHeaderTitle, { color: theme.text }]}>
+            {isTh ? 'ค่าสถานะ & กรองเควสต์' : 'Stats & Quest Filter'}
+          </Text>
+          <Text style={{ color: theme.textMuted, fontSize: 11.5, fontWeight: '800' }}>
+            {isTh ? 'แตะวงกลมเพื่อกรอง' : 'Tap circle to filter'}
+          </Text>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.avatarChipsRow}
+        >
+          <AvatarChip
+            label={isTh ? 'ทั้งหมด' : 'ALL'}
+            value={`${completedQuestsCount}/${todayQuests.length}`}
+            icon="quest"
+            selected={selectedStatFilter === 'ALL'}
+            onPress={() => setSelectedStatFilter('ALL')}
+            theme={theme}
+          />
+          <AvatarChip
+            label="STR"
+            value={db.playerStats?.STR ?? 12}
+            icon="dumbbell"
+            selected={selectedStatFilter === 'STR'}
+            onPress={() =>
+              setSelectedStatFilter(selectedStatFilter === 'STR' ? 'ALL' : 'STR')
+            }
+            theme={theme}
+          />
+          <AvatarChip
+            label="VIT"
+            value={db.playerStats?.VIT ?? 12}
+            icon="water"
+            selected={selectedStatFilter === 'VIT'}
+            onPress={() =>
+              setSelectedStatFilter(selectedStatFilter === 'VIT' ? 'ALL' : 'VIT')
+            }
+            theme={theme}
+          />
+          <AvatarChip
+            label="INT"
+            value={db.playerStats?.INT ?? 12}
+            icon="clock"
+            selected={selectedStatFilter === 'INT'}
+            onPress={() =>
+              setSelectedStatFilter(selectedStatFilter === 'INT' ? 'ALL' : 'INT')
+            }
+            theme={theme}
+          />
+          <AvatarChip
+            label="WIL"
+            value={db.playerStats?.WIL ?? 12}
+            icon="journal"
+            selected={selectedStatFilter === 'WIL'}
+            onPress={() =>
+              setSelectedStatFilter(selectedStatFilter === 'WIL' ? 'ALL' : 'WIL')
+            }
+            theme={theme}
+          />
+        </ScrollView>
+      </View>
+
+      {/* 1. Character & Mascot Hero Card (Mockup "Огурец" — Mascot on Ink + 3 Thick Stat Cards) */}
+      <AnimatedCard index={0} reduceMotion={reduceMotion} style={styles.heroCardOuter}>
+        <View style={styles.heroInkBanner}>
+          <View style={styles.systemTopRow}>
+            <View style={{ flex: 1, marginRight: 8 }}>
+              <RankBadge
+                rank={currentRank}
+                lang={lang}
+                size="sm"
+                reduceMotion={reduceMotion}
+              />
+              <Text
+                style={styles.playerNameInk}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {db.profile.displayName}
               </Text>
+              {db.onboarding && (
+                <Text style={{ color: colors.peach, fontSize: 11.5, fontWeight: '800', marginTop: 2 }}>
+                  {getStarterClassLabel(db.onboarding.starterClass, lang).name} ·{' '}
+                  {getPathLabel(db.onboarding.path, lang)}
+                </Text>
+              )}
             </View>
-            <Text style={[styles.playerName, { color: theme.text }]} numberOfLines={1} ellipsizeMode="tail">
-              {db.profile.displayName}
-            </Text>
+
+            <AnimatedPressable
+              reduceMotion={reduceMotion}
+              style={styles.customizeBtn}
+              onPress={() => setShowCustomize(!showCustomize)}
+            >
+              <View style={styles.inlineIconRow}>
+                <AppIcon name="settings" size={13} color={colors.ink} />
+                <Text style={{ color: colors.ink, fontSize: 11.5, fontWeight: '900' }}>
+                  {strings.home.customizeCards}
+                </Text>
+              </View>
+            </AnimatedPressable>
           </View>
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[
-              styles.customizeBtn,
-              { backgroundColor: theme.cardElevated, borderColor: theme.border, flexShrink: 0 },
-            ]}
-            onPress={() => setShowCustomize(!showCustomize)}
-          >
-            <View style={styles.inlineIconRow}>
-              <AppIcon name="settings" size={14} color={theme.textSecondary} />
-              <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
-                {strings.home.customizeCards}
-              </Text>
-            </View>
-          </AnimatedPressable>
+
+          {/* Awaken Mascot — Sleeps on Rest Day, Happy when all quests done */}
+          <View style={{ marginVertical: 6 }}>
+            <AwakenMascot
+              rankId={currentRank.id}
+              level={levelState.level}
+              mood={
+                isRestToday
+                  ? 'sleep'
+                  : completedQuestsCount > 0 && completedQuestsCount === todayQuests.length
+                  ? 'proud'
+                  : isLightToday
+                  ? 'calm'
+                  : 'idle'
+              }
+              size={82}
+              caption={
+                isRestToday
+                  ? isTh
+                    ? 'พักก็คือแผนอย่างหนึ่ง — วันนี้พักก็นับนะ'
+                    : 'Rest is part of the plan — today counts too'
+                  : isLightToday
+                  ? isTh
+                    ? 'โหมดวันนี้ขอเบา ๆ — ทำแค่ 2 อย่างก็ได้ XP เต็มนะ'
+                    : 'Light Day Mode — 2 gentle quests, full XP'
+                  : completedQuestsCount === todayQuests.length && todayQuests.length > 0
+                  ? isTh
+                    ? 'วันนี้เก็บครบหมดแล้ว เก่งมากเลย!'
+                    : 'All quests done for today! Great job!'
+                  : getNarratorMessages(db.onboarding?.narrator ?? 'system', lang).dailyGreeting
+              }
+              reduceMotion={reduceMotion}
+            />
+          </View>
         </View>
 
-        <View style={{ marginTop: 8 }}>
-          <RankBadge rank={currentRank} lang={lang} size="md" reduceMotion={reduceMotion} />
-        </View>
-
-        <XpBar
-          levelState={levelState}
-          theme={theme}
-          dailyRepeatableXp={dailyRepeatableXpToday}
-          lang={lang}
-          reduceMotion={reduceMotion}
+        <DripEdge
+          seed={11}
+          color={colors.ink}
+          bgColor={theme.card}
+          height={20}
         />
 
-        {/* Awakening Vow, Starter Class & Base Stats (STR / VIT / INT / WIL) */}
-        {db.onboarding && (
+        <View style={[styles.heroCardBody, { backgroundColor: theme.card }]}>
+          {/* 3 Thick-Bordered Character Stat Pills (Level · XP · Rank) */}
+          <View style={styles.threeHeroStatsRow}>
+            <View
+              style={[
+                styles.heroMiniStatBox,
+                { backgroundColor: isDark ? '#262246' : colors.cream },
+              ]}
+            >
+              <Text style={[styles.heroMiniStatLabel, { color: theme.textMuted }]}>
+                LEVEL
+              </Text>
+              <Text style={[styles.heroMiniStatValue, { color: theme.text }]}>
+                Lv.{levelState.level}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.heroMiniStatBox,
+                { backgroundColor: colors.peachSoft },
+              ]}
+            >
+              <Text style={[styles.heroMiniStatLabel, { color: colors.ink }]}>
+                TOTAL XP
+              </Text>
+              <Text style={[styles.heroMiniStatValue, { color: colors.ink }]}>
+                {levelState.totalXp.toLocaleString()}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.heroMiniStatBox,
+                { backgroundColor: isDark ? '#262246' : colors.cream },
+              ]}
+            >
+              <Text style={[styles.heroMiniStatLabel, { color: theme.textMuted }]}>
+                RANK
+              </Text>
+              <Text style={[styles.heroMiniStatValue, { color: theme.text }]}>
+                {currentRank.id}-{currentRank.name}
+              </Text>
+            </View>
+          </View>
+
+          <XpBar
+            levelState={levelState}
+            theme={theme}
+            dailyRepeatableXp={dailyRepeatableXpToday}
+            lang={lang}
+            reduceMotion={reduceMotion}
+          />
+
+          {/* Rest Day ("วันนี้พัก") & Light Day ("วันนี้ขอเบา ๆ") Action Row (Section 4.3 & 4.6) */}
+          <View style={styles.recoveryBar}>
+            <PillButton
+              label={
+                isRestToday
+                  ? isTh
+                    ? '✦ วันนี้พักอยู่ (แตะสลับ)'
+                    : '✦ Resting Today'
+                  : isTh
+                  ? 'วันนี้พัก'
+                  : 'Rest Today'
+              }
+              icon="leaf"
+              variant={isRestToday ? 'primary' : 'soft'}
+              size="sm"
+              style={{ flex: 1 }}
+              onPress={toggleRestModeToday}
+            />
+
+            <PillButton
+              label={
+                isLightToday
+                  ? isTh
+                    ? '✦ วันนี้ขอเบา ๆ (เปิดอยู่)'
+                    : '✦ Light Day ON'
+                  : isTh
+                  ? 'วันนี้ขอเบา ๆ'
+                  : 'Light Day'
+              }
+              icon="heart"
+              variant={isLightToday ? 'dark' : 'outline'}
+              size="sm"
+              style={{ flex: 1 }}
+              onPress={toggleLightModeToday}
+            />
+          </View>
+
+          {isRestToday && (
+            <View style={{ marginTop: 8 }}>
+              <PillButton
+                label={
+                  isTh
+                    ? 'เช็กอินวันพัก (+25 XP · รักษาความต่อเนื่อง)'
+                    : 'Rest Day Check-in (+25 XP · Keeps Streak)'
+                }
+                icon="check"
+                variant="primary"
+                size="sm"
+                onPress={() => logRestDayCheckin('Recovery check-in')}
+              />
+            </View>
+          )}
+
+          {/* Penalty Shield & Vacation / Sick Mode Bar */}
           <View
             style={{
-              marginTop: 12,
-              padding: 12,
-              borderRadius: 12,
-              backgroundColor: theme.bgSecondary,
-              borderWidth: 1,
-              borderColor: theme.border,
-              gap: 6,
+              marginTop: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 8,
             }}
           >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
-              <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '800' }}>
-                {getStarterClassLabel(db.onboarding.starterClass, lang).name} ·{' '}
-                {getPathLabel(db.onboarding.path, lang)}
-              </Text>
-              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700' }}>
-                Tier {db.onboarding.startTier}/4 · ~{db.onboarding.minutesPerDay}m
+            <View style={styles.shieldPill}>
+              <AppIcon name="shield" size={13} color={colors.ink} />
+              <Text style={{ color: colors.ink, fontSize: 11.5, fontWeight: '900' }}>
+                {isTh
+                  ? `โล่กันพลาด: ${db.profile.penaltyShields ?? 0}/3`
+                  : `Shields: ${db.profile.penaltyShields ?? 0}/3`}
               </Text>
             </View>
 
-            {Boolean(db.onboarding.vow) && (
-              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
-                Vow: “{db.onboarding.vow}”
-              </Text>
-            )}
-
-            <Text style={{ color: theme.success, fontSize: 11.5, fontWeight: '600' }}>
-              {getNarratorMessages(db.onboarding.narrator, lang).dailyGreeting}
-            </Text>
-
-            {/* 4 RPG Stats Pills */}
-            <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
-              {(
-                [
-                  { k: 'STR', v: db.playerStats?.STR ?? 12, c: '#F97316' },
-                  { k: 'VIT', v: db.playerStats?.VIT ?? 12, c: '#3DDC97' },
-                  { k: 'INT', v: db.playerStats?.INT ?? 12, c: '#5B8CFF' },
-                  { k: 'WIL', v: db.playerStats?.WIL ?? 12, c: '#A855F7' },
-                ] as const
-              ).map((st) => (
-                <View
-                  key={st.k}
-                  style={{
-                    flex: 1,
-                    paddingVertical: 6,
-                    paddingHorizontal: 6,
-                    borderRadius: 8,
-                    backgroundColor: theme.card,
-                    borderWidth: 1,
-                    borderColor: `${st.c}55`,
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text style={{ color: st.c, fontSize: 10.5, fontWeight: '900' }}>{st.k}</Text>
-                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>
-                    {st.v}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            {!db.onboarding.pledgedAt && (
+            {db.profile.vacationUntilDayKey && db.profile.vacationUntilDayKey >= todayKey ? (
               <AnimatedPressable
                 reduceMotion={reduceMotion}
-                style={{
-                  marginTop: 6,
-                  paddingVertical: 8,
-                  paddingHorizontal: 10,
-                  borderRadius: 8,
-                  backgroundColor: `${theme.primary}20`,
-                  borderWidth: 1,
-                  borderColor: theme.primary,
-                  alignItems: 'center',
-                }}
-                onPress={reopenOnboarding}
+                onPress={() => setVacationMode(null)}
+                style={[styles.shieldPill, { backgroundColor: colors.peach }]}
               >
-                <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '800' }}>
+                <AppIcon name="leaf" size={13} color={colors.ink} />
+                <Text style={{ color: colors.ink, fontSize: 11.5, fontWeight: '900' }}>
                   {isTh
-                    ? 'พร้อมทำแบบสอบถาม / ปฏิญาณเริ่มต้นเพื่อรับ +50 XP คลิกที่นี่'
-                    : 'Ready to complete your Awakening Pledge (+50 XP)? Tap here'}
+                    ? `ลาพัก/ป่วย ถึง ${db.profile.vacationUntilDayKey} (แตะเพื่อปิด)`
+                    : `Vacation until ${db.profile.vacationUntilDayKey} (Tap to end)`}
+                </Text>
+              </AnimatedPressable>
+            ) : (
+              <AnimatedPressable
+                reduceMotion={reduceMotion}
+                onPress={() => setShowVacationPicker((v) => !v)}
+                style={[styles.shieldPill, { backgroundColor: colors.white }]}
+              >
+                <AppIcon name="calendar" size={13} color={colors.ink} />
+                <Text style={{ color: colors.ink, fontSize: 11.5, fontWeight: '800' }}>
+                  {isTh ? 'โหมดลาพัก / ป่วย' : 'Vacation / Sick Mode'}
                 </Text>
               </AnimatedPressable>
             )}
           </View>
-        )}
 
-        {/* Rest Mode / Recovery Toggle Bar */}
-        <View style={styles.recoveryBar}>
-          <AnimatedPressable
-            reduceMotion={reduceMotion}
-            style={[
-              styles.restModeBtn,
-              {
-                backgroundColor: isRestToday ? `${theme.success}22` : theme.bgSecondary,
-                borderColor: isRestToday ? theme.success : theme.border,
-              },
-            ]}
-            onPress={toggleRestModeToday}
-          >
-            <View style={styles.inlineIconRow}>
-              <AppIcon
-                name="leaf"
-                size={14}
-                color={isRestToday ? theme.success : theme.textSecondary}
-              />
-              <Text
-                style={{
-                  color: isRestToday ? theme.success : theme.textSecondary,
-                  fontSize: 12,
-                  fontWeight: '700',
-                }}
-              >
-                {isRestToday ? strings.home.restDayActive : strings.home.restDayButton}
-              </Text>
-            </View>
-          </AnimatedPressable>
-
-          {isRestToday && (
-            <AnimatedPressable
-              reduceMotion={reduceMotion}
-              style={[styles.restCheckinBtn, { backgroundColor: theme.success }]}
-              onPress={() => logRestDayCheckin('Recovery check-in')}
-            >
-              <View style={styles.inlineIconRow}>
-                <AppIcon name="check" size={13} color="#0E1220" />
-                <Text style={{ color: '#0E1220', fontSize: 12, fontWeight: '800' }}>
-                  {strings.home.checkInRest}
+          {showVacationPicker &&
+            !(db.profile.vacationUntilDayKey && db.profile.vacationUntilDayKey >= todayKey) && (
+              <View style={styles.vacationDrawer}>
+                <Text style={{ color: colors.ink, fontSize: 11.5, fontWeight: '800' }}>
+                  {isTh
+                    ? 'ไม่สบายหรือเดินทาง พักระบบนับวันขาดไว้ก่อนได้เลย (ไม่เสีย EXP):'
+                    : 'Pause missed-day tracking while sick or traveling (no EXP loss):'}
                 </Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+                  {[1, 3, 7].map((days) => (
+                    <PillButton
+                      key={days}
+                      label={isTh ? `พัก ${days} วัน` : `${days}d`}
+                      variant="primary"
+                      size="sm"
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setVacationMode(days);
+                        setShowVacationPicker(false);
+                      }}
+                    />
+                  ))}
+                </View>
               </View>
-            </AnimatedPressable>
-          )}
-        </View>
+            )}
 
-        {/* Penalty Shield & Vacation / Sick Mode Bar (Section 1.6) */}
-        <View
-          style={{
-            marginTop: 8,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 8,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              paddingHorizontal: 10,
-              paddingVertical: 6,
-              borderRadius: 999,
-              backgroundColor: theme.bgSecondary,
-              borderWidth: 1,
-              borderColor: theme.border,
-            }}
-          >
-            <AppIcon name="shield" size={13} color={theme.primary} />
-            <Text style={{ color: theme.textSecondary, fontSize: 11.5, fontWeight: '800' }}>
-              {isTh
-                ? `เกราะกันหัก EXP: ${db.profile.penaltyShields ?? 0}/3`
-                : `Penalty Shield: ${db.profile.penaltyShields ?? 0}/3`}
-            </Text>
-          </View>
-
-          {db.profile.vacationUntilDayKey && db.profile.vacationUntilDayKey >= todayKey ? (
-            <AnimatedPressable
-              reduceMotion={reduceMotion}
-              onPress={() => setVacationMode(null)}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-                borderRadius: 999,
-                backgroundColor: `${theme.success}22`,
-                borderWidth: 1,
-                borderColor: theme.success,
-              }}
-            >
-              <AppIcon name="leaf" size={13} color={theme.success} />
-              <Text style={{ color: theme.success, fontSize: 11.5, fontWeight: '800' }}>
-                {isTh
-                  ? `โหมดลาพัก/ป่วย ถึง ${db.profile.vacationUntilDayKey} (แตะเพื่อปิด)`
-                  : `Vacation/Sick until ${db.profile.vacationUntilDayKey} (Tap to end)`}
-              </Text>
-            </AnimatedPressable>
-          ) : (
-            <AnimatedPressable
-              reduceMotion={reduceMotion}
-              onPress={() => setShowVacationPicker((v) => !v)}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 5,
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-                borderRadius: 999,
-                backgroundColor: theme.bgSecondary,
-                borderWidth: 1,
-                borderColor: theme.border,
-              }}
-            >
-              <AppIcon name="calendar" size={13} color={theme.textSecondary} />
-              <Text style={{ color: theme.textSecondary, fontSize: 11.5, fontWeight: '700' }}>
-                {isTh ? 'โหมดลาพัก / ป่วย' : 'Vacation / Sick Mode'}
-              </Text>
-            </AnimatedPressable>
-          )}
-        </View>
-
-        {showVacationPicker &&
-          !(db.profile.vacationUntilDayKey && db.profile.vacationUntilDayKey >= todayKey) && (
-            <View
-              style={{
-                marginTop: 8,
-                padding: 10,
-                borderRadius: 12,
-                backgroundColor: theme.bgSecondary,
-                borderWidth: 1,
-                borderColor: theme.border,
-                gap: 6,
-              }}
-            >
-              <Text style={{ color: theme.textSecondary, fontSize: 11.5, fontWeight: '600' }}>
-                {isTh
-                  ? 'หยุดนับวันขาดเควสชั่วคราวเมื่อป่วยหรือเดินทาง (ไม่ถูกหัก 30% EXP):'
-                  : 'Pause inactivity penalty while sick or traveling (no 30% EXP deduction):'}
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {[1, 3, 7].map((days) => (
-                  <AnimatedPressable
-                    key={days}
-                    reduceMotion={reduceMotion}
-                    onPress={() => {
-                      setVacationMode(days);
-                      setShowVacationPicker(false);
-                    }}
-                    style={{
-                      flex: 1,
-                      paddingVertical: 7,
-                      borderRadius: 8,
-                      backgroundColor: `${theme.primary}20`,
-                      borderWidth: 1,
-                      borderColor: theme.primary,
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '800' }}>
-                      {isTh ? `ลาพัก ${days} วัน` : `${days} Day${days > 1 ? 's' : ''}`}
-                    </Text>
-                  </AnimatedPressable>
-                ))}
-              </View>
+          {db.onboarding && !db.onboarding.pledgedAt && (
+            <View style={{ marginTop: 10 }}>
+              <PillButton
+                label={
+                  isTh
+                    ? 'ทำคำปฏิญาณเริ่มต้นเพื่อรับ +50 XP'
+                    : 'Complete Awakening Pledge (+50 XP)'
+                }
+                variant="soft"
+                size="sm"
+                onPress={reopenOnboarding}
+              />
             </View>
           )}
+        </View>
       </AnimatedCard>
 
-      {/* Day-2 Inactivity Warning Banner (Section 1.6) */}
+      {/* Day-2 Inactivity Warning Banner */}
       {inactivityStatus.warningActive && (
-        <AnimatedCard
-          index={1}
-          reduceMotion={reduceMotion}
-          style={[
-            styles.card,
-            {
-              backgroundColor: `${theme.warning}18`,
-              borderColor: theme.warning,
-              borderWidth: 1.5,
-            },
-          ]}
-        >
+        <InkCard theme={theme} variant="soft">
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <AppIcon name="fire" size={18} color={theme.warning} />
-            <Text style={{ color: theme.warning, fontSize: 14, fontWeight: '900', flex: 1 }}>
+            <AppIcon name="fire" size={18} color={colors.ink} />
+            <Text style={{ color: colors.ink, fontSize: 14, fontWeight: '900', flex: 1 }}>
               {isTh
-                ? `คำเตือนระบบ: ขาดเควสมา ${inactivityStatus.consecutiveMissedDays} วันติด!`
-                : `System Warning: ${inactivityStatus.consecutiveMissedDays} Missed Days in a Row!`}
+                ? `ไม่ได้แวะมา ${inactivityStatus.consecutiveMissedDays} วันติดแล้วนะ`
+                : `${inactivityStatus.consecutiveMissedDays} days away in a row`}
             </Text>
           </View>
           <Text
             style={{
-              color: theme.text,
+              color: colors.ink,
               fontSize: 12.5,
               fontWeight: '700',
               marginTop: 6,
@@ -441,39 +544,21 @@ export const HomeScreen: React.FC<{
             }}
           >
             {isTh
-              ? `ถ้าวันนี้ไม่ทำเควสประจำวันให้ครบทุกข้อ เมื่อสิ้นสุดวัน EXP รวมจะถูกหัก ${
+              ? `วันนี้ลองกด "วันนี้ขอเบา ๆ" หรือทำเควสต์ให้ครบเพื่อรักษา ${
                   db.profile.inactivitySettings?.penaltyPercent ?? 30
-                }% (≈ −${inactivityStatus.estimatedPenaltyXp} XP)`
-              : `Complete all daily quests today or lose ${
+                }% EXP (≈ ${inactivityStatus.estimatedPenaltyXp} XP) ไว้ด้วยกันนะ`
+              : `Tap "Light Day" or complete today’s quests to protect ${
                   db.profile.inactivitySettings?.penaltyPercent ?? 30
-                }% total EXP tonight (≈ −${inactivityStatus.estimatedPenaltyXp} XP).`}
+                }% total EXP (≈ ${inactivityStatus.estimatedPenaltyXp} XP).`}
           </Text>
-          {(db.profile.penaltyShields ?? 0) > 0 && (
-            <Text style={{ color: theme.primary, fontSize: 11.5, fontWeight: '700', marginTop: 4 }}>
-              {isTh
-                ? `🛡️ คุณมีเกราะกันหัก EXP ${db.profile.penaltyShields} ชิ้น ซึ่งจะทำงานอัตโนมัติหากพลาดวันนี้`
-                : `🛡️ You have ${db.profile.penaltyShields} Penalty Shield(s) that will auto-protect you if needed.`}
-            </Text>
-          )}
-        </AnimatedCard>
+        </InkCard>
       )}
 
-      {/* Post-Penalty & Comeback Quest Card (Section 1.6) */}
+      {/* Comeback Quest Card */}
       {db.profile.activeComebackQuest &&
         !db.profile.activeComebackQuest.claimedAt &&
         !db.profile.activeComebackQuest.dismissedAt && (
-          <AnimatedCard
-            index={1}
-            reduceMotion={reduceMotion}
-            style={[
-              styles.card,
-              {
-                backgroundColor: theme.cardElevated,
-                borderColor: theme.danger,
-                borderWidth: 1.5,
-              },
-            ]}
-          >
+          <InkCard theme={theme} variant="soft">
             <View
               style={{
                 flexDirection: 'row',
@@ -482,86 +567,65 @@ export const HomeScreen: React.FC<{
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                <AppIcon name="fire" size={18} color={theme.danger} />
-                <Text style={{ color: theme.danger, fontSize: 14, fontWeight: '900' }}>
+                <AppIcon name="bolt" size={18} color={colors.ink} />
+                <Text style={{ color: colors.ink, fontSize: 14, fontWeight: '900' }}>
                   {isTh
-                    ? `ถูกหัก −${db.profile.activeComebackQuest.deductedXp} EXP (ขาดเควส ${db.profile.activeComebackQuest.missedDaysRun} วัน)`
-                    : `−${db.profile.activeComebackQuest.deductedXp} EXP Deducted (${db.profile.activeComebackQuest.missedDaysRun} Missed Days)`}
+                    ? `ภารกิจทวงคืนพลัง (+${db.profile.activeComebackQuest.refundableXp} EXP)`
+                    : `Comeback Quest (+${db.profile.activeComebackQuest.refundableXp} EXP)`}
                 </Text>
               </View>
               <Pressable onPress={dismissComebackQuest} style={{ padding: 4 }}>
-                <Text style={{ color: theme.textMuted, fontSize: 15, fontWeight: '900' }}>✕</Text>
+                <Text style={{ color: colors.ink, fontSize: 15, fontWeight: '900' }}>✕</Text>
               </Pressable>
             </View>
 
             <Text
               style={{
-                color: theme.textSecondary,
+                color: colors.ink,
                 fontSize: 12.5,
+                fontWeight: '700',
                 marginTop: 6,
                 lineHeight: 18,
               }}
             >
               {isTh
-                ? `ภารกิจกู้คืนพลัง (Comeback Quest): ทำเควสประจำวันวันนี้ให้สำเร็จเพื่อรับคืน +${db.profile.activeComebackQuest.refundableXp} EXP (50% ของที่ถูกหัก)`
-                : `Comeback Quest: Complete today's daily quests to reclaim +${db.profile.activeComebackQuest.refundableXp} EXP (50% refund).`}
+                ? `กลับมาเริ่มกันใหม่นะ! ทำเควสต์วันนี้เพียง 1 ข้อเพื่อรับคืน +${db.profile.activeComebackQuest.refundableXp} EXP ทันที`
+                : `Welcome back! Complete 1 quest today to reclaim +${db.profile.activeComebackQuest.refundableXp} EXP.`}
             </Text>
 
-            <AnimatedPressable
-              reduceMotion={reduceMotion}
-              disabled={completedQuestsCount < 1}
-              onPress={() => claimComebackQuest()}
-              style={{
-                marginTop: 10,
-                paddingVertical: 10,
-                borderRadius: 10,
-                alignItems: 'center',
-                backgroundColor:
-                  completedQuestsCount >= 1 ? theme.success : theme.bgSecondary,
-                borderWidth: 1,
-                borderColor: completedQuestsCount >= 1 ? theme.success : theme.border,
-              }}
-            >
-              <Text
-                style={{
-                  color: completedQuestsCount >= 1 ? '#0E1220' : theme.textMuted,
-                  fontSize: 13,
-                  fontWeight: '900',
-                }}
-              >
-                {completedQuestsCount >= 1
-                  ? isTh
-                    ? `✨ รับคืน +${db.profile.activeComebackQuest.refundableXp} EXP เดี๋ยวนี้!`
-                    : `✨ Claim +${db.profile.activeComebackQuest.refundableXp} EXP Refund!`
-                  : isTh
-                  ? `รอทำเควสวันนี้ (${completedQuestsCount}/1) เพื่อปลดล็อกปุ่มรับคืน`
-                  : `Complete 1 quest today (${completedQuestsCount}/1) to unlock refund`}
-              </Text>
-            </AnimatedPressable>
-          </AnimatedCard>
+            <View style={{ marginTop: 10 }}>
+              <PillButton
+                label={
+                  completedQuestsCount >= 1
+                    ? isTh
+                      ? `✦ รับคืน +${db.profile.activeComebackQuest.refundableXp} EXP เลย!`
+                      : `✦ Claim +${db.profile.activeComebackQuest.refundableXp} EXP!`
+                    : isTh
+                    ? `รอทำเควสต์วันนี้ (${completedQuestsCount}/1)`
+                    : `Complete 1 quest (${completedQuestsCount}/1)`
+                }
+                variant="primary"
+                disabled={completedQuestsCount < 1}
+                onPress={() => claimComebackQuest()}
+              />
+            </View>
+          </InkCard>
         )}
 
       {/* Dashboard Card Customizer Drawer */}
       {showCustomize && (
-        <AnimatedCard
-          index={1}
-          reduceMotion={reduceMotion}
-          style={[
-            styles.card,
-            { backgroundColor: theme.cardElevated, borderColor: theme.primary },
-          ]}
-        >
+        <InkCard theme={theme}>
           <Text style={[styles.cardTitle, { color: theme.text, marginBottom: 8 }]}>
-            {isTh ? 'เปิด/ปิดการ์ดบนหน้า Dashboard' : 'Toggle Dashboard Cards'}
+            {isTh ? 'เลือกการ์ดที่อยากแสดงบนหน้าแรก' : 'Toggle Dashboard Cards'}
           </Text>
           <View style={styles.chipRow}>
             {(
               [
-                { key: 'water', icon: 'water' as AppIconName, label: isTh ? 'ดื่มน้ำด่วน' : 'Quick Water' },
-                { key: 'quests', icon: 'quest' as AppIconName, label: isTh ? 'ภารกิจรายวัน' : 'Daily Quests' },
-                { key: 'streak', icon: 'fire' as AppIconName, label: isTh ? 'ความต่อเนื่อง' : 'Streak' },
-                { key: 'stats', icon: 'chart' as AppIconName, label: isTh ? 'สรุปวันนี้' : 'Today Stats' },
-                { key: 'adaptive', icon: 'brain' as AppIconName, label: isTh ? 'แผนปรับตัว' : 'Adaptive Plan' },
+                { key: 'quests', icon: 'quest' as AppIconName, label: isTh ? 'แผนวันนี้' : 'Quests' },
+                { key: 'water', icon: 'water' as AppIconName, label: isTh ? 'ดื่มน้ำไว' : 'Water' },
+                { key: 'streak', icon: 'fire' as AppIconName, label: isTh ? 'ปฏิทิน 7 วัน' : 'Streak' },
+                { key: 'stats', icon: 'chart' as AppIconName, label: isTh ? 'กราฟสถิติ' : 'Stats' },
+                { key: 'adaptive', icon: 'brain' as AppIconName, label: isTh ? 'บทความ & แผน' : 'Tips & Plan' },
               ]
             ).map((item) => {
               const active = !hiddenCards.has(item.key);
@@ -572,25 +636,15 @@ export const HomeScreen: React.FC<{
                   style={[
                     styles.filterChip,
                     {
-                      backgroundColor: active ? `${theme.primary}25` : theme.bgSecondary,
-                      borderColor: active ? theme.primary : theme.border,
+                      backgroundColor: active ? colors.peach : colors.white,
+                      borderColor: colors.ink,
                     },
                   ]}
                   onPress={() => toggleCardVisibility(item.key)}
                 >
                   <View style={styles.inlineIconRow}>
-                    <AppIcon
-                      name={item.icon}
-                      size={13}
-                      color={active ? theme.primary : theme.textMuted}
-                    />
-                    <Text
-                      style={{
-                        color: active ? theme.primary : theme.textMuted,
-                        fontWeight: '700',
-                        fontSize: 12,
-                      }}
-                    >
+                    <AppIcon name={item.icon} size={13} color={colors.ink} />
+                    <Text style={{ color: colors.ink, fontWeight: '900', fontSize: 12 }}>
                       {item.label}
                     </Text>
                   </View>
@@ -598,158 +652,232 @@ export const HomeScreen: React.FC<{
               );
             })}
           </View>
-        </AnimatedCard>
+        </InkCard>
       )}
 
-      {/* RPG System Quick Widget: เควสประจำวัน | นาฬิกา | สรุปแคลอรี่ | ถ้วยรางวัล */}
-      <AnimatedCard
-        index={0.5}
-        reduceMotion={reduceMotion}
-        style={[
-          styles.card,
-          {
-            backgroundColor: theme.card,
-            borderColor: `${theme.primary}55`,
-            borderWidth: 1.5,
-          },
-        ]}
-      >
-        <View style={styles.cardHeaderRow}>
-          <View style={[styles.inlineIconRow, { flex: 1, marginRight: 8 }]}>
-            <AppIcon name="bolt" size={16} color={theme.primary} />
-            <Text style={[styles.cardTitle, { color: theme.text, flexShrink: 1 }]}>
-              {isTh ? 'วิดเจ็ตสรุปสถานะระบบ (Status Widget)' : 'System Status Widget'}
+      {/* 2. Daily Quests Card (Mockup "Планы" — PeachSoft Recommended Row + 1-3 Ink Drops) */}
+      {!hiddenCards.has('quests') && (
+        <InkCard theme={theme}>
+          <View style={styles.cardHeaderRow}>
+            <View style={styles.inlineIconRow}>
+              <AppIcon name="quest" size={18} color={theme.text} />
+              <Text style={[styles.cardTitle, { color: theme.text }]}>
+                {isTh ? 'แผนเควสต์วันนี้' : "Today's Quests"}
+                {selectedStatFilter !== 'ALL' ? ` (${selectedStatFilter})` : ''}
+              </Text>
+            </View>
+            <View style={styles.questCountBadge}>
+              <Text style={{ color: colors.ink, fontWeight: '900', fontSize: 12.5 }}>
+                {completedQuestsCount} / {todayQuests.length}
+              </Text>
+            </View>
+          </View>
+
+          {workoutPenalty.active && (
+            <View style={styles.penaltyNotice}>
+              <Text style={{ color: colors.ink, fontSize: 11.5, fontWeight: '800', flex: 1 }}>
+                {isTh
+                  ? '✦ วันนี้มีเควสต์ชดเชยจากรอบก่อน ทำเท่าที่ไหวหรือสลับเป็นวันพักได้เสมอนะ'
+                  : '✦ Bonus catch-up intensity active today. Switch to Rest Day anytime if needed.'}
+              </Text>
+            </View>
+          )}
+
+          {filteredQuests.length === 0 ? (
+            <View style={{ paddingVertical: 14, alignItems: 'center' }}>
+              <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '800' }}>
+                {isTh
+                  ? `วันนี้ไม่มีเควสต์หมวด ${selectedStatFilter} แตะ "ทั้งหมด" ด้านบนเพื่อดูเควสต์อื่นนะ`
+                  : `No ${selectedStatFilter} quests today. Tap "ALL" above to view all quests.`}
+              </Text>
+            </View>
+          ) : (
+            filteredQuests.map((q, idx) => {
+              const done = q.status === 'completed';
+              const pct = Math.min(100, Math.round((q.progress / Math.max(1, q.target)) * 100));
+              // First incomplete quest is highlighted in PeachSoft ("เควสต์ที่แนะนำ")
+              const isRecommended = !done && idx === filteredQuests.findIndex((item) => item.status !== 'completed');
+              const diffLevel: 1 | 2 | 3 = q.template.micro
+                ? 1
+                : q.template.reward_xp >= 35
+                ? 3
+                : 2;
+
+              const rowBg = done
+                ? isDark
+                  ? '#262344'
+                  : colors.cream
+                : isRecommended
+                ? colors.peachSoft
+                : isDark
+                ? '#211E3A'
+                : colors.white;
+
+              const textPrimaryCol = isRecommended && !done ? colors.ink : theme.text;
+              const textSubCol = isRecommended && !done ? '#3A3752' : theme.textMuted;
+
+              return (
+                <View
+                  key={q.id}
+                  style={[
+                    styles.questRow,
+                    {
+                      backgroundColor: rowBg,
+                      borderColor: isDark && !isRecommended ? colors.peach : colors.ink,
+                    },
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.questTitleLine}>
+                      <View
+                        style={[
+                          styles.checkCircle,
+                          {
+                            borderColor: colors.ink,
+                            backgroundColor: done ? colors.peach : colors.white,
+                          },
+                        ]}
+                      >
+                        {done && <AppIcon name="check" size={12} color={colors.ink} />}
+                      </View>
+                      <Text
+                        style={[
+                          styles.questTitle,
+                          {
+                            color: textPrimaryCol,
+                            textDecorationLine: done ? 'line-through' : 'none',
+                            flex: 1,
+                          },
+                        ]}
+                      >
+                        {isTh ? q.template.title_th : q.template.title_en}
+                      </Text>
+                    </View>
+
+                    {/* Ink Drops Difficulty + Recommended Tag (Section 4.5) */}
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: 6,
+                        marginTop: 6,
+                      }}
+                    >
+                      <InkDifficultyDrops level={diffLevel} isTh={isTh} />
+                      {isRecommended && (
+                        <View
+                          style={{
+                            backgroundColor: colors.peach,
+                            borderColor: colors.ink,
+                            borderWidth: 1.5,
+                            borderRadius: 999,
+                            paddingHorizontal: 7,
+                            paddingVertical: 1,
+                          }}
+                        >
+                          <Text style={{ color: colors.ink, fontSize: 9.5, fontWeight: '900' }}>
+                            {isTh ? 'แนะนำตอนนี้' : 'Suggested'}
+                          </Text>
+                        </View>
+                      )}
+                      <Text style={{ color: textSubCol, fontSize: 11.5, fontWeight: '800' }}>
+                        {q.progress}/{q.target} ({pct}%)
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.questRightCol}>
+                    <View
+                      style={{
+                        backgroundColor: done ? colors.peach : colors.white,
+                        borderColor: colors.ink,
+                        borderWidth: 1.8,
+                        borderRadius: 999,
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                      }}
+                    >
+                      <Text style={{ color: colors.ink, fontWeight: '900', fontSize: 12 }}>
+                        +{q.template.reward_xp} XP
+                      </Text>
+                    </View>
+
+                    {!done && (
+                      <View style={{ flexDirection: 'row', gap: 5, alignItems: 'center', marginTop: 2 }}>
+                        {(q.template.condition.metric === 'manual' || q.template.micro) && (
+                          <AnimatedPressable
+                            reduceMotion={reduceMotion}
+                            style={[
+                              styles.swapMiniBtn,
+                              {
+                                backgroundColor: colors.peach,
+                                borderColor: colors.ink,
+                              },
+                            ]}
+                            onPress={() => completeManualDailyQuest(q.id)}
+                          >
+                            <View style={styles.inlineIconRow}>
+                              <AppIcon name="check" size={11} color={colors.ink} />
+                              <Text style={{ color: colors.ink, fontSize: 10.5, fontWeight: '900' }}>
+                                {isTh ? 'ทำแล้ว' : 'Done'}
+                              </Text>
+                            </View>
+                          </AnimatedPressable>
+                        )}
+                        {!swapAlreadyUsed && (
+                          <AnimatedPressable
+                            reduceMotion={reduceMotion}
+                            style={[
+                              styles.swapMiniBtn,
+                              {
+                                backgroundColor: colors.white,
+                                borderColor: colors.ink,
+                              },
+                            ]}
+                            onPress={() => swapDailyQuest(q.id)}
+                          >
+                            <View style={styles.inlineIconRow}>
+                              <AppIcon name="swap" size={11} color={colors.ink} />
+                              <Text style={{ color: colors.ink, fontSize: 10.5, fontWeight: '800' }}>
+                                {isTh ? 'เปลี่ยน' : 'Swap'}
+                              </Text>
+                            </View>
+                          </AnimatedPressable>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                </View>
+              );
+            })
+          )}
+
+          <View style={[styles.inlineIconRow, { marginTop: 4 }]}>
+            <AppIcon name="star" size={13} color={theme.textSecondary} />
+            <Text style={{ color: theme.textSecondary, fontSize: 11.5, fontWeight: '700' }}>
+              {isTh
+                ? 'ทำครบทุกข้อรับโบนัส +30 XP · ถ้าวันนี้เหนื่อย กด "วันนี้ขอเบา ๆ" ด้านบนได้นะ'
+                : 'Complete all for +30 Bonus XP · Feeling tired? Tap "Light Day" above'}
             </Text>
           </View>
-          <View
-            style={{
-              backgroundColor: `${theme.primary}18`,
-              paddingHorizontal: 8,
-              paddingVertical: 2,
-              borderRadius: 6,
-              borderWidth: 1,
-              borderColor: `${theme.primary}55`,
-            }}
-          >
-            <Text style={{ color: theme.primary, fontSize: 10, fontWeight: '900' }}>
-              4 PILLARS
-            </Text>
-          </View>
-        </View>
+        </InkCard>
+      )}
 
-        <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
-          {/* 1. เควสประจำวัน */}
-          <Pressable
-            style={{
-              flex: 1,
-              backgroundColor: `${theme.success}15`,
-              borderColor: `${theme.success}44`,
-              borderWidth: 1,
-              borderRadius: 10,
-              paddingVertical: 8,
-              paddingHorizontal: 4,
-              alignItems: 'center',
-            }}
-            onPress={() => onNavigateTab('track')}
-          >
-            <AppIcon name="quest" size={16} color={theme.success} />
-            <Text style={{ color: theme.success, fontSize: 13, fontWeight: '900', marginTop: 4 }}>
-              {todayQuests.filter((q) => q.status === 'completed').length}/{todayQuests.length}
-            </Text>
-            <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>
-              {isTh ? 'เควสวันนี้' : 'Quests'}
-            </Text>
-          </Pressable>
-
-          {/* 2. นาฬิกา */}
-          <Pressable
-            style={{
-              flex: 1,
-              backgroundColor: `${theme.primary}15`,
-              borderColor: `${theme.primary}44`,
-              borderWidth: 1,
-              borderRadius: 10,
-              paddingVertical: 8,
-              paddingHorizontal: 4,
-              alignItems: 'center',
-            }}
-            onPress={() => onNavigateTab('profile')}
-          >
-            <AppIcon name="clock" size={16} color={theme.primary} />
-            <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '900', marginTop: 4 }}>
-              {db.profile.alarm?.enabled ? db.profile.alarm.time : '07:00'}
-            </Text>
-            <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>
-              {isTh ? 'นาฬิกาปลุก' : 'Alarm'}
-            </Text>
-          </Pressable>
-
-          {/* 3. สรุปแคลอรี่ */}
-          <Pressable
-            style={{
-              flex: 1,
-              backgroundColor: `${theme.meal}15`,
-              borderColor: `${theme.meal}44`,
-              borderWidth: 1,
-              borderRadius: 10,
-              paddingVertical: 8,
-              paddingHorizontal: 4,
-              alignItems: 'center',
-            }}
-            onPress={() => onNavigateTab('track')}
-          >
-            <AppIcon name="meal" size={16} color={theme.meal} />
-            <Text style={{ color: theme.meal, fontSize: 13, fontWeight: '900', marginTop: 4 }}>
-              {dailyNutrition.kcal.toLocaleString()}
-            </Text>
-            <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>
-              {isTh ? 'แคลอรี่' : 'Calories'}
-            </Text>
-          </Pressable>
-
-          {/* 4. ถ้วยรางวัล */}
-          <Pressable
-            style={{
-              flex: 1,
-              backgroundColor: `${theme.warning}15`,
-              borderColor: `${theme.warning}44`,
-              borderWidth: 1,
-              borderRadius: 10,
-              paddingVertical: 8,
-              paddingHorizontal: 4,
-              alignItems: 'center',
-            }}
-            onPress={() => onNavigateTab('profile')}
-          >
-            <AppIcon name="trophy" size={16} color={theme.warning} />
-            <Text style={{ color: theme.warning, fontSize: 13, fontWeight: '900', marginTop: 4 }}>
-              {db.achievementsUnlocked.length}
-            </Text>
-            <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>
-              {isTh ? 'ถ้วยรางวัล' : 'Trophies'}
-            </Text>
-          </Pressable>
-        </View>
-      </AnimatedCard>
-
-      {/* 1. One-Tap Water Card (<= 2 taps Principle 15.1) */}
+      {/* 3. One-Tap Water Card */}
       {!hiddenCards.has('water') && (
-        <AnimatedCard
-          index={1}
-          reduceMotion={reduceMotion}
-          style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
-        >
+        <InkCard theme={theme}>
           <View style={styles.cardHeaderRow}>
             <View style={[styles.inlineIconRow, { flex: 1, marginRight: 8 }]}>
-              <AppIcon name="water" size={18} color={theme.water} />
+              <AppIcon name="water" size={18} color={theme.text} />
               <Text style={[styles.cardTitle, { color: theme.text, flexShrink: 1 }]}>
-                {strings.home.waterToday}
+                {isTh ? 'ดื่มน้ำอีกสักแก้วไหม' : strings.home.waterToday}
               </Text>
             </View>
             <AnimatedNumberText
               value={todayMetrics.water_ml}
               reduceMotion={reduceMotion}
-              style={{ color: theme.water, fontWeight: '800', fontSize: 14, flexShrink: 0 }}
+              style={{ color: theme.text, fontWeight: '900', fontSize: 14, flexShrink: 0 }}
             >
               {todayMetrics.water_ml.toLocaleString()} / {db.profile.waterGoalMl.toLocaleString()} ml
             </AnimatedNumberText>
@@ -757,601 +885,208 @@ export const HomeScreen: React.FC<{
 
           <AnimatedProgressBar
             percent={waterPct}
-            fillColor={theme.water}
-            trackColor={theme.bgSecondary}
-            borderColor={theme.border}
-            height={10}
+            fillColor={colors.peach}
+            trackColor={isDark ? '#262246' : colors.cream}
+            borderColor={isDark ? colors.peach : colors.ink}
+            height={12}
             reduceMotion={reduceMotion}
             style={{ marginBottom: 12 }}
           />
 
           <View style={styles.waterQuickRow}>
             {[100, 150, 250, 500].map((ml) => (
-              <AnimatedPressable
+              <PillButton
                 key={ml}
-                reduceMotion={reduceMotion}
-                style={[
-                  styles.waterQuickBtn,
-                  { backgroundColor: `${theme.water}18`, borderColor: theme.water },
-                ]}
+                label={`+${ml}ml`}
+                variant={ml === 250 ? 'primary' : 'soft'}
+                size="sm"
+                style={{ flex: 1, paddingHorizontal: 4 }}
                 onPress={() => logWater(ml)}
-              >
-                <Text style={{ color: theme.water, fontWeight: '800', fontSize: 13 }}>
-                  +{ml}ml
-                </Text>
-              </AnimatedPressable>
+              />
             ))}
           </View>
-        </AnimatedCard>
+        </InkCard>
       )}
 
-      {/* 2. Daily Quests Card */}
-      {!hiddenCards.has('quests') && (
-        <AnimatedCard
-          index={2}
-          reduceMotion={reduceMotion}
-          style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
-        >
-          <View style={styles.cardHeaderRow}>
-            <View style={styles.inlineIconRow}>
-              <AppIcon name="quest" size={18} color={theme.primary} />
-              <Text style={[styles.cardTitle, { color: theme.text }]}>
-                {strings.home.dailyQuests}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.questCountBadge,
-                {
-                  backgroundColor:
-                    completedQuestsCount === todayQuests.length
-                      ? `${theme.success}25`
-                      : `${theme.primary}22`,
-                },
-              ]}
-            >
-              <Text
-                style={{
-                  color:
-                    completedQuestsCount === todayQuests.length ? theme.success : theme.primary,
-                  fontWeight: '800',
-                  fontSize: 13,
-                }}
-              >
-                {completedQuestsCount} / {todayQuests.length}
-              </Text>
-            </View>
-          </View>
-
-          {/* Active Workout Penalty Warning Banner */}
-          {workoutPenalty.active && (
-            <View
-              style={{
-                backgroundColor: `${theme.danger}20`,
-                borderColor: theme.danger,
-                borderWidth: 1,
-                borderRadius: 10,
-                padding: 10,
-                marginTop: 8,
-                marginBottom: 6,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              <Text style={{ fontSize: 16 }}>⚠️</Text>
-              <Text style={{ color: theme.danger, fontSize: 11, fontWeight: '800', flex: 1 }}>
-                {isTh
-                  ? '⚠️ ระบบเปิดใช้งานบทลงโทษ: ภารกิจฝึกร่างกายวันนี้เข้มงวดยิ่งขึ้นเนื่องจากมีบทลงโทษที่ยังไม่เสร็จสิ้น (ไม่ทำจะได้รับบทลงโทษต่อเนื่อง)'
-                  : '⚠️ Workout Penalty Active: Today’s workout training requirement is intensified.'}
-              </Text>
-            </View>
-          )}
-
-          {todayQuests.map((q) => {
-            const done = q.status === 'completed';
-            const pct = Math.min(100, Math.round((q.progress / Math.max(1, q.target)) * 100));
-            return (
-              <View
-                key={q.id}
-                style={[
-                  styles.questRow,
-                  {
-                    backgroundColor: done ? `${theme.success}12` : theme.bgSecondary,
-                    borderColor: done ? theme.success : theme.border,
-                  },
-                ]}
-              >
-                <View style={{ flex: 1 }}>
-                  <View style={styles.questTitleLine}>
-                    <View
-                      style={[
-                        styles.checkCircle,
-                        {
-                          borderColor: done ? theme.success : theme.textMuted,
-                          backgroundColor: done ? theme.success : 'transparent',
-                        },
-                      ]}
-                    >
-                      {done && <AppIcon name="check" size={11} color="#0E1220" />}
-                    </View>
-                    <Text
-                      style={[
-                        styles.questTitle,
-                        {
-                          color: done ? theme.success : theme.text,
-                          textDecorationLine: done ? 'line-through' : 'none',
-                        },
-                      ]}
-                    >
-                      {isTh ? q.template.title_th : q.template.title_en}
-                    </Text>
-                  </View>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>
-                    {isTh ? 'ความคืบหน้า' : 'Progress'}: {q.progress} / {q.target} ({pct}%)
-                  </Text>
-                  {q.template.warning_th && (
-                    <Text style={{ color: theme.warning, fontSize: 11, marginTop: 3 }}>
-                      {isTh ? q.template.warning_th : q.template.warning_en}
-                    </Text>
-                  )}
-                </View>
-
-                <View style={styles.questRightCol}>
-                  <Text
-                    style={{
-                      color: done ? theme.success : theme.primary,
-                      fontWeight: '800',
-                      fontSize: 13,
-                    }}
-                  >
-                    +{q.template.reward_xp} XP
-                  </Text>
-                  {!done && (
-                    <View style={{ flexDirection: 'row', gap: 5, alignItems: 'center' }}>
-                      {(q.template.condition.metric === 'manual' || q.template.micro) && (
-                        <AnimatedPressable
-                          reduceMotion={reduceMotion}
-                          style={[
-                            styles.swapMiniBtn,
-                            {
-                              backgroundColor: `${theme.success}22`,
-                              borderColor: theme.success,
-                            },
-                          ]}
-                          onPress={() => completeManualDailyQuest(q.id)}
-                        >
-                          <View style={styles.inlineIconRow}>
-                            <AppIcon name="check" size={11} color={theme.success} />
-                            <Text
-                              style={{
-                                color: theme.success,
-                                fontSize: 10,
-                                fontWeight: '800',
-                              }}
-                            >
-                              {isTh ? 'สำเร็จ' : 'Done'}
-                            </Text>
-                          </View>
-                        </AnimatedPressable>
-                      )}
-                      {!swapAlreadyUsed && (
-                        <AnimatedPressable
-                          reduceMotion={reduceMotion}
-                          style={[styles.swapMiniBtn, { borderColor: theme.border }]}
-                          onPress={() => swapDailyQuest(q.id)}
-                        >
-                          <View style={styles.inlineIconRow}>
-                            <AppIcon name="swap" size={11} color={theme.textSecondary} />
-                            <Text
-                              style={{
-                                color: theme.textSecondary,
-                                fontSize: 10,
-                                fontWeight: '700',
-                              }}
-                            >
-                              {isTh ? 'สลับ' : 'Swap'}
-                            </Text>
-                          </View>
-                        </AnimatedPressable>
-                      )}
-                    </View>
-                  )}
-                </View>
-              </View>
-            );
-          })}
-
-          <View style={[styles.inlineIconRow, { marginTop: 6 }]}>
-            <AppIcon name="star" size={13} color={theme.warning} />
-            <Text style={{ color: theme.textMuted, fontSize: 11 }}>
-              {isTh
-                ? 'ทำครบทุกข้อรับโบนัสพิเศษ +30 XP (ไม่คิดรวมใน Soft Cap)'
-                : 'Complete all Daily Quests for +30 Bonus XP (bypasses Soft Cap)'}
-            </Text>
-          </View>
-
-          <View style={[styles.inlineIconRow, { marginTop: 4 }]}>
-            <AppIcon name="shield" size={12} color={theme.textMuted} />
-            <Text style={{ color: theme.textMuted, fontSize: 11 }}>
-              {isTh
-                ? 'คำเตือน: ไม่ทำจะได้รับบทลงโทษในวันถัดไป'
-                : 'Warning: Incomplete daily missions will trigger penalties on the next active day.'}
-            </Text>
-          </View>
-        </AnimatedCard>
-      )}
-
-      {/* 3. Streak & Weekly Consistency Card */}
+      {/* 4. 7-Day Calendar & Streak with DateDot (Section 3 & 4.3) */}
       {!hiddenCards.has('streak') && (
-        <AnimatedCard
-          index={3}
-          reduceMotion={reduceMotion}
-          style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
-        >
+        <InkCard theme={theme}>
           <View style={styles.cardHeaderRow}>
             <View style={styles.inlineIconRow}>
-              <AnimatedPulseView
-                active={streakState.currentStreak > 0}
-                reduceMotion={reduceMotion}
-                minScale={1}
-                maxScale={1.12}
-                duration={1200}
-              >
-                <AppIcon name="fire" size={18} color={theme.warning} />
-              </AnimatedPulseView>
+              <AppIcon name="fire" size={18} color={theme.text} />
               <Text style={[styles.cardTitle, { color: theme.text }]}>
-                {strings.home.streakTitle}
+                {isTh ? 'จังหวะความต่อเนื่อง 7 วัน' : strings.home.streakTitle}
               </Text>
             </View>
-            <Text style={{ color: theme.warning, fontWeight: '800', fontSize: 14 }}>
-              {streakState.currentStreak} {isTh ? 'วัน' : 'days'}
-            </Text>
-          </View>
-
-          <View style={styles.streakStatsRow}>
-            <View style={[styles.streakBox, { backgroundColor: theme.bgSecondary }]}>
-              <AnimatedNumberText
-                value={streakState.currentStreak}
-                reduceMotion={reduceMotion}
-                style={[styles.streakNum, { color: theme.warning }]}
-              />
-              <Text style={[styles.streakLabel, { color: theme.textSecondary }]}>
-                {strings.home.dayStreak}
-              </Text>
-            </View>
-
-            <View style={[styles.streakBox, { backgroundColor: theme.bgSecondary }]}>
-              <View style={styles.inlineIconRow}>
-                <AppIcon name="snowflake" size={14} color={theme.water} />
-                <Text style={[styles.streakNum, { color: theme.water }]}>
-                  {streakState.freezeTokensRemaining}/2
-                </Text>
-              </View>
-              <Text style={[styles.streakLabel, { color: theme.textSecondary }]}>
-                {strings.home.freezeTokens}
-              </Text>
-            </View>
-
-            <View style={[styles.streakBox, { backgroundColor: theme.bgSecondary }]}>
-              <Text style={[styles.streakNum, { color: theme.success }]}>
-                {streakState.weeklyActiveDays}/{streakState.weeklyGoalDays}
-              </Text>
-              <Text style={[styles.streakLabel, { color: theme.textSecondary }]}>
-                {strings.home.weeklyConsistency}
+            <View style={styles.questCountBadge}>
+              <Text style={{ color: colors.ink, fontWeight: '900', fontSize: 12.5 }}>
+                {streakState.currentStreak} {isTh ? 'วันติด' : 'days'}
               </Text>
             </View>
           </View>
 
-          {/* 7-day Week Pills */}
           <View style={styles.weekPillsRow}>
             {weekDays.map((dk, idx) => {
               const st = streakState.updatedLogs[dk];
               const isToday = dk === todayKey;
-              const bg =
-                st === 'active'
-                  ? theme.success
-                  : st === 'rest'
-                  ? theme.primary
-                  : st === 'frozen'
-                  ? theme.water
-                  : theme.bgSecondary;
               return (
-                <View
+                <DateDot
                   key={dk}
-                  style={[
-                    styles.dayPill,
-                    {
-                      backgroundColor: bg,
-                      borderColor: isToday ? theme.warning : theme.border,
-                      borderWidth: isToday ? 2 : 1,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      color: st ? '#0E1220' : theme.textSecondary,
-                      fontWeight: '800',
-                      fontSize: 11,
-                    }}
-                  >
-                    {isTh ? dayNamesTh[idx] : dayNamesEn[idx]}
-                  </Text>
-                  <View style={{ marginTop: 2, height: 12, justifyContent: 'center' }}>
-                    {st === 'active' ? (
-                      <AppIcon name="check" size={11} color="#0E1220" />
-                    ) : st === 'rest' ? (
-                      <AppIcon name="leaf" size={11} color="#0E1220" />
-                    ) : st === 'frozen' ? (
-                      <AppIcon name="snowflake" size={11} color="#0E1220" />
-                    ) : (
-                      <Text style={{ color: theme.textMuted, fontSize: 10 }}>·</Text>
-                    )}
-                  </View>
-                </View>
+                  subLabel={isTh ? dayNamesTh[idx] : dayNamesEn[idx]}
+                  label={dk.slice(8)}
+                  status={
+                    st === 'active'
+                      ? 'active'
+                      : st === 'rest' || (isToday && isRestToday)
+                      ? 'rest'
+                      : st === 'frozen'
+                      ? 'frozen'
+                      : 'none'
+                  }
+                  isToday={isToday}
+                  theme={theme}
+                  onPress={() => onNavigateTab('journey')}
+                />
               );
             })}
           </View>
-        </AnimatedCard>
+
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              marginTop: 10,
+              paddingTop: 8,
+              borderTopWidth: 1.5,
+              borderTopColor: colors.line,
+            }}
+          >
+            <Text style={{ color: theme.textSecondary, fontSize: 11.5, fontWeight: '800' }}>
+              {isTh
+                ? `สัปดาห์นี้ทำแล้ว ${streakState.weeklyActiveDays}/${streakState.weeklyGoalDays} วัน`
+                : `Weekly goal: ${streakState.weeklyActiveDays}/${streakState.weeklyGoalDays} days`}
+            </Text>
+            <Text style={{ color: theme.textSecondary, fontSize: 11.5, fontWeight: '800' }}>
+              {isTh
+                ? `ตั๋วแช่แข็ง: ${streakState.freezeTokensRemaining}/2`
+                : `Freeze: ${streakState.freezeTokensRemaining}/2`}
+            </Text>
+          </View>
+        </InkCard>
       )}
 
-      {/* 4. 2x2 Summary Stat Grid (Matches Wireframe 15.5) */}
+      {/* 5. Paired StatMiniCards with 7-Day Sparklines (Mockup "Статистика здоровья") */}
       {!hiddenCards.has('stats') && (
-        <AnimatedCard index={4} reduceMotion={reduceMotion} style={styles.statsGrid}>
-          <Pressable
-            style={[styles.statTile, { backgroundColor: theme.card, borderColor: theme.border }]}
+        <View style={styles.statsGrid}>
+          <StatMiniCard
+            title={isTh ? 'น้ำดื่ม 7 วัน' : '7-Day Water'}
+            value={`${todayMetrics.water_ml.toLocaleString()} ml`}
+            subtitle={isTh ? `เป้า ${db.profile.waterGoalMl} ml/วัน` : `Goal ${db.profile.waterGoalMl} ml`}
+            icon="water"
+            trendValues={water7Series}
+            theme={theme}
             onPress={() => onNavigateTab('track')}
-          >
-            <View style={styles.inlineIconRow}>
-              <AppIcon name="water" size={15} color={theme.water} />
-              <Text style={[styles.statTileHeader, { color: theme.water }]}>
-                {strings.home.waterToday}
-              </Text>
-            </View>
-            <AnimatedNumberText
-              value={todayMetrics.water_ml}
-              reduceMotion={reduceMotion}
-              style={[styles.statTileValue, { color: theme.text }]}
-            >
-              {todayMetrics.water_ml.toLocaleString()} ml
-            </AnimatedNumberText>
-            <Text style={{ color: theme.textMuted, fontSize: 11 }}>
-              {isTh ? `เป้าหมาย ${db.profile.waterGoalMl} ml` : `Goal ${db.profile.waterGoalMl} ml`}
-            </Text>
-          </Pressable>
+          />
 
-          <Pressable
-            style={[styles.statTile, { backgroundColor: theme.card, borderColor: theme.border }]}
+          <StatMiniCard
+            title={isTh ? 'โฟกัส 7 วัน' : '7-Day Focus'}
+            value={`${todayMetrics.weekly_focus_min} ${isTh ? 'นาที' : 'min'}`}
+            subtitle={isTh ? `วันนี้ ${todayMetrics.pomodoro_count} รอบ` : `${todayMetrics.pomodoro_count} rounds today`}
+            icon="clock"
+            trendValues={focus7Series}
+            theme={theme}
             onPress={() => onNavigateTab('train')}
-          >
-            <View style={styles.inlineIconRow}>
-              <AppIcon name="clock" size={15} color={theme.focus} />
-              <Text style={[styles.statTileHeader, { color: theme.focus }]}>
-                {strings.home.focusToday}
-              </Text>
-            </View>
-            <AnimatedNumberText
-              value={todayMetrics.pomodoro_count}
-              reduceMotion={reduceMotion}
-              style={[styles.statTileValue, { color: theme.text }]}
-            >
-              {todayMetrics.pomodoro_count} {isTh ? 'รอบ' : 'rounds'}
-            </AnimatedNumberText>
-            <Text style={{ color: theme.textMuted, fontSize: 11 }}>
-              {isTh
-                ? `สัปดาห์นี้ ${todayMetrics.weekly_focus_min} นาที`
-                : `${todayMetrics.weekly_focus_min} min this week`}
-            </Text>
-          </Pressable>
+          />
 
-          <Pressable
-            style={[styles.statTile, { backgroundColor: theme.card, borderColor: theme.border }]}
+          <StatMiniCard
+            title={isTh ? 'ขยับร่างกาย 7 วัน' : '7-Day Workout'}
+            value={`${todayMetrics.workout_min} ${isTh ? 'นาที' : 'min'}`}
+            subtitle={isTh ? `วันนี้ ${todayMetrics.workout_count} เซสชัน` : `${todayMetrics.workout_count} sessions today`}
+            icon="dumbbell"
+            trendValues={workout7Series}
+            theme={theme}
             onPress={() => onNavigateTab('train')}
-          >
-            <View style={styles.inlineIconRow}>
-              <AppIcon name="dumbbell" size={15} color={theme.workout} />
-              <Text style={[styles.statTileHeader, { color: theme.workout }]}>
-                {strings.home.workoutToday}
-              </Text>
-            </View>
-            <AnimatedNumberText
-              value={todayMetrics.workout_min}
-              reduceMotion={reduceMotion}
-              style={[styles.statTileValue, { color: theme.text }]}
-            >
-              {todayMetrics.workout_min} {isTh ? 'นาที' : 'min'}
-            </AnimatedNumberText>
-            <Text style={{ color: theme.textMuted, fontSize: 11 }}>
-              {todayMetrics.workout_count} {isTh ? 'ครั้งวันนี้' : 'sessions today'}
-            </Text>
-          </Pressable>
+          />
 
-          <Pressable
-            style={[styles.statTile, { backgroundColor: theme.card, borderColor: theme.border }]}
+          <StatMiniCard
+            title={isTh ? 'มื้ออาหารวันนี้' : 'Meals & Kcal'}
+            value={`${dailyNutrition.kcal.toLocaleString()} kcal`}
+            subtitle={`P:${dailyNutrition.proteinG}g · C:${dailyNutrition.carbsG}g · F:${dailyNutrition.fatG}g`}
+            icon="meal"
+            trendValues={meal7Series}
+            theme={theme}
             onPress={() => onNavigateTab('track')}
-          >
-            <View style={styles.inlineIconRow}>
-              <AppIcon name="meal" size={15} color={theme.meal} />
-              <Text style={[styles.statTileHeader, { color: theme.meal }]}>
-                {strings.home.mealsToday}
-              </Text>
-            </View>
-            <AnimatedNumberText
-              value={todayMetrics.meal_count}
-              reduceMotion={reduceMotion}
-              style={[styles.statTileValue, { color: theme.text }]}
-            >
-              {todayMetrics.meal_count} {isTh ? 'มื้อ' : 'meals'}
-            </AnimatedNumberText>
-            <Text style={{ color: theme.textMuted, fontSize: 11 }}>
-              {dailyNutrition.kcal.toLocaleString()} kcal ({dailyNutrition.mealCount} {isTh ? 'มื้อ' : 'meals'})
-            </Text>
-          </Pressable>
+          />
+        </View>
+      )}
 
-          {/* Daily Calorie & Nutrition Summary Breakdown */}
-          <View
-            style={[
-              styles.adaptiveItem,
-              {
-                backgroundColor: theme.bgSecondary,
-                borderColor: `${theme.meal}55`,
-                borderWidth: 1,
-                marginTop: 10,
-                borderRadius: 12,
-                padding: 12,
-              },
-            ]}
-          >
-            <View style={styles.cardHeaderRow}>
-              <View style={[styles.inlineIconRow, { flex: 1, marginRight: 8 }]}>
-                <AppIcon name="meal" size={16} color={theme.meal} />
-                <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800', flexShrink: 1 }}>
-                  {isTh ? 'สรุปแคลอรี่วันนี้ (Daily Calories)' : "Today's Calorie Summary"}
-                </Text>
-              </View>
-              <Text style={{ color: theme.meal, fontSize: 14, fontWeight: '900', flexShrink: 0 }}>
-                {dailyNutrition.kcal.toLocaleString()} kcal
-              </Text>
-            </View>
-
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: `${theme.primary}15`,
-                  padding: 8,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: `${theme.primary}33`,
-                }}
-              >
-                <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700' }}>
-                  {isTh ? 'โปรตีน' : 'Protein'}
-                </Text>
-                <Text
-                  style={{
-                    color: theme.primary,
-                    fontSize: 13,
-                    fontWeight: '900',
-                    marginTop: 2,
-                  }}
-                >
-                  {dailyNutrition.proteinG} g
-                </Text>
-              </View>
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: `${theme.warning}15`,
-                  padding: 8,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: `${theme.warning}33`,
-                }}
-              >
-                <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700' }}>
-                  {isTh ? 'คาร์บ' : 'Carbs'}
-                </Text>
-                <Text
-                  style={{
-                    color: theme.warning,
-                    fontSize: 13,
-                    fontWeight: '900',
-                    marginTop: 2,
-                  }}
-                >
-                  {dailyNutrition.carbsG} g
-                </Text>
-              </View>
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: `${theme.danger}15`,
-                  padding: 8,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: `${theme.danger}33`,
-                }}
-              >
-                <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700' }}>
-                  {isTh ? 'ไขมัน' : 'Fat'}
-                </Text>
-                <Text
-                  style={{
-                    color: theme.danger,
-                    fontSize: 13,
-                    fontWeight: '900',
-                    marginTop: 2,
-                  }}
-                >
-                  {dailyNutrition.fatG} g
-                </Text>
-              </View>
-            </View>
-
+      {/* 6. Tips / Guide Article Card + Adaptive Plan (Mockup "Статьи") */}
+      {!hiddenCards.has('adaptive') && (
+        <InkCard theme={theme} variant="soft">
+          <View style={styles.cardHeaderRow}>
             <View
               style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                marginTop: 8,
-                paddingTop: 6,
-                borderTopWidth: 1,
-                borderTopColor: `${theme.border}44`,
+                backgroundColor: colors.ink,
+                borderRadius: 999,
+                paddingHorizontal: 10,
+                paddingVertical: 3,
               }}
             >
-              <Text style={{ color: theme.textMuted, fontSize: 11 }}>
-                {isTh
-                  ? `เช้า ${dailyNutrition.bySlot.breakfast} · เที่ยง ${dailyNutrition.bySlot.lunch} · เย็น ${dailyNutrition.bySlot.dinner} · ว่าง ${dailyNutrition.bySlot.snack} kcal`
-                  : `B: ${dailyNutrition.bySlot.breakfast} · L: ${dailyNutrition.bySlot.lunch} · D: ${dailyNutrition.bySlot.dinner} · S: ${dailyNutrition.bySlot.snack} kcal`}
+              <Text style={{ color: colors.white, fontSize: 10.5, fontWeight: '900' }}>
+                {isTh ? currentTip.tagTh : currentTip.tagEn}
               </Text>
             </View>
+            <Pressable
+              onPress={() => setActiveTipIdx((i) => i + 1)}
+              style={{
+                backgroundColor: colors.white,
+                borderColor: colors.ink,
+                borderWidth: 1.8,
+                borderRadius: 999,
+                paddingHorizontal: 10,
+                paddingVertical: 3,
+              }}
+            >
+              <Text style={{ color: colors.ink, fontSize: 11, fontWeight: '900' }}>
+                {isTh ? 'อ่านบทความถัดไป ›' : 'Next Tip ›'}
+              </Text>
+            </Pressable>
           </View>
-        </AnimatedCard>
-      )}
 
-      {/* 5. Adaptive Personal Plan Card */}
-      {!hiddenCards.has('adaptive') && (
-        <AnimatedCard
-          index={5}
-          reduceMotion={reduceMotion}
-          style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
-        >
-          <View style={[styles.inlineIconRow, { marginBottom: 8 }]}>
-            <AppIcon name="brain" size={18} color={theme.primary} />
-            <Text style={[styles.cardTitle, { color: theme.text }]}>
-              {strings.profile.adaptivePlan}
-            </Text>
-          </View>
-          {adaptiveRecommendations.map((rec) => (
+          <Text style={{ color: colors.ink, fontSize: 15.5, fontWeight: '900', marginTop: 2 }}>
+            {isTh ? currentTip.titleTh : currentTip.titleEn}
+          </Text>
+          <Text
+            style={{
+              color: '#2A273E',
+              fontSize: 12.5,
+              fontWeight: '700',
+              marginTop: 5,
+              lineHeight: 18,
+            }}
+          >
+            {isTh ? currentTip.bodyTh : currentTip.bodyEn}
+          </Text>
+
+          {adaptiveRecommendations.slice(0, 1).map((rec) => (
             <View
               key={rec.id}
-              style={[
-                styles.adaptiveItem,
-                { backgroundColor: theme.bgSecondary, borderColor: theme.border },
-              ]}
+              style={{
+                marginTop: 10,
+                paddingTop: 10,
+                borderTopWidth: 1.5,
+                borderTopColor: colors.ink,
+              }}
             >
-              <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 13 }}>
-                {rec.title}
+              <Text style={{ color: colors.ink, fontWeight: '900', fontSize: 12.5 }}>
+                ✦ {rec.title}
               </Text>
-              <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 4, lineHeight: 18 }}>
+              <Text style={{ color: '#2A273E', fontSize: 12, fontWeight: '700', marginTop: 2 }}>
                 {rec.description}
               </Text>
-              {rec.suggestedWeeklyGoalDays && (
-                <AnimatedPressable
-                  reduceMotion={reduceMotion}
-                  style={[styles.adaptiveActionBtn, { backgroundColor: theme.primary }]}
-                  onPress={() =>
-                    updateProfile({ weeklyGoalDays: rec.suggestedWeeklyGoalDays })
-                  }
-                >
-                  <Text style={{ color: '#0E1220', fontWeight: '800', fontSize: 12 }}>
-                    {rec.actionLabel}
-                  </Text>
-                </AnimatedPressable>
-              )}
             </View>
           ))}
-        </AnimatedCard>
+        </InkCard>
       )}
     </ScrollView>
   );
@@ -1363,65 +1098,114 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 105,
     gap: 14,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sectionHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  avatarChipsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingVertical: 2,
   },
   inlineIconRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  systemWindow: {
-    borderRadius: 18,
-    borderWidth: 1.5,
-    padding: 16,
+  heroCardOuter: {
+    borderRadius: radius.card,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 3,
+    borderRightWidth: stroke + 3,
+    borderColor: colors.ink,
+    overflow: 'hidden',
+  },
+  heroInkBanner: {
+    backgroundColor: colors.ink,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 6,
+  },
+  heroCardBody: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 6,
   },
   systemTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  systemLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.1,
-  },
-  playerName: {
-    fontSize: 22,
+  playerNameInk: {
+    color: colors.cream,
+    fontSize: 21,
     fontWeight: '900',
-    marginTop: 2,
+    marginTop: 6,
   },
   customizeBtn: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: radius.chip,
+    backgroundColor: colors.peachSoft,
+    borderWidth: 2,
+    borderColor: colors.peach,
+  },
+  threeHeroStatsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+  },
+  heroMiniStatBox: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    borderWidth: stroke,
+    borderColor: colors.ink,
+    alignItems: 'center',
+  },
+  heroMiniStatLabel: {
+    fontSize: 9.5,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  heroMiniStatValue: {
+    fontSize: 14,
+    fontWeight: '900',
+    marginTop: 2,
   },
   recoveryBar: {
     flexDirection: 'row',
     gap: 8,
     marginTop: 12,
   },
-  restModeBtn: {
-    flex: 1,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
+  shieldPill: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: radius.chip,
+    backgroundColor: colors.peachSoft,
+    borderWidth: 2,
+    borderColor: colors.ink,
   },
-  restCheckinBtn: {
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 15,
+  vacationDrawer: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: colors.peachSoft,
+    borderWidth: 2,
+    borderColor: colors.ink,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -1431,32 +1215,38 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   waterQuickRow: {
     flexDirection: 'row',
     gap: 8,
   },
-  waterQuickBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
   questCountBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 11,
     paddingVertical: 4,
-    borderRadius: 999,
+    borderRadius: radius.chip,
+    backgroundColor: colors.peach,
+    borderWidth: 2,
+    borderColor: colors.ink,
+  },
+  penaltyNotice: {
+    backgroundColor: colors.peachSoft,
+    borderColor: colors.ink,
+    borderWidth: 2,
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 8,
   },
   questRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 8,
+    borderRadius: 16,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 2,
+    borderRightWidth: stroke + 2,
+    marginBottom: 9,
     gap: 10,
   },
   questTitleLine: {
@@ -1465,91 +1255,36 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   checkCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 5,
-    borderWidth: 1.5,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   questTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '900',
   },
   questRightCol: {
     alignItems: 'flex-end',
     gap: 4,
   },
   swapMiniBtn: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  streakStatsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  streakBox: {
-    flex: 1,
-    paddingVertical: 10,
     paddingHorizontal: 8,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  streakNum: {
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  streakLabel: {
-    fontSize: 11,
-    marginTop: 2,
-    textAlign: 'center',
+    paddingVertical: 4,
+    borderRadius: radius.chip,
+    borderWidth: 1.8,
   },
   weekPillsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 6,
-  },
-  dayPill: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 10,
-    alignItems: 'center',
+    gap: 4,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-  },
-  statTile: {
-    width: '48.2%',
-    borderRadius: 15,
-    borderWidth: 1,
-    padding: 14,
-    gap: 4,
-  },
-  statTileHeader: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  statTileValue: {
-    fontSize: 20,
-    fontWeight: '900',
-  },
-  adaptiveItem: {
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 8,
-  },
-  adaptiveActionBtn: {
-    marginTop: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
   },
   chipRow: {
     flexDirection: 'row',
@@ -1557,9 +1292,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterChip: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
+    borderRadius: radius.chip,
+    borderWidth: 2,
   },
 });

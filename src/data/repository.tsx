@@ -164,11 +164,12 @@ const DEFAULT_PROFILE: UserProfile = {
   lastFreezeGrantWeek: getWeekStartDayKey(getLocalDayKey(), 1),
   availableMinutesPerDay: 30,
   restModeToday: null,
+  lightModeToday: null,
   dailyQuestSwapUsedDay: null,
   dashboardCardsOrder: ['quests', 'streak', 'water', 'stats', 'adaptive'],
   hiddenDashboardCards: [],
   language: 'th',
-  theme: 'dark',
+  theme: 'light',
   soundEnabled: true,
   reduceEffects: false,
   muteAchievementAlerts: false,
@@ -346,6 +347,7 @@ export interface AwakenedContextValue {
   completePersonalQuest: (templateId: string) => void;
   deletePersonalQuest: (templateId: string) => void;
   toggleRestModeToday: () => void;
+  toggleLightModeToday: () => void;
   updateTrainingPlanDay: (weekday: number, dayType: TrainingDayType, note?: string) => void;
   applyTrainingPreset: (preset: 'light' | 'balanced' | 'flexible') => void;
 
@@ -2295,6 +2297,67 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   };
 
+  /**
+   * Section 4.6 — โหมด "วันนี้ขอเบา ๆ" (Light Day Mode):
+   * Reduces today's daily quests to a gentle 2-quest minimum while keeping 100% XP rewards
+   * for each quest completed, helping users stay consistent without burning out.
+   */
+  const toggleLightModeToday = () => {
+    setDb((prev) => {
+      const turningOn = prev.profile.lightModeToday !== todayKey;
+      const newLightMode = turningOn ? todayKey : null;
+      const currentList = prev.dailyQuestsByDay[todayKey] ?? [];
+
+      if (turningOn) {
+        const sorted = [...currentList].sort((a, b) => {
+          const aDone = a.status === 'completed' ? 0 : 1;
+          const bDone = b.status === 'completed' ? 0 : 1;
+          if (aDone !== bDone) return aDone - bDone;
+          const aMicro = a.template.micro ? 0 : 1;
+          const bMicro = b.template.micro ? 0 : 1;
+          return aMicro - bMicro;
+        });
+        const lightList = sorted.slice(0, 2);
+        return {
+          ...prev,
+          profile: {
+            ...prev.profile,
+            lightModeToday: newLightMode,
+          },
+          dailyQuestsByDay: {
+            ...prev.dailyQuestsByDay,
+            [todayKey]: lightList,
+          },
+        };
+      }
+
+      const isRest = prev.profile.restModeToday === todayKey;
+      const regenerated = generateDailyQuestsForDay({
+        dayKey: todayKey,
+        isRestDay: isRest,
+        availableMinutesPerDay: prev.profile.availableMinutesPerDay,
+        waterGoalMl: prev.profile.waterGoalMl,
+        onboarding: prev.onboarding,
+        penaltyMultiplier: 1,
+      }).map((q) => {
+        const existing = currentList.find((c) => c.templateId === q.templateId);
+        return existing ?? q;
+      });
+
+      return {
+        ...prev,
+        profile: {
+          ...prev.profile,
+          lightModeToday: newLightMode,
+        },
+        dailyQuestsByDay: {
+          ...prev.dailyQuestsByDay,
+          [todayKey]: regenerated,
+        },
+      };
+    });
+  };
+
   const completeManualDailyQuest = (questInstanceId: number) => {
     executeTransaction((draft) => {
       const list = draft.dailyQuestsByDay[todayKey] ?? [];
@@ -2950,17 +3013,17 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!isLoaded) return;
     const notifs = db.profile.notifications;
     if (notifs?.enabled) {
-      // 1. Morning reminder (เช้า)
+      // 1. Morning reminder (เช้า) — Non-pressuring human copy (Section 4.7)
       if (notifs.morningReminderEnabled) {
         const [h, m] = (notifs.morningReminderTime || '08:00').split(':').map(Number);
         scheduleReminder(
           1,
           h || 8,
           m || 0,
-          db.profile.language === 'th' ? 'ภารกิจประจำวันรอคุณอยู่' : 'Daily Missions Await',
+          db.profile.language === 'th' ? 'ยังอยู่นี่นะ ไม่รีบ ✦' : 'Still right here, no rush ✦',
           db.profile.language === 'th'
-            ? `สวัสดี ${db.profile.displayName} แวะมาเช็กภารกิจวันนี้เพื่อรักษา Streak กันเถอะ`
-            : `Hey ${db.profile.displayName}, check today's missions and keep your streak alive!`,
+            ? `อรุณสวัสดิ์ ${db.profile.displayName} วันนี้ทำเท่าที่ไหวก็นับนะ แวะมาดื่มน้ำสักแก้วไหม`
+            : `Good morning ${db.profile.displayName}! Even one small step counts today.`,
           false
         );
       } else {
@@ -2973,10 +3036,10 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           2,
           h || 20,
           m || 0,
-          db.profile.language === 'th' ? 'สรุปภารกิจก่อนหมดวัน' : 'Evening Quest Check-in',
+          db.profile.language === 'th' ? 'วันนี้เป็นยังไงบ้าง พักผ่อนได้นะ' : 'How was today? Rest easy',
           db.profile.language === 'th'
-            ? 'อย่าลืมบันทึกน้ำ อาหาร หรือการออกกำลังกายก่อนหมดวันนะ'
-            : "Don't forget to log your water, food or workout before the day ends!",
+            ? 'แวะมาจดน้ำ อาหาร หรือกด "วันนี้ขอเบา ๆ" ก่อนพักผ่อนได้เลย ไม่กดดันนะ'
+            : 'Log a quick note or switch to Light Day mode before winding down—no pressure.',
           false
         );
       } else {
@@ -2989,10 +3052,10 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           3,
           h || 12,
           m || 0,
-          db.profile.language === 'th' ? 'พักเที่ยง & เช็กความคืบหน้าเควส' : 'Midday Quest Check-in',
+          db.profile.language === 'th' ? 'พักเที่ยงแล้ว ดื่มน้ำสักแก้วนะ' : 'Midday pause — grab some water',
           db.profile.language === 'th'
-            ? `พักเที่ยงแล้ว ${db.profile.displayName} เติมพลังแล้วแวะมาเช็กเควสประจำวันกันเถอะ`
-            : `Midday check-in ${db.profile.displayName}! Fuel up and check your daily quest progress.`,
+            ? `ยังอยู่นี่นะ ไม่รีบ ${db.profile.displayName} เติมพลังมื้อเที่ยงแล้วค่อยว่ากัน`
+            : `Take a breather ${db.profile.displayName}. Enjoy lunch and hydrate at your own pace.`,
           false
         );
       } else {
@@ -3075,6 +3138,7 @@ export const AwakenedProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     completePersonalQuest,
     deletePersonalQuest,
     toggleRestModeToday,
+    toggleLightModeToday,
     updateTrainingPlanDay,
     applyTrainingPreset,
     updateOnboardingDraft,

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Awakened",
     "slug": "awakened",
-    "version": "0.10.5",
+    "version": "0.10.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -16,7 +16,7 @@
       "allowBackup": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#141C3D"
+        "backgroundColor": "#16142B"
       },
       "permissions": [
         "POST_NOTIFICATIONS",

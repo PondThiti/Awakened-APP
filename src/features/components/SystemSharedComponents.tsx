@@ -8,10 +8,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import { AppTheme } from '../../app/theme';
+import { AppTheme, colors, radius, stroke } from '../../app/theme';
 import { CelebrationEvent, LanguageCode, LevelState, RankDef } from '../../core/engine/types';
 import { TIER_METADATA } from '../../core/engine/achievementEngine';
 import { AppIcon, AppIconName } from './AppIcons';
+import { AwakenMascot, DripEdge } from './InkComponents';
 import {
   AnimatedNumberText,
   AnimatedPressable,
@@ -28,7 +29,8 @@ export const RankBadge: React.FC<{
   const isLg = size === 'lg';
   const isSm = size === 'sm';
   const title = lang === 'th' ? rank.title_th : rank.title_en;
-  const isHighRank = rank.id === 'S' || rank.id === 'SS' || rank.id === 'M' || rank.id === 'Monarch';
+  const isHighRank =
+    rank.id === 'S' || rank.id === 'SS' || rank.id === 'M' || rank.id === 'Monarch';
 
   return (
     <AnimatedPulseView
@@ -42,31 +44,31 @@ export const RankBadge: React.FC<{
         style={[
           styles.rankBadge,
           {
-            borderColor: rank.color,
-            backgroundColor: `${rank.color}18`,
-            paddingHorizontal: isLg ? 14 : isSm ? 8 : 11,
-            paddingVertical: isLg ? 8 : isSm ? 3 : 5,
+            borderColor: colors.ink,
+            backgroundColor: isHighRank ? colors.peach : colors.peachSoft,
+            paddingHorizontal: isLg ? 14 : isSm ? 9 : 12,
+            paddingVertical: isLg ? 7 : isSm ? 3 : 5,
           },
         ]}
       >
         <AppIcon
           name={isHighRank ? 'crown' : 'shield'}
           size={isLg ? 16 : isSm ? 11 : 13}
-          color={rank.color}
+          color={colors.ink}
         />
         <Text
           style={[
             styles.rankText,
             {
-              color: rank.color,
-              fontSize: isLg ? 15 : isSm ? 11 : 13,
+              color: colors.ink,
+              fontSize: isLg ? 14.5 : isSm ? 11 : 12.5,
             },
           ]}
         >
           RANK {rank.id} · {rank.name.toUpperCase()}
         </Text>
         {!isSm && (
-          <Text style={[styles.rankSubTitle, { color: rank.color }]}>
+          <Text style={[styles.rankSubTitle, { color: colors.ink }]}>
             ({title})
           </Text>
         )}
@@ -82,11 +84,72 @@ export const XpBar: React.FC<{
   lang: LanguageCode;
   reduceMotion?: boolean;
 }> = ({ levelState, theme, dailyRepeatableXp, lang, reduceMotion = false }) => {
-  const pct = Math.min(100, Math.max(3, Math.round(levelState.progress * 100)));
+  const pct = Math.min(100, Math.max(4, Math.round(levelState.progress * 100)));
   const softCapHit = dailyRepeatableXp >= 300;
+  const isDark = theme.mode === 'dark';
+
+  // Section 4.2: ตอนได้ XP หยดหมึกหยดหนึ่งไหลจากด้านบนลงมาเติมแถบ XP (~600 ms)
+  const prevXpRef = useRef(levelState.totalXp);
+  const dropY = useRef(new Animated.Value(-18)).current;
+  const dropOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (levelState.totalXp > prevXpRef.current && !reduceMotion) {
+      dropY.setValue(-18);
+      dropOpacity.setValue(1);
+      Animated.parallel([
+        Animated.timing(dropY, {
+          toValue: 8,
+          duration: 580,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.delay(380),
+          Animated.timing(dropOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start();
+    }
+    prevXpRef.current = levelState.totalXp;
+  }, [levelState.totalXp, reduceMotion]);
 
   return (
     <View style={styles.xpContainer}>
+      {/* Animated Ink Droplet falling into XP Bar */}
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          right: 26,
+          top: 0,
+          opacity: dropOpacity,
+          transform: [{ translateY: dropY }],
+          zIndex: 10,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 3,
+        }}
+      >
+        <View
+          style={{
+            width: 11,
+            height: 11,
+            backgroundColor: colors.peach,
+            borderWidth: 2,
+            borderColor: colors.ink,
+            borderTopLeftRadius: 2,
+            borderTopRightRadius: 7,
+            borderBottomLeftRadius: 7,
+            borderBottomRightRadius: 7,
+            transform: [{ rotate: '45deg' }],
+          }}
+        />
+      </Animated.View>
+
       <View style={styles.xpHeaderRow}>
         <View style={styles.levelPill}>
           <AnimatedNumberText
@@ -100,31 +163,42 @@ export const XpBar: React.FC<{
             {lang === 'th' ? 'XP สะสม' : 'Total'}: {levelState.totalXp.toLocaleString()} XP
           </Text>
         </View>
-        <Text style={[styles.xpFraction, { color: theme.primary }]}>
-          {levelState.xpInLevel.toLocaleString()} / {levelState.xpToNext.toLocaleString()} XP ({pct}%)
-        </Text>
+        <View
+          style={{
+            backgroundColor: colors.peachSoft,
+            borderColor: colors.ink,
+            borderWidth: 1.5,
+            borderRadius: 999,
+            paddingHorizontal: 8,
+            paddingVertical: 2,
+          }}
+        >
+          <Text style={[styles.xpFraction, { color: colors.ink }]}>
+            {levelState.xpInLevel.toLocaleString()} / {levelState.xpToNext.toLocaleString()} XP ({pct}%)
+          </Text>
+        </View>
       </View>
 
       <AnimatedProgressBar
         percent={pct}
-        fillColor={theme.primary}
-        trackColor={theme.bgSecondary}
-        borderColor={theme.border}
-        height={12}
+        fillColor={colors.peach}
+        trackColor={isDark ? '#2A2548' : colors.white}
+        borderColor={isDark ? colors.peach : colors.ink}
+        height={14}
         reduceMotion={reduceMotion}
       />
 
       <View style={styles.xpFooterRow}>
         <Text style={[styles.xpCapLabel, { color: theme.textMuted }]}>
           {lang === 'th'
-            ? `XP กิจกรรมวันนี้: ${dailyRepeatableXp}/300 (Soft Cap)`
-            : `Daily Activity XP: ${dailyRepeatableXp}/300 (Soft Cap)`}
+            ? `XP กิจกรรมวันนี้: ${dailyRepeatableXp}/300`
+            : `Daily Activity XP: ${dailyRepeatableXp}/300`}
         </Text>
         {softCapHit && (
           <View style={styles.inlineIconRow}>
-            <AppIcon name="bolt" size={12} color={theme.warning} />
-            <Text style={[styles.softCapWarning, { color: theme.warning }]}>
-              {lang === 'th' ? 'โหมด 25% XP (พักผ่อนได้นะ)' : '25% Soft Cap Active'}
+            <AppIcon name="leaf" size={12} color={theme.textSecondary} />
+            <Text style={[styles.softCapWarning, { color: theme.textSecondary }]}>
+              {lang === 'th' ? 'วันนี้ทำเยอะแล้ว พักผ่อนได้นะ (โหมด 25% XP)' : 'Rest easy! 25% Soft Cap Active'}
             </Text>
           </View>
         )}
@@ -141,10 +215,9 @@ export const CelebrationOverlay: React.FC<{
   reduceMotion?: boolean;
 }> = ({ event, onDismiss, theme, lang, reduceMotion = false }) => {
   const [showExtraBadges, setShowExtraBadges] = useState(false);
-  const cardScale = useRef(new Animated.Value(0.75)).current;
+  const cardScale = useRef(new Animated.Value(0.8)).current;
   const cardOpacity = useRef(new Animated.Value(0)).current;
-  const ringScale = useRef(new Animated.Value(0.8)).current;
-  const ringOpacity = useRef(new Animated.Value(0.7)).current;
+  const dripSlide = useRef(new Animated.Value(-40)).current;
 
   useEffect(() => {
     setShowExtraBadges(false);
@@ -152,12 +225,12 @@ export const CelebrationOverlay: React.FC<{
     if (reduceMotion) {
       cardScale.setValue(1);
       cardOpacity.setValue(1);
+      dripSlide.setValue(0);
       return;
     }
-    cardScale.setValue(0.7);
+    cardScale.setValue(0.78);
     cardOpacity.setValue(0);
-    ringScale.setValue(0.75);
-    ringOpacity.setValue(0.75);
+    dripSlide.setValue(-45);
 
     Animated.parallel([
       Animated.spring(cardScale, {
@@ -171,22 +244,12 @@ export const CelebrationOverlay: React.FC<{
         duration: 220,
         useNativeDriver: true,
       }),
-      Animated.loop(
-        Animated.parallel([
-          Animated.timing(ringScale, {
-            toValue: 1.35,
-            duration: 1300,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }),
-          Animated.timing(ringOpacity, {
-            toValue: 0,
-            duration: 1300,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }),
-        ])
-      ),
+      Animated.timing(dripSlide, {
+        toValue: 0,
+        duration: 520,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
     ]).start();
   }, [event, reduceMotion]);
 
@@ -194,25 +257,9 @@ export const CelebrationOverlay: React.FC<{
 
   const isMajor = event.tier >= 2;
   const badgeTierMeta = event.badge?.tier ? TIER_METADATA[event.badge.tier] : null;
-  const accentColor =
-    event.tier === 3
-      ? event.newRank?.color || theme.warning
-      : event.tier === 2
-      ? theme.primary
-      : badgeTierMeta
-      ? badgeTierMeta.color
-      : theme.success;
-
-  const iconName =
-    event.tier === 3
-      ? 'crown'
-      : event.tier === 2
-      ? 'bolt'
-      : event.tier === 4
-      ? 'trophy'
-      : 'star';
-
   const extraBadges = event.additionalBadges ?? [];
+  const isDark = theme.mode === 'dark';
+  const cardBg = isDark ? '#211E3A' : colors.white;
 
   return (
     <Modal transparent animationType="fade" visible={Boolean(event)} onRequestClose={onDismiss}>
@@ -221,130 +268,142 @@ export const CelebrationOverlay: React.FC<{
           style={[
             styles.celebrationCard,
             {
-              backgroundColor: theme.cardElevated,
-              borderColor: accentColor,
+              backgroundColor: cardBg,
+              borderColor: isDark ? colors.peach : colors.ink,
               opacity: cardOpacity,
               transform: [{ scale: cardScale }],
             },
           ]}
         >
-          <Text style={[styles.systemTag, { color: accentColor }]}>
-            {event.tier === 3
-              ? 'SYSTEM RANK PROMOTION'
-              : event.tier === 2
-              ? 'SYSTEM LEVEL UP'
-              : event.tier === 4
-              ? badgeTierMeta
-                ? `${badgeTierMeta.badgeEmoji} ${
-                    lang === 'th'
-                      ? `ถ้วยรางวัลระดับ${badgeTierMeta.label_th}`
-                      : `${badgeTierMeta.label_en.toUpperCase()} ACHIEVEMENT`
-                  }`
-                : 'ACHIEVEMENT UNLOCKED'
-              : 'QUEST COMPLETED'}
-          </Text>
-
-          <View style={styles.emblemWrapper}>
-            <Animated.View
-              style={[
-                styles.emblemPulseRing,
-                {
-                  borderColor: accentColor,
-                  opacity: ringOpacity,
-                  transform: [{ scale: ringScale }],
-                },
-              ]}
-            />
-            <View
-              style={[
-                styles.emblemCircle,
-                { backgroundColor: `${accentColor}22`, borderColor: accentColor },
-              ]}
-            >
-              <AppIcon name={iconName} size={36} color={accentColor} />
-            </View>
-          </View>
-
-          <Text style={[styles.celebrationTitle, { color: theme.text }]}>
-            {event.title}
-          </Text>
-          <Text style={[styles.celebrationSubtitle, { color: theme.textSecondary }]}>
-            {event.subtitle}
-          </Text>
-
-          {extraBadges.length > 0 && (
-            <Pressable
-              style={[
-                styles.celebrationBadgeBox,
-                {
-                  backgroundColor: `${theme.primary}18`,
-                  borderColor: theme.primary,
-                },
-              ]}
-              onPress={() => setShowExtraBadges((s) => !s)}
-            >
-              <Text
-                style={{
-                  color: theme.primary,
-                  fontWeight: '800',
-                  fontSize: 13,
-                  textAlign: 'center',
-                }}
-              >
-                {lang === 'th'
-                  ? `🏆 ปลดล็อกอีก ${extraBadges.length} ใบพร้อมกัน (${
-                      showExtraBadges ? 'แตะเพื่อย่อ' : 'แตะเพื่อดู'
-                    })`
-                  : `🏆 +${extraBadges.length} more unlocked (${
-                      showExtraBadges ? 'tap to hide' : 'tap to view'
-                    })`}
-              </Text>
-              {showExtraBadges && (
-                <View style={{ marginTop: 8, gap: 4 }}>
-                  {extraBadges.map((b) => {
-                    const bm = TIER_METADATA[b.tier] ?? TIER_METADATA.bronze;
-                    return (
-                      <Text
-                        key={b.id}
-                        style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}
-                      >
-                        {bm.badgeEmoji} {lang === 'th' ? b.title_th : b.title_en} (+{b.xp} XP)
-                      </Text>
-                    );
-                  })}
-                </View>
-              )}
-            </Pressable>
-          )}
-
-          {isMajor && (
-            <View
-              style={[
-                styles.celebrationBadgeBox,
-                { backgroundColor: `${accentColor}20`, borderColor: accentColor },
-              ]}
-            >
-              <Text style={{ color: accentColor, fontWeight: '700', fontSize: 13, textAlign: 'center' }}>
-                {badgeTierMeta
-                  ? lang === 'th'
-                    ? `ของแถมระดับ${badgeTierMeta.label_th}: ${badgeTierMeta.perk_th}`
-                    : `${badgeTierMeta.label_en} Reward: ${badgeTierMeta.perk_en}`
-                  : lang === 'th'
-                  ? 'ความสม่ำเสมอของคุณกำลังเปลี่ยนชีวิตจริงให้เป็นเลเวลใหม่'
-                  : 'Your daily consistency is forging real-life progress.'}
-              </Text>
-            </View>
-          )}
-
-          <AnimatedPressable
-            style={[styles.celebrationButton, { backgroundColor: accentColor }]}
-            onPress={onDismiss}
-            reduceMotion={reduceMotion}
+          {/* Ink Drip Header Flood Reveal on Level Up / Rank Up (Section 4.2) */}
+          <Animated.View
+            style={{
+              width: '100%',
+              transform: [{ translateY: dripSlide }],
+            }}
           >
-            <Text style={styles.celebrationButtonText}>
-              {lang === 'th' ? 'รับรางวัล (ดำเนินการต่อ)' : 'Claim & Continue'}
+            <View style={styles.celebrationInkHeader}>
+              <Text style={styles.systemTag}>
+                {event.tier === 3
+                  ? lang === 'th'
+                    ? '✦ เลื่อนระดับแรงค์ใหม่!'
+                    : '✦ RANK PROMOTION!'
+                  : event.tier === 2
+                  ? lang === 'th'
+                    ? '✦ เลเวลอัปแล้วนะ!'
+                    : '✦ LEVEL UP!'
+                  : event.tier === 4
+                  ? badgeTierMeta
+                    ? `${badgeTierMeta.badgeEmoji} ${
+                        lang === 'th'
+                          ? `ปลดล็อกถ้วยระดับ${badgeTierMeta.label_th}`
+                          : `${badgeTierMeta.label_en.toUpperCase()} TROPHY`
+                      }`
+                    : '✦ TROPHY UNLOCKED'
+                  : lang === 'th'
+                  ? '✦ ทำเควสต์สำเร็จ!'
+                  : '✦ QUEST COMPLETED'}
+              </Text>
+              <AwakenMascot
+                rankId={event.newRank?.id ?? 'C'}
+                level={event.newLevel ?? 10}
+                mood="proud"
+                size={68}
+                reduceMotion={reduceMotion}
+              />
+            </View>
+            <DripEdge seed={9} color={colors.ink} bgColor={cardBg} height={22} />
+          </Animated.View>
+
+          <View style={styles.celebrationBody}>
+            <Text style={[styles.celebrationTitle, { color: theme.text }]}>
+              {event.title}
             </Text>
-          </AnimatedPressable>
+            <Text style={[styles.celebrationSubtitle, { color: theme.textSecondary }]}>
+              {event.subtitle}
+            </Text>
+
+            {extraBadges.length > 0 && (
+              <Pressable
+                style={[
+                  styles.celebrationBadgeBox,
+                  {
+                    backgroundColor: colors.peachSoft,
+                    borderColor: colors.ink,
+                  },
+                ]}
+                onPress={() => setShowExtraBadges((s) => !s)}
+              >
+                <Text
+                  style={{
+                    color: colors.ink,
+                    fontWeight: '900',
+                    fontSize: 12.5,
+                    textAlign: 'center',
+                  }}
+                >
+                  {lang === 'th'
+                    ? `🏆 ปลดล็อกอีก ${extraBadges.length} ใบพร้อมกัน (${
+                        showExtraBadges ? 'แตะเพื่อย่อ' : 'แตะเพื่อดู'
+                      })`
+                    : `🏆 +${extraBadges.length} more unlocked (${
+                        showExtraBadges ? 'tap to hide' : 'tap to view'
+                      })`}
+                </Text>
+                {showExtraBadges && (
+                  <View style={{ marginTop: 8, gap: 4 }}>
+                    {extraBadges.map((b) => {
+                      const bm = TIER_METADATA[b.tier] ?? TIER_METADATA.bronze;
+                      return (
+                        <Text
+                          key={b.id}
+                          style={{ color: colors.ink, fontSize: 12, fontWeight: '800' }}
+                        >
+                          {bm.badgeEmoji} {lang === 'th' ? b.title_th : b.title_en} (+{b.xp} XP)
+                        </Text>
+                      );
+                    })}
+                  </View>
+                )}
+              </Pressable>
+            )}
+
+            {isMajor && (
+              <View
+                style={[
+                  styles.celebrationBadgeBox,
+                  { backgroundColor: colors.peachSoft, borderColor: colors.ink },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: colors.ink,
+                    fontWeight: '800',
+                    fontSize: 12.5,
+                    textAlign: 'center',
+                  }}
+                >
+                  {badgeTierMeta
+                    ? lang === 'th'
+                      ? `ของแถมระดับ${badgeTierMeta.label_th}: ${badgeTierMeta.perk_th}`
+                      : `${badgeTierMeta.label_en} Reward: ${badgeTierMeta.perk_en}`
+                    : lang === 'th'
+                    ? 'ก้าวเล็ก ๆ ของวันนี้ กำลังพาคุณเติบโตขึ้นจริง ๆ นะ'
+                    : 'Every small step today is building real-life momentum.'}
+                </Text>
+              </View>
+            )}
+
+            <AnimatedPressable
+              style={styles.celebrationButton}
+              onPress={onDismiss}
+              reduceMotion={reduceMotion}
+            >
+              <Text style={styles.celebrationButtonText}>
+                {lang === 'th' ? 'ไปกันต่อเลย!' : 'Keep Going!'}
+              </Text>
+            </AnimatedPressable>
+          </View>
         </Animated.View>
       </Pressable>
     </Modal>
@@ -371,6 +430,7 @@ export const QuickAddFabModal: React.FC<{
   reduceMotion = false,
 }) => {
   const isTh = lang === 'th';
+  const isDark = theme.mode === 'dark';
 
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
@@ -378,25 +438,28 @@ export const QuickAddFabModal: React.FC<{
         <Pressable
           style={[
             styles.quickSheet,
-            { backgroundColor: theme.cardElevated, borderColor: theme.border },
+            {
+              backgroundColor: isDark ? '#211E3A' : colors.white,
+              borderColor: isDark ? colors.peach : colors.ink,
+            },
           ]}
         >
           <View style={styles.sheetHeader}>
             <View style={styles.inlineIconRow}>
-              <AppIcon name="bolt" size={20} color={theme.primary} />
+              <AppIcon name="bolt" size={20} color={colors.peach} />
               <Text style={[styles.sheetTitle, { color: theme.text }]}>
-                {isTh ? 'บันทึกด่วน (Quick Action)' : 'Quick Action Log'}
+                {isTh ? 'จดบันทึกไว (Quick Add)' : 'Quick Action Log'}
               </Text>
             </View>
-            <Pressable onPress={onClose} style={{ padding: 4 }}>
-              <Text style={{ color: theme.textMuted, fontSize: 16, fontWeight: '800' }}>✕</Text>
+            <Pressable onPress={onClose} style={styles.closeCircleBtn}>
+              <Text style={{ color: colors.ink, fontSize: 13, fontWeight: '900' }}>✕</Text>
             </Pressable>
           </View>
 
           <View style={[styles.inlineIconRow, { marginBottom: 8 }]}>
-            <AppIcon name="water" size={16} color={theme.water} />
+            <AppIcon name="water" size={16} color={theme.text} />
             <Text style={[styles.sheetSectionLabel, { color: theme.textSecondary }]}>
-              {isTh ? 'ดื่มน้ำทันที (+2 XP)' : 'Instant Water (+2 XP)'}
+              {isTh ? 'ดื่มน้ำอีกนิดไหม (+2 XP)' : 'Drink Water (+2 XP)'}
             </Text>
           </View>
           <View style={styles.quickRow}>
@@ -406,14 +469,17 @@ export const QuickAddFabModal: React.FC<{
                 reduceMotion={reduceMotion}
                 style={[
                   styles.quickWaterBtn,
-                  { backgroundColor: `${theme.water}22`, borderColor: theme.water },
+                  {
+                    backgroundColor: colors.peach,
+                    borderColor: colors.ink,
+                  },
                 ]}
                 onPress={() => {
                   onQuickWater(ml);
                   onClose();
                 }}
               >
-                <Text style={{ color: theme.water, fontWeight: '800', fontSize: 15 }}>
+                <Text style={{ color: colors.ink, fontWeight: '900', fontSize: 15 }}>
                   +{ml} ml
                 </Text>
               </AnimatedPressable>
@@ -421,79 +487,111 @@ export const QuickAddFabModal: React.FC<{
           </View>
 
           <View style={[styles.inlineIconRow, { marginTop: 14, marginBottom: 8 }]}>
-            <AppIcon name="quest" size={16} color={theme.primary} />
+            <AppIcon name="quest" size={16} color={theme.text} />
             <Text style={[styles.sheetSectionLabel, { color: theme.textSecondary }]}>
-              {isTh ? 'ไปยังหมวดบันทึก' : 'Jump to Activity'}
+              {isTh ? 'เลือกสิ่งที่อยากทำตอนนี้' : 'Jump to Activity'}
             </Text>
           </View>
 
           <View style={styles.quickGrid}>
             <AnimatedPressable
               reduceMotion={reduceMotion}
-              style={[styles.quickActionTile, { backgroundColor: theme.card, borderColor: theme.border }]}
+              style={[
+                styles.quickActionTile,
+                {
+                  backgroundColor: isDark ? '#282446' : colors.cream,
+                  borderColor: isDark ? colors.peach : colors.ink,
+                },
+              ]}
               onPress={() => {
                 onClose();
                 onNavigateTab('track');
               }}
             >
-              <View style={[styles.tileIconBadge, { backgroundColor: `${theme.meal}20` }]}>
-                <AppIcon name="meal" size={20} color={theme.meal} />
+              <View style={styles.tileIconBadge}>
+                <AppIcon name="meal" size={19} color={colors.ink} />
               </View>
               <Text style={[styles.tileTitle, { color: theme.text }]}>
-                {isTh ? 'บันทึกมื้ออาหาร / AI สแกน' : 'Log Meal / AI Scan'}
+                {isTh ? 'จดมื้ออาหาร / สแกนรูป' : 'Log Meal / Scan'}
               </Text>
-              <Text style={{ color: theme.meal, fontSize: 12, fontWeight: '700' }}>+8 XP</Text>
+              <Text style={{ color: theme.textSecondary, fontSize: 11.5, fontWeight: '800' }}>
+                +8 XP
+              </Text>
             </AnimatedPressable>
 
             <AnimatedPressable
               reduceMotion={reduceMotion}
-              style={[styles.quickActionTile, { backgroundColor: theme.card, borderColor: theme.border }]}
+              style={[
+                styles.quickActionTile,
+                {
+                  backgroundColor: isDark ? '#282446' : colors.cream,
+                  borderColor: isDark ? colors.peach : colors.ink,
+                },
+              ]}
               onPress={() => {
                 onClose();
                 onNavigateTab('train');
               }}
             >
-              <View style={[styles.tileIconBadge, { backgroundColor: `${theme.workout}20` }]}>
-                <AppIcon name="dumbbell" size={20} color={theme.workout} />
+              <View style={styles.tileIconBadge}>
+                <AppIcon name="dumbbell" size={19} color={colors.ink} />
               </View>
               <Text style={[styles.tileTitle, { color: theme.text }]}>
-                {isTh ? 'ออกกำลังกาย / โฟกัส' : 'Workout / Focus'}
+                {isTh ? 'ขยับร่างกาย / จับเวลาโฟกัส' : 'Workout / Focus'}
               </Text>
-              <Text style={{ color: theme.workout, fontSize: 12, fontWeight: '700' }}>+15~55 XP</Text>
+              <Text style={{ color: theme.textSecondary, fontSize: 11.5, fontWeight: '800' }}>
+                +15~55 XP
+              </Text>
             </AnimatedPressable>
 
             <AnimatedPressable
               reduceMotion={reduceMotion}
-              style={[styles.quickActionTile, { backgroundColor: theme.card, borderColor: theme.border }]}
+              style={[
+                styles.quickActionTile,
+                {
+                  backgroundColor: isDark ? '#282446' : colors.cream,
+                  borderColor: isDark ? colors.peach : colors.ink,
+                },
+              ]}
               onPress={() => {
                 onClose();
                 onNavigateTab('journey');
               }}
             >
-              <View style={[styles.tileIconBadge, { backgroundColor: `${theme.mind}20` }]}>
-                <AppIcon name="journal" size={20} color={theme.mind} />
+              <View style={styles.tileIconBadge}>
+                <AppIcon name="journal" size={19} color={colors.ink} />
               </View>
               <Text style={[styles.tileTitle, { color: theme.text }]}>
-                {isTh ? 'ไดอารี่ & บันทึกอารมณ์' : 'Journal & Mood'}
+                {isTh ? 'จดไดอารี่ & ความรู้สึก' : 'Journal & Mood'}
               </Text>
-              <Text style={{ color: theme.mind, fontSize: 12, fontWeight: '700' }}>+5~15 XP</Text>
+              <Text style={{ color: theme.textSecondary, fontSize: 11.5, fontWeight: '800' }}>
+                +5~15 XP
+              </Text>
             </AnimatedPressable>
 
             <AnimatedPressable
               reduceMotion={reduceMotion}
-              style={[styles.quickActionTile, { backgroundColor: theme.card, borderColor: theme.border }]}
+              style={[
+                styles.quickActionTile,
+                {
+                  backgroundColor: colors.peachSoft,
+                  borderColor: colors.ink,
+                },
+              ]}
               onPress={() => {
                 onQuickRestCheckin();
                 onClose();
               }}
             >
-              <View style={[styles.tileIconBadge, { backgroundColor: `${theme.success}20` }]}>
-                <AppIcon name="leaf" size={20} color={theme.success} />
+              <View style={[styles.tileIconBadge, { backgroundColor: colors.peach }]}>
+                <AppIcon name="leaf" size={19} color={colors.ink} />
               </View>
-              <Text style={[styles.tileTitle, { color: theme.text }]}>
-                {isTh ? 'เช็กอินวันพัก (Rest Day)' : 'Rest Day Check-in'}
+              <Text style={[styles.tileTitle, { color: colors.ink }]}>
+                {isTh ? 'วันนี้พักก็นับนะ (Rest)' : 'Rest Day Check-in'}
               </Text>
-              <Text style={{ color: theme.success, fontSize: 12, fontWeight: '700' }}>+25 XP</Text>
+              <Text style={{ color: colors.ink, fontSize: 11.5, fontWeight: '900' }}>
+                +25 XP
+              </Text>
             </AnimatedPressable>
           </View>
         </Pressable>
@@ -503,7 +601,7 @@ export const QuickAddFabModal: React.FC<{
 };
 
 // ============================================================================
-// 5. ScreenHeader (Section 5: Mathematically Centered Sub-Window Header)
+// 5. ScreenHeader (Mathematically Centered Sub-Window Header with Ink Border)
 // ============================================================================
 export const ScreenHeader: React.FC<{
   title: string;
@@ -528,7 +626,10 @@ export const ScreenHeader: React.FC<{
     <View
       style={[
         styles.screenHeaderBar,
-        { backgroundColor: theme.card, borderBottomColor: theme.border },
+        {
+          backgroundColor: theme.card,
+          borderBottomColor: theme.mode === 'dark' ? colors.peach : colors.ink,
+        },
       ]}
     >
       <View style={styles.screenHeaderSide}>
@@ -542,19 +643,12 @@ export const ScreenHeader: React.FC<{
           >
             <Text
               style={{
-                color: theme.primary,
-                fontSize: 22,
+                color: colors.ink,
+                fontSize: 16,
                 fontWeight: '900',
-                lineHeight: 22,
               }}
             >
-              ‹
-            </Text>
-            <Text
-              numberOfLines={1}
-              style={{ color: theme.primary, fontSize: 14, fontWeight: '800' }}
-            >
-              {backLabel}
+              ‹ {backLabel}
             </Text>
           </AnimatedPressable>
         ) : null}
@@ -562,7 +656,7 @@ export const ScreenHeader: React.FC<{
 
       <View style={styles.screenHeaderCenter}>
         {icon ? (
-          <AppIcon name={icon} size={16} color={iconColor ?? theme.primary} />
+          <AppIcon name={icon} size={16} color={iconColor ?? theme.text} />
         ) : null}
         <Text
           numberOfLines={1}
@@ -583,27 +677,27 @@ const styles = StyleSheet.create({
   rankBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 999,
-    borderWidth: 1.5,
+    borderRadius: radius.chip,
+    borderWidth: stroke,
     alignSelf: 'flex-start',
     gap: 6,
   },
   rankText: {
-    fontWeight: '800',
-    letterSpacing: 0.6,
+    fontWeight: '900',
+    letterSpacing: 0.4,
   },
   rankSubTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    opacity: 0.9,
+    fontSize: 11.5,
+    fontWeight: '800',
   },
   xpContainer: {
     marginTop: 10,
+    position: 'relative',
   },
   xpHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'baseline',
+    alignItems: 'center',
     marginBottom: 6,
   },
   levelPill: {
@@ -617,17 +711,17 @@ const styles = StyleSheet.create({
   },
   totalXpText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   xpFraction: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 11.5,
+    fontWeight: '900',
   },
   xpFooterRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 5,
+    marginTop: 6,
   },
   inlineIconRow: {
     flexDirection: 'row',
@@ -636,14 +730,15 @@ const styles = StyleSheet.create({
   },
   xpCapLabel: {
     fontSize: 11,
+    fontWeight: '700',
   },
   softCapWarning: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(6, 9, 18, 0.80)',
+    backgroundColor: 'rgba(22, 20, 43, 0.82)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -651,38 +746,31 @@ const styles = StyleSheet.create({
   celebrationCard: {
     width: '100%',
     maxWidth: 380,
-    borderRadius: 22,
-    borderWidth: 2,
-    padding: 24,
+    borderRadius: radius.card,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 3,
+    borderRightWidth: stroke + 3,
+    overflow: 'hidden',
+  },
+  celebrationInkHeader: {
+    backgroundColor: colors.ink,
+    paddingTop: 18,
+    paddingBottom: 6,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  celebrationBody: {
+    paddingHorizontal: 22,
+    paddingBottom: 22,
+    paddingTop: 6,
     alignItems: 'center',
   },
   systemTag: {
+    color: colors.peach,
     fontSize: 12,
     fontWeight: '900',
-    letterSpacing: 1.5,
-    marginBottom: 12,
-  },
-  emblemWrapper: {
-    width: 82,
-    height: 82,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 8,
-  },
-  emblemPulseRing: {
-    position: 'absolute',
-    width: 74,
-    height: 74,
-    borderRadius: 37,
-    borderWidth: 2,
-  },
-  emblemCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    letterSpacing: 1.2,
+    marginBottom: 6,
   },
   celebrationTitle: {
     fontSize: 20,
@@ -692,34 +780,42 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   celebrationSubtitle: {
-    fontSize: 14,
+    fontSize: 13.5,
+    fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 20,
+    marginBottom: 14,
+    lineHeight: 19,
   },
   celebrationBadgeBox: {
     padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 16,
+    borderRadius: 14,
+    borderWidth: stroke,
+    marginBottom: 14,
     width: '100%',
   },
   celebrationButton: {
     width: 240,
-    paddingVertical: 13,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: radius.chip,
+    backgroundColor: colors.peach,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 2,
+    borderRightWidth: stroke + 2,
+    borderColor: colors.ink,
     alignItems: 'center',
   },
   celebrationButtonText: {
-    color: '#0E1220',
+    color: colors.ink,
     fontWeight: '900',
     fontSize: 15,
   },
   quickSheet: {
     width: '100%',
     maxWidth: 480,
-    borderRadius: 22,
-    borderWidth: 1,
+    borderRadius: radius.card,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 3,
+    borderRightWidth: stroke + 3,
     padding: 20,
   },
   sheetHeader: {
@@ -728,13 +824,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
   },
+  closeCircleBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.peachSoft,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   sheetTitle: {
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   sheetSectionLabel: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   quickRow: {
     flexDirection: 'row',
@@ -742,9 +848,11 @@ const styles = StyleSheet.create({
   },
   quickWaterBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    paddingVertical: 11,
+    borderRadius: radius.chip,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 2,
+    borderRightWidth: stroke + 2,
     alignItems: 'center',
   },
   quickGrid: {
@@ -756,37 +864,47 @@ const styles = StyleSheet.create({
     width: 148,
     flexGrow: 1,
     padding: 13,
-    borderRadius: 14,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 2,
+    borderRightWidth: stroke + 2,
     gap: 6,
   },
   tileIconBadge: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: 18,
+    backgroundColor: colors.peachSoft,
+    borderWidth: 1.8,
+    borderColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tileTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '900',
   },
   screenHeaderBar: {
     height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    borderBottomWidth: 1,
+    borderBottomWidth: stroke,
   },
   screenHeaderSide: {
-    width: 88,
+    width: 96,
     justifyContent: 'center',
   },
   screenHeaderBackBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: radius.chip,
+    backgroundColor: colors.peach,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    alignSelf: 'flex-start',
   },
   screenHeaderCenter: {
     flex: 1,
@@ -797,9 +915,7 @@ const styles = StyleSheet.create({
   },
   screenHeaderTitle: {
     textAlign: 'center',
-    fontSize: 17,
-    lineHeight: 26,
+    fontSize: 16,
     fontWeight: '900',
-    includeFontPadding: false,
   },
 });

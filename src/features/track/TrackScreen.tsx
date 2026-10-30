@@ -9,7 +9,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { AppTheme } from '../../app/theme';
+import { AppTheme, colors, radius, stroke } from '../../app/theme';
+import { SegmentedTabs } from '../components/InkComponents';
 import { DeleteActivityPreview, useAwakened } from '../../data/repository';
 import { t } from '../../l10n/translations';
 import {
@@ -157,47 +158,14 @@ export const TrackScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      {/* Sub-navigation Bar with Vector Icons */}
-      <View
-        style={[
-          styles.subTabBar,
-          { backgroundColor: theme.card, borderBottomColor: theme.border },
-        ]}
-      >
-        {subTabs.map((tab) => {
-          const active = subTab === tab.id;
-          return (
-            <Pressable
-              key={tab.id}
-              style={[
-                styles.subTabBtn,
-                active && {
-                  backgroundColor: `${theme.primary}22`,
-                  borderColor: theme.primary,
-                },
-              ]}
-              onPress={() => setSubTab(tab.id)}
-            >
-              <View style={styles.inlineIconRow}>
-                <AppIcon
-                  name={tab.icon}
-                  size={14}
-                  color={active ? theme.primary : theme.textSecondary}
-                />
-                <Text
-                  style={{
-                    color: active ? theme.primary : theme.textSecondary,
-                    fontWeight: '800',
-                    fontSize: 12,
-                  }}
-                >
-                  {tab.label}
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
+      {/* Segmented Tabs Bar (Ink / Cream / Peach v0.10.6) */}
+      <SegmentedTabs
+        tabs={subTabs}
+        activeId={subTab}
+        onSelect={setSubTab}
+        theme={theme}
+        style={{ marginHorizontal: 16, marginTop: 10 }}
+      />
 
       <AnimatedScreenWrapper triggerKey={subTab} reduceMotion={reduceMotion}>
         <ScrollView contentContainerStyle={styles.content}>
@@ -1525,8 +1493,10 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   card: {
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: radius.card,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 2.5,
+    borderRightWidth: stroke + 2.5,
     padding: 15,
   },
   cardHeaderRow: {
@@ -1537,7 +1507,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   waterGrid: {
     flexDirection: 'row',
@@ -1549,8 +1519,10 @@ const styles = StyleSheet.create({
     width: 145,
     flexGrow: 1,
     paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1.5,
+    borderRadius: radius.card,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 2,
+    borderRightWidth: stroke + 2,
     alignItems: 'center',
     gap: 3,
   },
@@ -1562,26 +1534,31 @@ const styles = StyleSheet.create({
   input: {
     paddingHorizontal: 12,
     paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: radius.input,
+    borderWidth: stroke,
     fontSize: 14,
+    fontWeight: '700',
   },
   primaryBtn: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 11,
-    borderRadius: 10,
+    borderRadius: radius.chip,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 2,
+    borderRightWidth: stroke + 2,
+    borderColor: colors.ink,
     justifyContent: 'center',
   },
   primaryBtnText: {
-    color: '#0E1220',
+    color: colors.ink,
     fontWeight: '900',
     fontSize: 13,
   },
   secondaryBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: radius.chip,
+    borderWidth: stroke,
   },
   chartRow: {
     flexDirection: 'row',
@@ -1602,18 +1579,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    paddingHorizontal: 11,
+    paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 999,
-    borderWidth: 1,
+    borderRadius: radius.chip,
+    borderWidth: 2,
   },
   foodItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 2,
+    borderRightWidth: stroke + 2,
     marginBottom: 8,
     gap: 10,
   },
@@ -1624,36 +1603,38 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   estimateBadge: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
+    borderRadius: radius.chip,
+    borderWidth: 1.5,
   },
   scanResultBox: {
     marginTop: 14,
     padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: stroke,
   },
   timelineItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 2,
+    borderRightWidth: stroke + 2,
     marginBottom: 8,
   },
   deleteMiniBtn: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
+    borderRadius: radius.chip,
+    borderWidth: 1.8,
   },
   banner: {
     padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: 14,
+    borderWidth: stroke,
     marginBottom: 10,
   },
 });

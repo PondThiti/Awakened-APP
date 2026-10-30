@@ -11,14 +11,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { AppTheme } from '../../app/theme';
+import { AppTheme, colors, radius, stroke } from '../../app/theme';
 import { LanguageCode, UserProfile } from '../../core/engine/types';
 import {
   getLockoutDurationMs,
   verifyPin,
   verifyRecoveryCode,
 } from '../../core/utils/pinSecurity';
-import { AppIcon, AwakenedBrandIcon } from './AppIcons';
+import { AppIcon } from './AppIcons';
+import { AwakenMascot, DripEdge, MascotMood, PillButton } from './InkComponents';
 import {
   authenticateBiometric,
   canAuthenticateBiometric,
@@ -35,7 +36,8 @@ export interface BankPinDotsProps {
 }
 
 /**
- * Standard Banking-App style PIN indicator dots (4 or 6 dots).
+ * Ink-Drop PIN Indicator Dots (Section 4.8: แถวจุด PIN เป็นหยดหมึกแทนวงกลมธรรมดา ขอบหนา 2.5px).
+ * Uses soft Peach/Ink feedback on error instead of harsh neon red.
  */
 export const BankPinDots: React.FC<BankPinDotsProps> = ({
   pinLength,
@@ -43,10 +45,11 @@ export const BankPinDots: React.FC<BankPinDotsProps> = ({
   theme,
   isError = false,
   shakeAnim,
-  size = 16,
+  size = 18,
 }) => {
   const dots = Array.from({ length: pinLength }, (_, i) => i);
   const Container: any = shakeAnim ? Animated.View : View;
+  const isDark = theme.mode === 'dark';
 
   return (
     <Container
@@ -57,34 +60,56 @@ export const BankPinDots: React.FC<BankPinDotsProps> = ({
     >
       {dots.map((index) => {
         const filled = filledCount > index;
-        const activeColor = isError ? theme.danger : theme.primary;
+        const fillCol = isError
+          ? colors.peachSoft
+          : filled
+          ? colors.peach
+          : isDark
+          ? '#242042'
+          : colors.white;
+        const borderCol = isDark && !filled ? colors.peach : colors.ink;
+
         return (
           <View
             key={index}
             style={[
               styles.pinDotOuter,
               {
-                width: size + 8,
-                height: size + 8,
-                borderRadius: (size + 8) / 2,
-                backgroundColor: filled ? `${activeColor}22` : 'transparent',
+                width: size + 10,
+                height: size + 10,
+                borderRadius: (size + 10) / 2,
+                backgroundColor: filled ? `${colors.peach}38` : 'transparent',
               },
             ]}
           >
+            {/* Organic Teardrop / Ink Drop Shape */}
             <View
               style={{
                 width: size,
                 height: size,
-                borderRadius: size / 2,
-                backgroundColor: filled ? activeColor : 'transparent',
-                borderWidth: 2,
-                borderColor: isError
-                  ? theme.danger
-                  : filled
-                  ? activeColor
-                  : theme.textMuted,
+                backgroundColor: fillCol,
+                borderWidth: stroke,
+                borderColor: borderCol,
+                borderTopLeftRadius: 3,
+                borderTopRightRadius: size * 0.55,
+                borderBottomLeftRadius: size * 0.55,
+                borderBottomRightRadius: size * 0.55,
+                transform: [{ rotate: '45deg' }, { scale: filled ? 1.06 : 0.96 }],
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
-            />
+            >
+              {filled && !isError && (
+                <View
+                  style={{
+                    width: 4,
+                    height: 4,
+                    borderRadius: 2,
+                    backgroundColor: colors.ink,
+                  }}
+                />
+              )}
+            </View>
           </View>
         );
       })}
@@ -96,7 +121,7 @@ export interface BankPinPadProps {
   onDigitPress: (digit: string) => void;
   onDeletePress: () => void;
   onClearLongPress?: () => void;
-  leftActionType?: 'biometric' | 'forgot' | 'clear' | 'none';
+  leftActionType?: 'biometric' | 'clear' | 'none';
   leftActionLabel?: string;
   onLeftActionPress?: () => void;
   disabled?: boolean;
@@ -112,12 +137,13 @@ const KEYPAD_ROWS: readonly (readonly string[])[] = [
 ];
 
 /**
- * Authentic Banking-Style 3x4 Numeric PIN Keypad (like K PLUS / SCB EASY).
+ * 3x4 Numeric PIN Keypad with Thick Ink Outlines & Peach Press Highlights.
  * Strictly 3 columns per row:
  *   1  2  3
  *   4  5  6
  *   7  8  9
  *  [L] 0 [⌫]
+ * Note: Duplicate bottom-left "Forgot PIN" button removed per v0.10.6 spec (Section 1.1).
  */
 export const BankPinPad: React.FC<BankPinPadProps> = ({
   onDigitPress,
@@ -131,10 +157,11 @@ export const BankPinPad: React.FC<BankPinPadProps> = ({
   theme,
   soundEnabled = true,
 }) => {
-  const btnSize = compact ? 64 : 76;
-  const numFontSize = compact ? 25 : 29;
-  const rowGap = compact ? 12 : 16;
-  const colGap = compact ? 22 : 28;
+  const btnSize = compact ? 62 : 72;
+  const numFontSize = compact ? 24 : 28;
+  const rowGap = compact ? 11 : 14;
+  const colGap = compact ? 20 : 24;
+  const isDark = theme.mode === 'dark';
 
   const renderDigitButton = (digit: string) => (
     <Pressable
@@ -151,16 +178,15 @@ export const BankPinPad: React.FC<BankPinPadProps> = ({
           height: btnSize,
           borderRadius: btnSize / 2,
           backgroundColor: pressed
-            ? `${theme.primary}2E`
-            : theme.mode === 'dark'
-            ? 'rgba(255, 255, 255, 0.05)'
-            : 'rgba(15, 23, 42, 0.04)',
-          borderColor: pressed
-            ? theme.primary
-            : theme.mode === 'dark'
-            ? 'rgba(255, 255, 255, 0.16)'
-            : 'rgba(15, 23, 42, 0.15)',
-          transform: [{ scale: pressed ? 0.95 : 1 }],
+            ? colors.peach
+            : isDark
+            ? '#211E3A'
+            : colors.white,
+          borderColor: isDark ? colors.peach : colors.ink,
+          borderWidth: stroke,
+          borderBottomWidth: pressed ? stroke : stroke + 2,
+          borderRightWidth: pressed ? stroke : stroke + 2,
+          transform: [{ translateY: pressed ? 1.5 : 0 }],
         },
       ]}
     >
@@ -170,7 +196,11 @@ export const BankPinPad: React.FC<BankPinPadProps> = ({
             styles.bankKeyDigitText,
             {
               fontSize: numFontSize,
-              color: pressed ? theme.primary : theme.text,
+              color: pressed
+                ? colors.ink
+                : isDark
+                ? colors.cream
+                : colors.ink,
             },
           ]}
         >
@@ -185,7 +215,7 @@ export const BankPinPad: React.FC<BankPinPadProps> = ({
       style={[
         styles.bankKeypadWrap,
         { gap: rowGap },
-        disabled && { opacity: 0.42 },
+        disabled && { opacity: 0.45 },
       ]}
     >
       {KEYPAD_ROWS.map((row, rIdx) => (
@@ -194,9 +224,8 @@ export const BankPinPad: React.FC<BankPinPadProps> = ({
         </View>
       ))}
 
-      {/* Bottom Row: Left Action | 0 | Backspace */}
+      {/* Bottom Row: Left Utility (Biometric / Clear / Empty) | 0 | Backspace */}
       <View style={[styles.bankKeypadRow, { gap: colGap }]}>
-        {/* Left Action Slot */}
         {leftActionType !== 'none' && onLeftActionPress ? (
           <Pressable
             disabled={disabled}
@@ -210,19 +239,29 @@ export const BankPinPad: React.FC<BankPinPadProps> = ({
                 width: btnSize,
                 height: btnSize,
                 borderRadius: btnSize / 2,
-                backgroundColor: pressed ? `${theme.primary}1E` : 'transparent',
+                backgroundColor: pressed
+                  ? colors.peach
+                  : isDark
+                  ? '#211E3A'
+                  : colors.peachSoft,
+                borderWidth: stroke,
+                borderColor: isDark ? colors.peach : colors.ink,
               },
             ]}
           >
             {leftActionType === 'biometric' ? (
               <View style={{ alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                <AppIcon name="scan" size={compact ? 22 : 26} color={theme.primary} />
+                <AppIcon
+                  name="scan"
+                  size={compact ? 20 : 24}
+                  color={isDark ? colors.peach : colors.ink}
+                />
                 {leftActionLabel ? (
                   <Text
                     style={{
-                      color: theme.primary,
+                      color: isDark ? colors.cream : colors.ink,
                       fontSize: 9.5,
-                      fontWeight: '700',
+                      fontWeight: '900',
                     }}
                     numberOfLines={1}
                   >
@@ -233,13 +272,13 @@ export const BankPinPad: React.FC<BankPinPadProps> = ({
             ) : (
               <Text
                 style={{
-                  color: theme.textSecondary,
+                  color: isDark ? colors.cream : colors.ink,
                   fontSize: compact ? 12 : 13,
-                  fontWeight: '700',
+                  fontWeight: '900',
                   textAlign: 'center',
                 }}
               >
-                {leftActionLabel || 'ลืมรหัส?'}
+                {leftActionLabel || 'Clear'}
               </Text>
             )}
           </Pressable>
@@ -250,7 +289,7 @@ export const BankPinPad: React.FC<BankPinPadProps> = ({
         {/* Center 0 Digit */}
         {renderDigitButton('0')}
 
-        {/* Right Backspace Slot (Frameless banking backspace icon) */}
+        {/* Right Backspace Slot */}
         <Pressable
           disabled={disabled}
           onPress={() => {
@@ -269,7 +308,13 @@ export const BankPinPad: React.FC<BankPinPadProps> = ({
               width: btnSize,
               height: btnSize,
               borderRadius: btnSize / 2,
-              backgroundColor: pressed ? `${theme.textMuted}22` : 'transparent',
+              backgroundColor: pressed
+                ? colors.peach
+                : isDark
+                ? '#211E3A'
+                : colors.peachSoft,
+              borderWidth: stroke,
+              borderColor: isDark ? colors.peach : colors.ink,
             },
           ]}
         >
@@ -277,19 +322,20 @@ export const BankPinPad: React.FC<BankPinPadProps> = ({
             style={[
               styles.backspaceIconBox,
               {
-                borderColor: theme.textSecondary,
+                borderColor: isDark ? colors.cream : colors.ink,
+                backgroundColor: isDark ? colors.ink : colors.white,
               },
             ]}
           >
             <Text
               style={{
-                color: theme.text,
-                fontSize: compact ? 13 : 14,
+                color: isDark ? colors.cream : colors.ink,
+                fontSize: compact ? 12 : 13,
                 fontWeight: '900',
-                lineHeight: compact ? 15 : 16,
+                lineHeight: compact ? 14 : 15,
               }}
             >
-              ✕
+              ⌫
             </Text>
           </View>
         </Pressable>
@@ -304,7 +350,6 @@ interface AppLockScreenProps {
   biometricEnabled?: boolean;
   onUnlock: () => void;
   onUpdateProfile?: (patch: Partial<UserProfile>) => void;
-  onResetAllData?: () => void;
   theme: AppTheme;
   lang: LanguageCode;
   displayName: string;
@@ -320,7 +365,6 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({
   biometricEnabled = true,
   onUnlock,
   onUpdateProfile,
-  onResetAllData,
   theme,
   lang,
   displayName,
@@ -337,13 +381,12 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [hasBiometric, setHasBiometric] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [mascotMood, setMascotMood] = useState<MascotMood>('sleep');
 
-  // Forgot PIN / Recovery Modal state
+  // Forgot PIN / Non-Destructive Recovery Modal state
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
   const [recoveryInput, setRecoveryInput] = useState('');
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
-  const [resetStep, setResetStep] = useState<0 | 1>(0);
-  const [resetConfirmText, setResetConfirmText] = useState('');
 
   const lockedUntilMs = profile?.appLockLockedUntilMs ?? null;
   const remainingLockSec =
@@ -360,35 +403,56 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({
     return () => clearInterval(timer);
   }, [lockedUntilMs]);
 
-  // Shake animation for incorrect PIN
+  // Gentle head-shake animation for incorrect PIN (Section 4.8)
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
-  const triggerShake = () => {
+  const triggerGentleShake = () => {
+    setMascotMood('dizzy');
     playSystemFeedback('xp', soundEnabled);
     if (reduceMotion) return;
     Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 10, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -10, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 8, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -8, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 0, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 7, duration: 65, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -7, duration: 65, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 5, duration: 65, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -5, duration: 65, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 65, useNativeDriver: true }),
     ]).start();
   };
 
-  const handleBiometricAuth = async () => {
-    if (isLockedOut) return;
+  const handleBiometricAuth = async (resetPinOnSuccess: boolean = false) => {
+    if (isLockedOut && !resetPinOnSuccess) return;
     try {
       const ok = await authenticateBiometric(
-        isTh ? 'ปลดล็อกระบบ Awakened' : 'Unlock Awakened System',
-        isTh ? 'ยืนยันตัวตนด้วยลายนิ้วมือหรือใบหน้า' : 'Verify with fingerprint or biometrics'
+        isTh ? 'ปลดล็อก Awakened' : 'Unlock Awakened',
+        isTh
+          ? 'ยืนยันตัวตนด้วยลายนิ้วมือหรือรหัสล็อกหน้าจอเครื่อง'
+          : 'Verify with biometrics or device screen lock'
       );
       if (ok) {
-        onUpdateProfile?.({
-          appLockFailedAttempts: 0,
-          appLockLockedUntilMs: null,
-        });
+        if (resetPinOnSuccess) {
+          onUpdateProfile?.({
+            appLockPin: null,
+            appLockPinHash: null,
+            appLockSalt: null,
+            appLockFailedAttempts: 0,
+            appLockLockedUntilMs: null,
+          });
+          setForgotModalOpen(false);
+        } else {
+          onUpdateProfile?.({
+            appLockFailedAttempts: 0,
+            appLockLockedUntilMs: null,
+          });
+        }
+        setMascotMood('happy');
         playSystemFeedback('rankUp', soundEnabled);
-        onUnlock();
+        setTimeout(() => onUnlock(), 150);
+      } else if (resetPinOnSuccess) {
+        setRecoveryError(
+          isTh
+            ? 'ไม่สามารถยืนยันตัวตนด้วยระบบของเครื่องได้ กรุณาลองอีกครั้งหรือใช้ Recovery Code'
+            : 'Device verification was cancelled or failed. Try again or use Recovery Code.'
+        );
       }
     } catch {
       // ignore
@@ -401,7 +465,7 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({
       if (isMounted) {
         setHasBiometric(supported);
         if (supported && biometricEnabled && !isLockedOut) {
-          handleBiometricAuth();
+          handleBiometricAuth(false);
         }
       }
     });
@@ -416,6 +480,7 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({
     setErrorMsg(null);
     const next = enteredPin + digit;
     setEnteredPin(next);
+    setMascotMood('idle');
 
     playSystemFeedback('quest', soundEnabled);
 
@@ -425,14 +490,15 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({
         : Boolean(correctPin && next === correctPin);
 
       if (isValid) {
+        setMascotMood('happy');
         onUpdateProfile?.({
           appLockFailedAttempts: 0,
           appLockLockedUntilMs: null,
         });
         playSystemFeedback('rankUp', soundEnabled);
-        setTimeout(() => onUnlock(), 120);
+        setTimeout(() => onUnlock(), 180);
       } else {
-        triggerShake();
+        triggerGentleShake();
         const nextFails = (profile?.appLockFailedAttempts ?? 0) + 1;
         const cooldownMs = getLockoutDurationMs(nextFails);
         const until = cooldownMs > 0 ? Date.now() + cooldownMs : null;
@@ -445,18 +511,21 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({
           const sec = Math.ceil(cooldownMs / 1000);
           setErrorMsg(
             isTh
-              ? `ผิดเกินกำหนด (${nextFails} ครั้ง) ล็อกชั่วคราว ${sec} วินาที`
-              : `Too many attempts (${nextFails}). Locked for ${sec}s.`
+              ? `พักจังหวะสักนิดนะ ลองใหม่ได้ในอีก ${sec} วินาที`
+              : `Let’s pause a moment. Try again in ${sec}s.`
           );
         } else {
           const left = Math.max(0, 5 - nextFails);
           setErrorMsg(
             isTh
-              ? `รหัส PIN ไม่ถูกต้อง (เหลือโอกาสอีก ${left} ครั้งก่อนพักเวลา)`
-              : `Incorrect PIN (${left} attempts remaining before cooldown)`
+              ? `รหัสยังไม่ตรงนะ ลองดูอีกครั้ง (เหลืออีก ${left} ครั้ง)`
+              : `Not quite right. Try again (${left} tries left)`
           );
         }
-        setTimeout(() => setEnteredPin(''), 450);
+        setTimeout(() => {
+          setEnteredPin('');
+          setMascotMood('sleep');
+        }, 550);
       }
     }
   };
@@ -465,7 +534,9 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({
     if (isLockedOut) return;
     if (enteredPin.length > 0) {
       playSystemFeedback('quest', soundEnabled);
-      setEnteredPin((prev) => prev.slice(0, -1));
+      const next = enteredPin.slice(0, -1);
+      setEnteredPin(next);
+      if (next.length === 0) setMascotMood('sleep');
       setErrorMsg(null);
     }
   };
@@ -474,8 +545,8 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({
     if (!profile?.appLockRecoveryCode) {
       setRecoveryError(
         isTh
-          ? 'ไม่พบรหัสกู้คืนในโปรไฟล์นี้ กรุณาใช้ตัวเลือกรีเซ็ตข้อมูล'
-          : 'No recovery code found on this profile. Please use Reset Data.'
+          ? 'ไม่พบรหัสกู้คืนในโปรไฟล์นี้ กรุณาใช้ปุ่มปลดล็อกด้วยระบบของเครื่องด้านล่าง'
+          : 'No recovery code found. Please use the Device Screen Lock button below.'
       );
       return;
     }
@@ -488,94 +559,103 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({
         appLockLockedUntilMs: null,
       });
       setForgotModalOpen(false);
+      setMascotMood('happy');
       playSystemFeedback('rankUp', soundEnabled);
       onUnlock();
     } else {
       setRecoveryError(
         isTh
-          ? 'รหัสกู้คืนไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง (เช่น AWK-XXXX-XXXX)'
-          : 'Invalid Recovery Code. Please check again (e.g. AWK-XXXX-XXXX).'
+          ? 'รหัสกู้คืนยังไม่ตรงนะ ลองตรวจสอบอีกครั้ง (เช่น AWK-XXXX-XXXX)'
+          : 'Recovery Code did not match. Please check again (e.g. AWK-XXXX-XXXX).'
       );
     }
-  };
-
-  const handleConfirmResetAll = () => {
-    const clean = resetConfirmText.trim().toUpperCase();
-    if (clean !== 'RESET' && resetConfirmText.trim() !== 'ลบข้อมูล') {
-      setRecoveryError(
-        isTh
-          ? 'กรุณาพิมพ์คำว่า RESET หรือ ลบข้อมูล เพื่อยืนยัน'
-          : 'Please type RESET to confirm.'
-      );
-      return;
-    }
-    setForgotModalOpen(false);
-    onResetAllData?.();
-    onUnlock();
   };
 
   const openForgotModal = () => {
     setRecoveryInput('');
     setRecoveryError(null);
-    setResetStep(0);
-    setResetConfirmText('');
     setForgotModalOpen(true);
   };
 
+  const isDark = theme.mode === 'dark';
+  const surfaceBg = isDark ? colors.ink : colors.cream;
+
   return (
     <Modal visible animationType="fade" transparent={false}>
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-        <StatusBar
-          barStyle={theme.mode === 'dark' ? 'light-content' : 'dark-content'}
-          backgroundColor={theme.bg}
-        />
+      <SafeAreaView style={[styles.container, { backgroundColor: surfaceBg }]}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.ink} />
 
-        <View style={styles.headerArea}>
-          <View style={styles.avatarWrap}>
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
-            ) : (
-              <AwakenedBrandIcon size={58} />
-            )}
+        {/* Top Ink Header with Mascot & Organic DripEdge (Mockup Login "И снова привет!") */}
+        <View>
+          <View style={styles.inkTopBanner}>
+            <View style={styles.mascotsAndAvatarRow}>
+              <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
+                <AwakenMascot
+                  rankId={rankName.includes('M') ? 'M' : rankName.includes('SS') ? 'SS' : 'C'}
+                  level={10}
+                  mood={mascotMood}
+                  size={74}
+                  reduceMotion={reduceMotion}
+                />
+              </Animated.View>
+
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+              ) : null}
+            </View>
+
+            <Text style={styles.welcomeTitle}>
+              {isTh ? 'กลับมาแล้วนะ!' : 'Welcome back!'}
+            </Text>
+            <Text style={styles.hunterMeta} numberOfLines={1}>
+              {displayName || 'HUNTER'} · {rankName}
+            </Text>
           </View>
 
-          <Text style={[styles.hunterName, { color: theme.text }]} numberOfLines={1}>
-            {displayName || 'HUNTER'}
-          </Text>
-          <Text style={[styles.hunterRank, { color: theme.textMuted }]}>
-            {rankName}
-          </Text>
+          <DripEdge
+            seed={1}
+            color={colors.ink}
+            bgColor={surfaceBg}
+            height={28}
+          />
+        </View>
 
-          <Text style={[styles.instruction, { color: theme.textSecondary }]}>
+        {/* Center PIN Input Card Area */}
+        <View style={styles.headerArea}>
+          <Text style={[styles.instruction, { color: theme.text }]}>
             {isLockedOut
               ? isTh
-                ? `⏳ ระบบล็อกชั่วคราว กรุณารออีก ${remainingLockSec} วินาที`
-                : `⏳ Temporarily locked. Please wait ${remainingLockSec}s`
+                ? `⏳ พักสักครู่ รออีก ${remainingLockSec} วินาทีนะ`
+                : `⏳ Resting a bit. Wait ${remainingLockSec}s`
+              : mascotMood === 'happy'
+              ? isTh
+                ? '✦ ตื่นแล้ว! กำลังเปิดประตูมิติ...'
+                : '✦ Awake! Opening system...'
               : isTh
-              ? 'กรุณาใส่รหัส PIN เพื่อเข้าใช้งาน'
-              : 'Enter PIN to unlock'}
+              ? 'กดรหัส PIN เพื่อปลุกมาสคอตและเข้าแอป'
+              : 'Enter PIN to wake Awaken & continue'}
           </Text>
 
-          {/* Banking-Style PIN Dots */}
+          {/* Ink-Drop PIN Dots */}
           <BankPinDots
             pinLength={pinLength}
             filledCount={enteredPin.length}
             theme={theme}
             isError={Boolean(errorMsg) || isLockedOut}
             shakeAnim={shakeAnim}
-            size={15}
+            size={17}
           />
 
           {errorMsg ? (
-            <Text style={[styles.errorText, { color: theme.danger }]}>
-              {errorMsg}
-            </Text>
+            <View style={styles.softErrorBadge}>
+              <Text style={styles.errorText}>{errorMsg}</Text>
+            </View>
           ) : (
-            <View style={{ height: 22 }} />
+            <View style={{ height: 28 }} />
           )}
         </View>
 
-        {/* Banking-Style 3x4 PIN Keypad */}
+        {/* 3x4 PIN Keypad + Single Bottom Forgot PIN Button */}
         <View style={styles.keypadContainer}>
           <BankPinPad
             onDigitPress={handleKeyPress}
@@ -583,38 +663,44 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({
             onClearLongPress={() => {
               setEnteredPin('');
               setErrorMsg(null);
+              setMascotMood('sleep');
             }}
             leftActionType={
-              hasBiometric && biometricEnabled ? 'biometric' : 'forgot'
+              hasBiometric && biometricEnabled ? 'biometric' : 'none'
             }
             leftActionLabel={
               hasBiometric && biometricEnabled
                 ? isTh
                   ? 'สแกน'
                   : 'Scan'
-                : isTh
-                ? 'ลืมรหัส?'
-                : 'Forgot?'
+                : undefined
             }
             onLeftActionPress={
               hasBiometric && biometricEnabled
-                ? handleBiometricAuth
-                : openForgotModal
+                ? () => handleBiometricAuth(false)
+                : undefined
             }
             disabled={isLockedOut}
             theme={theme}
             soundEnabled={soundEnabled}
           />
 
-          {/* Bottom Forgot PIN link */}
+          {/* Single Bottom Forgot PIN Button (Section 1.1: เก็บเฉพาะอันล่าง) */}
           <Pressable style={styles.forgotBtn} onPress={openForgotModal}>
-            <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '700' }}>
+            <Text
+              style={{
+                color: isDark ? colors.peach : colors.ink,
+                fontSize: 13.5,
+                fontWeight: '900',
+                textDecorationLine: 'underline',
+              }}
+            >
               {isTh ? 'ลืมรหัส PIN?' : 'Forgot PIN?'}
             </Text>
           </Pressable>
         </View>
 
-        {/* Recovery Code / Reset All Data Modal */}
+        {/* Non-Destructive Forgot PIN Modal (Section 1.1: เอาปุ่มลบข้อมูลทั้งหมดออก) */}
         <Modal
           visible={forgotModalOpen}
           transparent
@@ -625,145 +711,112 @@ export const AppLockScreen: React.FC<AppLockScreenProps> = ({
             <View
               style={[
                 styles.recoveryCard,
-                { backgroundColor: theme.cardElevated, borderColor: theme.border },
+                {
+                  backgroundColor: isDark ? '#211E3A' : colors.white,
+                  borderColor: isDark ? colors.peach : colors.ink,
+                },
               ]}
             >
-              <Text style={{ color: theme.text, fontSize: 17, fontWeight: '900', marginBottom: 6 }}>
-                {isTh ? '🔑 กู้คืนการเข้าถึงแอป' : '🔑 Recover App Access'}
+              <Text
+                style={{
+                  color: isDark ? colors.cream : colors.ink,
+                  fontSize: 18,
+                  fontWeight: '900',
+                  marginBottom: 6,
+                }}
+              >
+                {isTh ? '🔑 ลืมรหัส PIN ใช่ไหม?' : '🔑 Forgot Your PIN?'}
               </Text>
 
-              {resetStep === 0 ? (
-                <>
-                  <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 18, marginBottom: 10 }}>
-                    {isTh
-                      ? 'กรอกรหัสกู้คืน (Recovery Code) ที่ได้บันทึกไว้ตอนตั้งค่า PIN เพื่อปลดล็อกโดยที่ข้อมูลและเลเวลทั้งหมดยังอยู่ครบ:'
-                      : 'Enter the Recovery Code saved when you set up your PIN to unlock without losing any data:'}
-                  </Text>
-                  <TextInput
-                    value={recoveryInput}
-                    onChangeText={(txt) => {
-                      setRecoveryInput(txt.toUpperCase());
-                      setRecoveryError(null);
-                    }}
-                    placeholder="AWK-XXXX-XXXX"
-                    placeholderTextColor={theme.textMuted}
-                    autoCapitalize="characters"
-                    style={[
-                      styles.recoveryInput,
-                      {
-                        color: theme.text,
-                        backgroundColor: theme.bgSecondary,
-                        borderColor: theme.border,
-                      },
-                    ]}
+              <Text
+                style={{
+                  color: theme.textSecondary,
+                  fontSize: 12.5,
+                  lineHeight: 18,
+                  marginBottom: 10,
+                }}
+              >
+                {isTh
+                  ? 'กู้คืนการเข้าใช้งานได้โดยข้อมูลและเลเวลทั้งหมดยังอยู่ครบ 100% เลือกวิธีด้านล่างได้เลย:'
+                  : 'Recover access with 100% of your data and levels intact using either method below:'}
+              </Text>
+
+              {/* Option 1: Unlock & Reset via Android Biometric / Screen Lock (Recommended in Section 1.1) */}
+              {hasBiometric && (
+                <View style={{ marginBottom: 12 }}>
+                  <PillButton
+                    label={
+                      isTh
+                        ? 'ปลดล็อกด้วยลายนิ้วมือ / รหัสหน้าจอเครื่อง'
+                        : 'Unlock with Device Biometrics / Screen Lock'
+                    }
+                    icon="scan"
+                    variant="primary"
+                    onPress={() => handleBiometricAuth(true)}
                   />
-                  {recoveryError && (
-                    <Text style={{ color: theme.danger, fontSize: 12, fontWeight: '700', marginTop: 6 }}>
-                      {recoveryError}
-                    </Text>
-                  )}
-
-                  <Pressable
-                    style={[styles.primaryActionBtn, { backgroundColor: theme.primary, marginTop: 12 }]}
-                    onPress={handleVerifyRecovery}
-                  >
-                    <Text style={{ color: '#0E1220', fontWeight: '900', fontSize: 14 }}>
-                      {isTh ? 'ปลดล็อกด้วย Recovery Code' : 'Unlock with Recovery Code'}
-                    </Text>
-                  </Pressable>
-
-                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-                  <Text style={{ color: theme.textMuted, fontSize: 11, lineHeight: 16 }}>
-                    {isTh
-                      ? 'หากไม่ได้เก็บรหัสกู้คืนไว้ คุณสามารถล้างข้อมูลทั้งหมดเพื่อเริ่มใช้งานแอปใหม่ได้:'
-                      : 'If you lost your Recovery Code, you can wipe all app data and start fresh:'}
-                  </Text>
-                  <Pressable
-                    style={[
-                      styles.secondaryActionBtn,
-                      { borderColor: theme.danger, backgroundColor: `${theme.danger}15`, marginTop: 8 },
-                    ]}
-                    onPress={() => {
-                      setRecoveryError(null);
-                      setResetStep(1);
-                    }}
-                  >
-                    <Text style={{ color: theme.danger, fontWeight: '800', fontSize: 12 }}>
-                      {isTh ? '⚠️ ล้างข้อมูลทั้งหมดและรีเซ็ตแอป...' : '⚠️ Wipe All Data & Reset App...'}
-                    </Text>
-                  </Pressable>
-                </>
-              ) : (
-                <>
-                  <Text style={{ color: theme.danger, fontSize: 13, fontWeight: '800', lineHeight: 19, marginBottom: 8 }}>
-                    {isTh
-                      ? 'คำเตือน: การรีเซ็ตจะลบเลเวล, EXP, ถ้วยรางวัล, และประวัติทั้งหมดอย่างถาวร ไม่สามารถกู้คืนได้'
-                      : 'WARNING: Resetting will permanently delete your level, EXP, trophies, and all history.'}
-                  </Text>
-                  <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 8 }}>
-                    {isTh
-                      ? 'พิมพ์คำว่า RESET หรือ ลบข้อมูล เพื่อยืนยัน:'
-                      : 'Type RESET below to confirm:'}
-                  </Text>
-                  <TextInput
-                    value={resetConfirmText}
-                    onChangeText={(txt) => {
-                      setResetConfirmText(txt);
-                      setRecoveryError(null);
-                    }}
-                    placeholder={isTh ? 'พิมพ์ RESET หรือ ลบข้อมูล' : 'Type RESET'}
-                    placeholderTextColor={theme.textMuted}
-                    autoCapitalize="characters"
-                    style={[
-                      styles.recoveryInput,
-                      {
-                        color: theme.text,
-                        backgroundColor: theme.bgSecondary,
-                        borderColor: theme.danger,
-                      },
-                    ]}
-                  />
-                  {recoveryError && (
-                    <Text style={{ color: theme.danger, fontSize: 12, fontWeight: '700', marginTop: 6 }}>
-                      {recoveryError}
-                    </Text>
-                  )}
-                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                    <Pressable
-                      style={[
-                        styles.secondaryActionBtn,
-                        { flex: 1, borderColor: theme.border, backgroundColor: theme.bgSecondary },
-                      ]}
-                      onPress={() => {
-                        setResetStep(0);
-                        setRecoveryError(null);
-                      }}
-                    >
-                      <Text style={{ color: theme.textSecondary, fontWeight: '800', fontSize: 13 }}>
-                        {isTh ? 'ย้อนกลับ' : 'Back'}
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      style={[
-                        styles.primaryActionBtn,
-                        { flex: 1, backgroundColor: theme.danger },
-                      ]}
-                      onPress={handleConfirmResetAll}
-                    >
-                      <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 13 }}>
-                        {isTh ? 'ยืนยันลบข้อมูลทั้งหมด' : 'Confirm Wipe'}
-                      </Text>
-                    </Pressable>
-                  </View>
-                </>
+                </View>
               )}
+
+              {/* Option 2: Recovery Code */}
+              <Text
+                style={{
+                  color: theme.textSecondary,
+                  fontSize: 12,
+                  fontWeight: '800',
+                  marginBottom: 6,
+                }}
+              >
+                {isTh
+                  ? 'หรือกรอกรหัสกู้คืน (Recovery Code) ที่จดไว้ตอนตั้ง PIN:'
+                  : 'Or enter the Recovery Code saved when setting your PIN:'}
+              </Text>
+
+              <TextInput
+                value={recoveryInput}
+                onChangeText={(txt) => {
+                  setRecoveryInput(txt.toUpperCase());
+                  setRecoveryError(null);
+                }}
+                placeholder="AWK-XXXX-XXXX"
+                placeholderTextColor={theme.textMuted}
+                autoCapitalize="characters"
+                style={[
+                  styles.recoveryInput,
+                  {
+                    color: isDark ? colors.cream : colors.ink,
+                    backgroundColor: isDark ? colors.ink : colors.cream,
+                    borderColor: isDark ? colors.peach : colors.ink,
+                  },
+                ]}
+              />
+
+              {recoveryError && (
+                <View style={[styles.softErrorBadge, { marginTop: 8 }]}>
+                  <Text style={styles.errorText}>{recoveryError}</Text>
+                </View>
+              )}
+
+              <View style={{ marginTop: 12 }}>
+                <PillButton
+                  label={
+                    isTh ? 'รีเซ็ต PIN ด้วย Recovery Code' : 'Reset PIN with Recovery Code'
+                  }
+                  variant="dark"
+                  onPress={handleVerifyRecovery}
+                />
+              </View>
 
               <Pressable
                 style={{ marginTop: 14, alignSelf: 'center', padding: 6 }}
                 onPress={() => setForgotModalOpen(false)}
               >
-                <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700' }}>
+                <Text
+                  style={{
+                    color: theme.textMuted,
+                    fontSize: 13,
+                    fontWeight: '800',
+                  }}
+                >
                   {isTh ? 'ปิดหน้าต่าง' : 'Close'}
                 </Text>
               </Pressable>
@@ -779,61 +832,80 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingVertical: 24,
+  },
+  inkTopBanner: {
+    backgroundColor: colors.ink,
+    paddingTop: 16,
+    paddingBottom: 8,
     paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  mascotsAndAvatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  avatarImage: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: stroke,
+    borderColor: colors.peach,
+  },
+  welcomeTitle: {
+    color: colors.cream,
+    fontSize: 24,
+    fontWeight: '900',
+    marginTop: 4,
+    letterSpacing: 0.4,
+  },
+  hunterMeta: {
+    color: colors.peach,
+    fontSize: 12.5,
+    fontWeight: '800',
+    marginTop: 2,
   },
   headerArea: {
     alignItems: 'center',
-    marginTop: 22,
-  },
-  avatarWrap: {
-    marginBottom: 10,
-  },
-  avatarImage: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    borderWidth: 2,
-    borderColor: '#5B8CFF',
-  },
-  hunterName: {
-    fontSize: 21,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  hunterRank: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 2,
+    paddingHorizontal: 20,
   },
   instruction: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginTop: 18,
-    marginBottom: 14,
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 10,
     textAlign: 'center',
   },
   pinDotsRow: {
     flexDirection: 'row',
-    gap: 14,
+    gap: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 8,
+    marginVertical: 6,
   },
   pinDotOuter: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  errorText: {
-    fontSize: 12,
-    fontWeight: '800',
+  softErrorBadge: {
     marginTop: 6,
-    minHeight: 22,
+    backgroundColor: colors.peachSoft,
+    borderColor: colors.ink,
+    borderWidth: 1.8,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  errorText: {
+    color: colors.ink,
+    fontSize: 11.5,
+    fontWeight: '900',
     textAlign: 'center',
   },
   keypadContainer: {
     alignItems: 'center',
-    marginBottom: 16,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
   },
   bankKeypadWrap: {
     alignItems: 'center',
@@ -847,10 +919,9 @@ const styles = StyleSheet.create({
   bankKeyCircle: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.2,
   },
   bankKeyDigitText: {
-    fontWeight: '600',
+    fontWeight: '900',
     includeFontPadding: false,
   },
   bankKeyUtility: {
@@ -860,22 +931,23 @@ const styles = StyleSheet.create({
   backspaceIconBox: {
     paddingHorizontal: 9,
     paddingVertical: 4,
-    borderWidth: 1.6,
-    borderTopLeftRadius: 10,
-    borderBottomLeftRadius: 10,
-    borderTopRightRadius: 5,
-    borderBottomRightRadius: 5,
+    borderWidth: 2,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
   forgotBtn: {
-    marginTop: 16,
+    marginTop: 14,
     paddingVertical: 8,
-    paddingHorizontal: 14,
+    paddingHorizontal: 18,
+    borderRadius: radius.chip,
+    backgroundColor: colors.peachSoft,
+    borderWidth: 2,
+    borderColor: colors.ink,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(6, 9, 18, 0.85)',
+    backgroundColor: 'rgba(22, 20, 43, 0.82)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -883,35 +955,20 @@ const styles = StyleSheet.create({
   recoveryCard: {
     width: '100%',
     maxWidth: 380,
-    borderRadius: 18,
-    borderWidth: 1.5,
+    borderRadius: radius.card,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 3,
+    borderRightWidth: stroke + 3,
     padding: 20,
   },
   recoveryInput: {
-    borderWidth: 1,
-    borderRadius: 10,
+    borderWidth: stroke,
+    borderRadius: radius.input,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 1.2,
     textAlign: 'center',
-  },
-  primaryActionBtn: {
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryActionBtn: {
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  divider: {
-    height: 1,
-    marginVertical: 14,
   },
 });

@@ -13,7 +13,7 @@ $env:GRADLE_USER_HOME = $gradleHome
 $env:GRADLE_OPTS = "-Djava.net.preferIPv4Stack=true"
 $env:PATH = "$jdkDir\bin;$sdkDir\platform-tools;$env:PATH"
 
-$appVersion = "0.10.5"
+$appVersion = "0.10.6"
 Write-Host "Building Awakened v$appVersion Release APK (strictly isolated in project folder)..."
 Push-Location (Join-Path $projectRoot "android")
 try {

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   BackHandler,
@@ -25,7 +25,13 @@ import {
   testAlarmSound,
 } from '../../services/nativeBridge';
 import xpConfigJson from '../../../assets/config/xp_config.json';
-import { AppTheme } from '../../app/theme';
+import { AppTheme, colors, radius, stroke } from '../../app/theme';
+import {
+  AwakenMascot,
+  DripEdge,
+  WeeklyCollectibleCardData,
+  WeeklyInkCardShowcase,
+} from '../components/InkComponents';
 import { useAwakened } from '../../data/repository';
 import { t } from '../../l10n/translations';
 import {
@@ -79,6 +85,8 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
     dailyRepeatableXpToday,
     achievementMetrics,
     inactivityStatus,
+    todayMetrics,
+    streakState,
     setVacationMode,
     addPersonalQuest,
     completePersonalQuest,
@@ -320,6 +328,69 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
     }
   };
 
+  // Collectible Weekly Ink Cards (Section 4.4 — stored in Me as a collection book)
+  const weeklyCollectibleCards: WeeklyCollectibleCardData[] = useMemo(
+    () => [
+      {
+        id: 'wk_hydration',
+        weekLabel: 'CARD #01',
+        titleTh: 'ผู้พิทักษ์หยดน้ำ',
+        titleEn: 'Keeper of the Ink Drop',
+        captionTh: `ดื่มน้ำวันนี้ ${todayMetrics.water_ml.toLocaleString()} ml เติมความสดชื่น`,
+        captionEn: `${todayMetrics.water_ml.toLocaleString()} ml logged — steady hydration`,
+        badgeText: 'VIT ✦',
+        mood: 'happy',
+        seed: 1,
+        unlocked:
+          todayMetrics.water_ml > 0 ||
+          db.activities.some((a) => !a.deletedAt && a.type === 'water'),
+      },
+      {
+        id: 'wk_rest',
+        weekLabel: 'CARD #02',
+        titleTh: 'พักก็คือแผนอย่างหนึ่ง',
+        titleEn: 'Rest Is Part of the Plan',
+        captionTh: 'รู้จักพักในวันที่ร่างกายต้องการ',
+        captionEn: 'Honoring recovery days without guilt',
+        badgeText: 'REST ✦',
+        mood: 'sleep',
+        seed: 2,
+        unlocked: true,
+      },
+      {
+        id: 'wk_focus',
+        weekLabel: 'CARD #03',
+        titleTh: 'นักรบสมาธิเงียบ',
+        titleEn: 'Silent Focus Weaver',
+        captionTh: `สะสมเวลาโฟกัส ${todayMetrics.weekly_focus_min} นาทีในสัปดาห์นี้`,
+        captionEn: `${todayMetrics.weekly_focus_min} focus minutes this week`,
+        badgeText: 'INT ✦',
+        mood: 'calm',
+        seed: 3,
+        unlocked: todayMetrics.weekly_focus_min > 0 || db.journals.length > 0,
+      },
+      {
+        id: 'wk_consistency',
+        weekLabel: 'CARD #04',
+        titleTh: 'ก้าวเล็ก ๆ ที่ไม่หยุดเดิน',
+        titleEn: 'Unbroken Small Steps',
+        captionTh: `ต่อเนื่อง ${streakState.currentStreak} วัน · ทำตามจังหวะตัวเอง`,
+        captionEn: `${streakState.currentStreak}-day rhythm at your own pace`,
+        badgeText: 'STR/WIL',
+        mood: 'proud',
+        seed: 4,
+        unlocked: streakState.currentStreak > 0 || db.activities.length > 0,
+      },
+    ],
+    [
+      db.activities,
+      db.journals.length,
+      streakState.currentStreak,
+      todayMetrics.water_ml,
+      todayMetrics.weekly_focus_min,
+    ]
+  );
+
   const menuItems: Array<{
     id: ProfileWindow;
     title: string;
@@ -382,11 +453,11 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
       id: 'more',
       title: isTh ? 'เพิ่มเติม' : 'More',
       subtitle: isTh
-        ? 'ข้อจำกัดความรับผิดชอบ และ ข้อมูลแอป v0.10.5'
-        : 'Health Disclaimer & Open Source (v0.10.5)',
+        ? 'ข้อจำกัดความรับผิดชอบ และ ข้อมูลแอป v0.10.6'
+        : 'Health Disclaimer & Open Source (v0.10.6)',
       icon: 'brain',
       iconColor: theme.textSecondary,
-      badgeText: 'v0.10.5',
+      badgeText: 'v0.10.6',
     },
   ];
 
@@ -408,7 +479,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Main Profile Screen: Player Card & Vertical Menu List */}
+        {/* Main Profile Screen: Player Card, Weekly Collectible Book & Vertical Menu List */}
         {activeWindow === null && (
           <>
             <AnimatedCard
@@ -416,16 +487,38 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
         reduceMotion={reduceMotion}
         style={[
           styles.card,
-          { backgroundColor: theme.card, borderColor: currentRank.color, borderWidth: 1.5 },
+          {
+            backgroundColor: theme.card,
+            borderColor: colors.ink,
+            borderWidth: stroke,
+            overflow: 'hidden',
+            paddingTop: 0,
+            paddingHorizontal: 0,
+          },
         ]}
       >
+        {/* Top Ink Header with DripEdge & Mascot Companion */}
+        <View style={{ backgroundColor: colors.ink, paddingHorizontal: 15, paddingTop: 12, paddingBottom: 8 }}>
+          <View style={styles.headerRowBetween}>
+            <Text style={{ color: colors.peach, fontSize: 11, fontWeight: '900', letterSpacing: 0.8 }}>
+              {isTh ? '✦ บัตรประจำตัวผู้ตื่นรู้ (ME)' : '✦ AWAKENED HUNTER CARD'}
+            </Text>
+            <Text style={{ color: colors.cream, fontSize: 11, fontWeight: '800' }}>
+              Lv.{levelState.level} · Rank {currentRank.id}
+            </Text>
+          </View>
+        </View>
+        <DripEdge color={colors.ink} height={18} seed={42} />
+
+        <View style={{ paddingHorizontal: 15, paddingTop: 8 }}>
         <View style={styles.profileHeaderRow}>
           <Pressable
             style={[
               styles.avatarCircle,
               {
-                backgroundColor: `${currentRank.color}20`,
-                borderColor: currentRank.color,
+                backgroundColor: colors.peachSoft,
+                borderColor: colors.ink,
+                borderWidth: stroke,
                 position: 'relative',
               },
             ]}
@@ -436,27 +529,27 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             {db.profile.avatarUri ? (
               <Image
                 source={{ uri: db.profile.avatarUri }}
-                style={{ width: 56, height: 56, borderRadius: 28 }}
+                style={{ width: 54, height: 54, borderRadius: 27 }}
               />
             ) : (
-              <AppIcon name="user" size={28} color={currentRank.color} />
+              <AppIcon name="user" size={28} color={colors.ink} />
             )}
             <View
               style={{
                 position: 'absolute',
                 bottom: -2,
                 right: -2,
-                backgroundColor: theme.primary,
+                backgroundColor: colors.peach,
                 borderRadius: 10,
                 width: 20,
                 height: 20,
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderWidth: 1.5,
-                borderColor: theme.card,
+                borderColor: colors.ink,
               }}
             >
-              <AppIcon name="edit" size={11} color="#0E1220" />
+              <AppIcon name="edit" size={11} color={colors.ink} />
             </View>
           </Pressable>
           <View style={{ flex: 1 }}>
@@ -473,6 +566,12 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
               </View>
             )}
           </View>
+          <AwakenMascot
+            rankId={currentRank.id}
+            mood={db.profile.restModeToday === todayKey ? 'sleep' : 'proud'}
+            size={64}
+            reduceMotion={reduceMotion}
+          />
         </View>
 
         {/* Profile Avatar Actions */}
@@ -674,7 +773,17 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
             </Text>
           </View>
         )}
+        </View>
       </AnimatedCard>
+
+      {/* Collectible Weekly Ink Card Book (Section 4.4 — สมุดสะสมการ์ดประจำสัปดาห์ในหน้า Me) */}
+      <WeeklyInkCardShowcase
+        cards={weeklyCollectibleCards}
+        rankId={currentRank.id}
+        level={levelState.level}
+        isTh={isTh}
+        theme={theme}
+      />
 
       {/* 2. Vertical Menu List ("เป็นชื่อไล่เรียงลงมา ให้เข้าหน้าต่างใหม่") */}
       <View style={styles.menuListContainer}>
@@ -3486,7 +3595,7 @@ export const ProfileScreen: React.FC<{ theme: AppTheme }> = ({ theme }) => {
                 flexWrap: 'wrap',
               }}
             >
-              Awakened v0.10.5 · Open-Source Licenses: React Native & Expo (MIT), AsyncStorage & SQLite (MIT), React Native SVG (MIT), Vector Icons sourced from FreeIcons.io (Iconly Essential & Free Vector Sets), Thai Food Nutrition Reference (Public Domain / DOH Estimation).
+              Awakened v0.10.6 · Open-Source Licenses: React Native & Expo (MIT), AsyncStorage & SQLite (MIT), React Native SVG (MIT), Vector Icons sourced from FreeIcons.io (Iconly Essential & Free Vector Sets), Thai Food Nutrition Reference (Public Domain / DOH Estimation).
             </Text>
           </View>
         </AnimatedCard>
@@ -4532,9 +4641,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   card: {
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: radius.card,
+    borderWidth: stroke,
+    borderColor: colors.ink,
     padding: 15,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
   },
   playerTitle: {
     fontSize: 20,
@@ -4543,12 +4658,12 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   subBox: {
     padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: 12,
+    borderWidth: 1.5,
   },
   inlineRow: {
     flexDirection: 'row',
@@ -4558,9 +4673,10 @@ const styles = StyleSheet.create({
   input: {
     paddingHorizontal: 12,
     paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: radius.input,
+    borderWidth: stroke,
     fontSize: 13,
+    fontWeight: '700',
   },
   chipRow: {
     flexDirection: 'row',
@@ -4570,18 +4686,25 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 10,
     paddingVertical: 7,
-    borderRadius: 999,
-    borderWidth: 1,
+    borderRadius: radius.chip,
+    borderWidth: 2,
   },
   primaryBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: radius.chip,
+    borderWidth: stroke,
+    borderColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
   },
   primaryBtnText: {
-    color: '#0E1220',
+    color: colors.ink,
     fontWeight: '900',
     fontSize: 12,
   },
@@ -4716,14 +4839,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 14,
-    borderRadius: 14,
-    borderWidth: 1.5,
+    borderRadius: radius.card,
+    borderWidth: stroke,
+    borderColor: colors.ink,
     gap: 12,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
   },
   menuIconCircle: {
     width: 42,
     height: 42,
     borderRadius: 21,
+    borderWidth: 2,
+    borderColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { getTheme } from './theme';
+import { colors, getTheme, radius, stroke } from './theme';
 import { useAwakened } from '../data/repository';
 import { isAppLockEnabled } from '../core/utils/pinSecurity';
 import { t } from '../l10n/translations';
@@ -25,6 +25,7 @@ import {
   QuickAddFabModal,
 } from '../features/components/SystemSharedComponents';
 import { AppLockScreen } from '../features/components/AppLockScreen';
+import { DripEdge } from '../features/components/InkComponents';
 import {
   AppIcon,
   AppIconName,
@@ -53,7 +54,6 @@ export const AppShell: React.FC = () => {
     updateProfile,
     updateOnboardingDraft,
     completeOnboarding,
-    resetAllData,
   } = useAwakened();
 
   const [activeTab, setActiveTab] = useState<NavTab>('home');
@@ -135,6 +135,14 @@ export const AppShell: React.FC = () => {
     { id: 'profile', icon: 'user', label: strings.nav.profile },
   ];
 
+  const tabSeedMap: Record<NavTab, number> = {
+    home: 2,
+    track: 3,
+    train: 4,
+    journey: 5,
+    profile: 6,
+  };
+
   if (isLoaded && !db.onboarding?.completed) {
     return (
       <OnboardingQuestionnaireScreen
@@ -158,17 +166,12 @@ export const AppShell: React.FC = () => {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
       <StatusBar
-        barStyle={db.profile.theme === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor={theme.bg}
+        barStyle="light-content"
+        backgroundColor={colors.ink}
       />
 
-      {/* Top RPG App Header with Awakened.ico Brand Emblem */}
-      <View
-        style={[
-          styles.topBar,
-          { backgroundColor: theme.card, borderBottomColor: theme.border },
-        ]}
-      >
+      {/* Top Ink Header Bar + Asymmetric DripEdge (Section 2.2 & 4.2) */}
+      <View style={styles.topBar}>
         <Pressable
           style={styles.brandRow}
           onPress={() => setActiveTab('profile')}
@@ -182,29 +185,29 @@ export const AppShell: React.FC = () => {
             maxScale={1.05}
             duration={2000}
           >
-            {db.profile.avatarUri ? (
-              <Image
-                source={{ uri: db.profile.avatarUri }}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  borderWidth: 1.5,
-                  borderColor: currentRank.color,
-                }}
-              />
-            ) : (
-              <AwakenedBrandIcon size={36} />
-            )}
+            <View style={styles.avatarRing}>
+              {db.profile.avatarUri ? (
+                <Image
+                  source={{ uri: db.profile.avatarUri }}
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 17,
+                  }}
+                />
+              ) : (
+                <AwakenedBrandIcon size={32} />
+              )}
+            </View>
           </AnimatedPulseView>
           <View>
             <View style={styles.brandNameRow}>
-              <Text style={[styles.brandTitle, { color: theme.text }]} numberOfLines={1}>
+              <Text style={styles.brandTitle} numberOfLines={1}>
                 {db.profile.displayName?.toUpperCase() || 'HUNTER'}
               </Text>
-              <View style={[styles.rankDot, { backgroundColor: currentRank.color }]} />
+              <View style={[styles.rankDot, { backgroundColor: colors.peach }]} />
             </View>
-            <Text style={[styles.brandSub, { color: theme.textMuted }]}>
+            <Text style={styles.brandSub}>
               Lv.{levelState.level} · {currentRank.id}-{currentRank.name}
             </Text>
           </View>
@@ -213,15 +216,12 @@ export const AppShell: React.FC = () => {
         <View style={styles.topActions}>
           <AnimatedPressable
             reduceMotion={reduceMotion}
-            style={[
-              styles.headerChip,
-              { backgroundColor: theme.bgSecondary, borderColor: theme.border },
-            ]}
+            style={styles.headerChip}
             onPress={() =>
               updateProfile({ language: db.profile.language === 'th' ? 'en' : 'th' })
             }
           >
-            <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 12 }}>
+            <Text style={{ color: colors.ink, fontWeight: '900', fontSize: 12 }}>
               {lang.toUpperCase()}
             </Text>
           </AnimatedPressable>
@@ -230,7 +230,10 @@ export const AppShell: React.FC = () => {
             reduceMotion={reduceMotion}
             style={[
               styles.headerChip,
-              { backgroundColor: theme.bgSecondary, borderColor: theme.border },
+              {
+                backgroundColor:
+                  db.profile.theme === 'dark' ? colors.peach : colors.peachSoft,
+              },
             ]}
             onPress={() =>
               updateProfile({ theme: db.profile.theme === 'dark' ? 'light' : 'dark' })
@@ -239,17 +242,25 @@ export const AppShell: React.FC = () => {
             <AppIcon
               name={db.profile.theme === 'dark' ? 'moon' : 'sun'}
               size={15}
-              color={db.profile.theme === 'dark' ? theme.primary : theme.warning}
+              color={colors.ink}
             />
           </AnimatedPressable>
         </View>
       </View>
 
+      {/* Organic Ink Drip Edge separating dark Ink header from screen canvas */}
+      <DripEdge
+        seed={tabSeedMap[activeTab]}
+        color={colors.ink}
+        bgColor={theme.bg}
+        height={22}
+      />
+
       {/* Main Content Area with Animated Tab Transitions & Floating +XP Toast */}
       <View style={styles.mainBody}>
         <FloatingXpToast
           totalXp={levelState.totalXp}
-          primaryColor={theme.primary}
+          primaryColor={colors.peach}
           reduceMotion={reduceMotion}
         />
 
@@ -263,7 +274,7 @@ export const AppShell: React.FC = () => {
           {activeTab === 'profile' && <ProfileScreen theme={theme} />}
         </AnimatedScreenWrapper>
 
-        {/* Animated Floating Quick Add FAB (Section 5.1 & 15.3) */}
+        {/* Animated Floating Quick Add FAB — Peach Circle with Thick Ink Outline */}
         <View style={styles.fabContainer}>
           <AnimatedPulseView
             active={!quickAddOpen}
@@ -275,28 +286,25 @@ export const AppShell: React.FC = () => {
             <AnimatedPressable
               accessibilityLabel="Quick Add Activity"
               reduceMotion={reduceMotion}
-              style={[
-                styles.fab,
-                {
-                  backgroundColor: theme.primary,
-                  shadowColor: theme.primary,
-                },
-              ]}
+              style={styles.fab}
               onPress={() => setQuickAddOpen(true)}
             >
               <Animated.View style={{ transform: [{ rotate: fabSpin }] }}>
-                <AppIcon name="plus" size={24} color="#0E1220" />
+                <AppIcon name="plus" size={24} color={colors.ink} />
               </Animated.View>
             </AnimatedPressable>
           </AnimatedPulseView>
         </View>
       </View>
 
-      {/* 5-Tab Bottom Navigation Bar with FreeIcons Vector SVGs */}
+      {/* 5-Tab Bottom Navigation Bar — Active Item Has Peach Circle Backing (Section 3 & 5) */}
       <View
         style={[
           styles.bottomNav,
-          { backgroundColor: theme.card, borderTopColor: theme.border },
+          {
+            backgroundColor: theme.card,
+            borderTopColor: theme.mode === 'dark' ? colors.peach : colors.ink,
+          },
         ]}
       >
         {navItems.map((item) => {
@@ -311,33 +319,40 @@ export const AppShell: React.FC = () => {
                 style={[
                   styles.navIconWrap,
                   selected && {
-                    backgroundColor: `${theme.primary}20`,
-                    transform: [{ translateY: -2 }],
+                    backgroundColor: colors.peach,
+                    borderWidth: stroke,
+                    borderColor: colors.ink,
+                    transform: [{ translateY: -3 }],
                   },
                 ]}
               >
                 <AppIcon
                   name={item.icon}
-                  size={20}
-                  color={selected ? theme.primary : theme.textMuted}
+                  size={19}
+                  color={
+                    selected
+                      ? colors.ink
+                      : theme.mode === 'dark'
+                      ? colors.cream
+                      : colors.ink
+                  }
                 />
               </View>
               <Text
                 style={[
                   styles.navLabel,
                   {
-                    color: selected ? theme.primary : theme.textMuted,
-                    fontWeight: selected ? '900' : '600',
+                    color: selected
+                      ? theme.mode === 'dark'
+                        ? colors.peach
+                        : colors.ink
+                      : theme.textMuted,
+                    fontWeight: selected ? '900' : '700',
                   },
                 ]}
               >
                 {item.label}
               </Text>
-              {selected && (
-                <View
-                  style={[styles.navActiveBar, { backgroundColor: theme.primary }]}
-                />
-              )}
             </Pressable>
           );
         })}
@@ -364,7 +379,7 @@ export const AppShell: React.FC = () => {
         reduceMotion={reduceMotion}
       />
 
-      {/* Full-screen RPG System Security Lock */}
+      {/* Full-screen PIN Lock (Section 1.1 & 4.8) */}
       {isAppLocked && (
         <AppLockScreen
           profile={db.profile}
@@ -372,7 +387,6 @@ export const AppShell: React.FC = () => {
           biometricEnabled={db.profile.appLockBiometricEnabled ?? true}
           onUnlock={() => setIsUnlocked(true)}
           onUpdateProfile={updateProfile}
-          onResetAllData={resetAllData}
           theme={theme}
           lang={lang}
           displayName={db.profile.displayName}
@@ -395,13 +409,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
+    paddingTop: 10,
+    paddingBottom: 6,
+    backgroundColor: colors.ink,
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  avatarRing: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: stroke,
+    borderColor: colors.peach,
+    backgroundColor: colors.cream,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   brandNameRow: {
     flexDirection: 'row',
@@ -414,13 +440,15 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   brandTitle: {
+    color: colors.cream,
     fontSize: 16,
     fontWeight: '900',
-    letterSpacing: 1.4,
+    letterSpacing: 1.2,
   },
   brandSub: {
-    fontSize: 11,
-    fontWeight: '700',
+    color: colors.peach,
+    fontSize: 11.5,
+    fontWeight: '800',
   },
   topActions: {
     flexDirection: 'row',
@@ -428,10 +456,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerChip: {
-    paddingHorizontal: 11,
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
+    borderRadius: radius.chip,
+    backgroundColor: colors.peachSoft,
+    borderWidth: 2,
+    borderColor: colors.peach,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -448,16 +478,17 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
+    backgroundColor: colors.peach,
+    borderWidth: stroke,
+    borderBottomWidth: stroke + 2.5,
+    borderRightWidth: stroke + 2.5,
+    borderColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 6,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
   },
   bottomNav: {
     flexDirection: 'row',
-    borderTopWidth: 1,
+    borderTopWidth: stroke,
     paddingVertical: 6,
     paddingHorizontal: 6,
   },
@@ -466,25 +497,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 3,
-    minHeight: 50,
+    minHeight: 52,
     position: 'relative',
   },
   navIconWrap: {
-    width: 36,
-    height: 28,
-    borderRadius: 14,
+    width: 40,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   navLabel: {
     fontSize: 11,
     marginTop: 2,
-  },
-  navActiveBar: {
-    position: 'absolute',
-    top: -6,
-    width: 24,
-    height: 3,
-    borderRadius: 2,
   },
 });

@@ -171,6 +171,7 @@ export interface UserProfile {
   lastFreezeGrantWeek: string;
   availableMinutesPerDay: number;
   restModeToday: string | null; // YYYY-MM-DD if user requested recovery mode today
+  lightModeToday?: string | null; // YYYY-MM-DD if user requested "วันนี้ขอเบา ๆ" (Light Day Mode)
   dailyQuestSwapUsedDay: string | null; // YYYY-MM-DD
   dashboardCardsOrder: string[];
   hiddenDashboardCards: string[];
